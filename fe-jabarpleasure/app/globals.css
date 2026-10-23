@@ -1,26 +1,234 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Brand Colors from DESIGN_SYSTEM.md */
+  --color-primary: #4941EC;
+  --color-primary-hover: #3C35C7;
+  --color-secondary: #60CE9F;
+  --color-secondary-hover: #4EB789;
+  --color-accent: #EDAD40;
+
+  /* Neutral Colors */
+  --color-bg-main: #F9FAFB;
+  --color-surface: #FFFFFF;
+  --color-text-primary: #111827;
+  --color-text-secondary: #6B7280;
+  --color-border: #E5E7EB;
+
+  /* Dimensions & Shapes */
+  --radius-md: 8px;
+  --radius-lg: 16px;
+  --radius-pill: 9999px;
+  --container-mobile-max: 480px;
+
+  /* Shadows */
+  --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-floating: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-primary: #4941EC;
+  --color-primary-hover: #3C35C7;
+  --color-secondary: #60CE9F;
+  --color-secondary-hover: #4EB789;
+  --color-accent: #EDAD40;
+  --color-bg-main: #F9FAFB;
+  --color-surface: #FFFFFF;
+  --color-text-primary: #111827;
+  --color-text-secondary: #6B7280;
+  --color-border: #E5E7EB;
+  --font-sans: var(--font-poppins), 'Poppins', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Force Poppins on all elements and form controls */
+*,
+*::before,
+*::after,
+html,
+body,
+input,
+button,
+select,
+textarea,
+optgroup {
+  font-family: var(--font-poppins), 'Poppins', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--color-bg-main);
+  color: var(--color-text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
+
+/* Smooth keyframes for Splash Screen animations */
+@keyframes splashPop {
+  0% {
+    opacity: 0;
+    transform: scale(0.88) translateY(12px);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.02) translateY(-2px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes splashGentlePulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.04);
+  }
+}
+
+.animate-splash-pop {
+  animation: splashPop 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-splash-pulse {
+  animation: splashGentlePulse 3s ease-in-out infinite;
+}
+
+/* Looping Animation Keyframes for NatureIllustration */
+@keyframes sunSlowSpin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes sunPulseGlow {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.95;
+    filter: drop-shadow(0 0 3px rgba(237, 173, 64, 0.45));
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 1;
+    filter: drop-shadow(0 0 10px rgba(237, 173, 64, 0.8));
+  }
+}
+
+@keyframes mountainBgFloat {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-2.5px);
+  }
+}
+
+@keyframes mountainFgFloat {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-4.5px);
+  }
+}
+
+.animate-sun-spin {
+  transform-origin: 0 0;
+  animation: sunSlowSpin 26s linear infinite;
+}
+
+.animate-sun-pulse {
+  transform-origin: 0 0;
+  animation: sunPulseGlow 3.5s ease-in-out infinite;
+}
+
+.animate-mountain-bg {
+  animation: mountainBgFloat 5s ease-in-out infinite;
+}
+
+.animate-mountain-fg {
+  animation: mountainFgFloat 4.2s ease-in-out infinite;
+}
+
+/* Clapping Hands & Celebration Animation Keyframes */
+@keyframes clapLeftMotion {
+  0%, 100% {
+    transform: rotate(0deg) translate(0px, 0px);
+  }
+  32% {
+    transform: rotate(-6deg) translate(-4px, -2px);
+  }
+  50% {
+    transform: rotate(2deg) translate(2px, 1px);
+  }
+}
+
+@keyframes clapRightMotion {
+  0%, 100% {
+    transform: rotate(0deg) translate(0px, 0px);
+  }
+  32% {
+    transform: rotate(14deg) translate(8px, 6px);
+  }
+  50% {
+    transform: rotate(-3deg) translate(-2px, -1px);
+  }
+}
+
+@keyframes cheerSparkleBurst {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  32% {
+    transform: scale(0.65) translate(-2px, 2px);
+    opacity: 0.3;
+  }
+  52% {
+    transform: scale(1.22) translate(1px, -1px);
+    opacity: 1;
+  }
+}
+
+.animate-clap-left {
+  transform-origin: 75px 155px;
+  animation: clapLeftMotion 1.15s ease-in-out infinite;
+}
+
+.animate-clap-right {
+  transform-origin: 165px 150px;
+  animation: clapRightMotion 1.15s ease-in-out infinite;
+}
+
+.animate-cheer-sparks {
+  transform-origin: 155px 65px;
+  animation: cheerSparkleBurst 1.15s ease-in-out infinite;
+}
+
+/* Simple smooth bounce animation for clapping image */
+@keyframes clappingBounce {
+  0%, 100% {
+    transform: translateY(0px) scale(1);
+  }
+  50% {
+    transform: translateY(-8px) scale(1.04);
+  }
+}
+
+.animate-clapping-bounce {
+  animation: clappingBounce 2.5s ease-in-out infinite;
+}
+
+/* Custom scrollbar for mobile feel */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-thumb {
+  background: #D1D5DB;
+  border-radius: 9999px;
+}
+
