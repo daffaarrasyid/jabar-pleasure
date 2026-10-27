@@ -5,7 +5,7 @@ import React from 'react';
 interface MobileShellProps {
   children: React.ReactNode;
   activeScreen?: string;
-  onScreenChange?: (screen: 'splash' | 'gateway' | 'login' | 'register' | 'register-success' | 'interest-selection' | 'home' | 'top-destinations' | 'map') => void;
+  onScreenChange?: (screen: 'splash' | 'gateway' | 'login' | 'register' | 'register-success' | 'interest-selection' | 'home' | 'top-destinations' | 'map' | 'wishlist' | 'profile') => void;
   className?: string;
 }
 
@@ -124,6 +124,28 @@ export default function MobileShell({
             }`}
           >
             Peta (WebGIS)
+          </button>
+          <button
+            type="button"
+            onClick={() => onScreenChange('wishlist')}
+            className={`px-3 py-1 rounded-full font-medium transition-colors ${
+              activeScreen === 'wishlist'
+                ? 'bg-[#4941EC] text-white shadow-xs'
+                : 'hover:bg-gray-100 text-gray-700'
+            }`}
+          >
+            Wishlist
+          </button>
+          <button
+            type="button"
+            onClick={() => onScreenChange('profile')}
+            className={`px-3 py-1 rounded-full font-medium transition-colors ${
+              activeScreen === 'profile'
+                ? 'bg-[#4941EC] text-white shadow-xs'
+                : 'hover:bg-gray-100 text-gray-700'
+            }`}
+          >
+            Profil
           </button>
         </aside>
       )}

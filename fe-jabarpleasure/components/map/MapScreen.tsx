@@ -14,7 +14,7 @@ const WebGisMap = dynamic(() => import('@/components/map/WebGisMap'), {
   loading: () => (
     <div className="flex h-full w-full items-center justify-center bg-gray-100">
       <p className="animate-pulse text-sm font-semibold text-gray-600">
-        Memuat Peta Spasial Jawa Barat...
+        Memuat Peta...
       </p>
     </div>
   ),
@@ -23,7 +23,9 @@ const WebGisMap = dynamic(() => import('@/components/map/WebGisMap'), {
 interface MapScreenProps {
   onNavigateToHome?: () => void;
   onNotificationClick?: () => void;
+  onWishlistClick?: () => void;
   onProfileClick?: () => void;
+  onNavigateToRiwayat?: () => void;
   onSaveToWishlist?: (count: number) => void;
   favoritBadgeCount?: number;
   className?: string;
@@ -32,7 +34,9 @@ interface MapScreenProps {
 export default function MapScreen({
   onNavigateToHome,
   onNotificationClick,
+  onWishlistClick,
   onProfileClick,
+  onNavigateToRiwayat,
   onSaveToWishlist,
   favoritBadgeCount = 0,
   className = '',
@@ -125,6 +129,10 @@ export default function MapScreen({
   const handleTabChange = (tab: NavTabId) => {
     if (tab === 'beranda') {
       onNavigateToHome?.();
+    } else if (tab === 'profil') {
+      onProfileClick?.();
+    } else if (tab === 'riwayat') {
+      onNavigateToRiwayat?.();
     }
   };
 
@@ -136,12 +144,12 @@ export default function MapScreen({
     <div
       className={`relative w-full h-full flex flex-col bg-[#F9FAFB] overflow-hidden ${className}`}
     >
-      {/* 1. Top Header with Brand Logo, Bell Badge, and Profile Avatar */}
+      {/* 1. Top Header with Brand Logo, Bell Badge, and Wishlist Button */}
       <AppHeader
         unreadNotifications={2}
-        avatarSrc="/user-avatar.jpg"
+        wishlistCount={localFavoritCount}
         onNotificationClick={onNotificationClick}
-        onProfileClick={onProfileClick}
+        onWishlistClick={onWishlistClick || onProfileClick}
         className="shrink-0"
       />
 
@@ -200,14 +208,11 @@ export default function MapScreen({
         </div>
       )}
 
-      {/* 6. Fixed Bottom Navigation Bar with Favorit badge indicator */}
+      {/* 6. Fixed Bottom Navigation Bar */}
       <div className="shrink-0 w-full z-30">
         <BottomNav
           activeTab="peta"
           onTabChange={handleTabChange}
-          badges={{
-            favorit: localFavoritCount,
-          }}
         />
       </div>
     </div>

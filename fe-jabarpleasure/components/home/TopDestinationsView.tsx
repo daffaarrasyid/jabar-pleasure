@@ -21,7 +21,9 @@ interface TopDestinationsViewProps {
   onBack?: () => void;
   onNavigateToMap?: () => void;
   onNotificationClick?: () => void;
+  onWishlistClick?: () => void;
   onProfileClick?: () => void;
+  onNavigateToRiwayat?: () => void;
   onItemClick?: (item: TopDestinationItem) => void;
   favoritBadgeCount?: number;
   initialQuery?: string;
@@ -71,7 +73,9 @@ export default function TopDestinationsView({
   onBack,
   onNavigateToMap,
   onNotificationClick,
+  onWishlistClick,
   onProfileClick,
+  onNavigateToRiwayat,
   onItemClick,
   favoritBadgeCount = 0,
   initialQuery = 'Gunung disekitar bandung',
@@ -99,6 +103,10 @@ export default function TopDestinationsView({
       onNavigateToMap?.();
     } else if (tab === 'beranda') {
       onBack?.();
+    } else if (tab === 'profil') {
+      onProfileClick?.();
+    } else if (tab === 'riwayat') {
+      onNavigateToRiwayat?.();
     }
   };
 
@@ -106,12 +114,12 @@ export default function TopDestinationsView({
     <div
       className={`relative w-full h-full flex flex-col bg-[#F9FAFB] overflow-hidden ${className}`}
     >
-      {/* 1. App Header */}
+      {/* 1. App Header with Wishlist Button */}
       <AppHeader
         unreadNotifications={2}
-        avatarSrc="/user-avatar.jpg"
+        wishlistCount={favoritBadgeCount}
         onNotificationClick={onNotificationClick}
-        onProfileClick={onProfileClick}
+        onWishlistClick={onWishlistClick || onProfileClick}
         className="shrink-0"
       />
 
@@ -218,9 +226,6 @@ export default function TopDestinationsView({
         <BottomNav
           activeTab="beranda"
           onTabChange={handleTabChange}
-          badges={{
-            favorit: favoritBadgeCount,
-          }}
         />
       </div>
     </div>

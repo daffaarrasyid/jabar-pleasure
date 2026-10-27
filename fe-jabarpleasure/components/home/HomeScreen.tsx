@@ -13,7 +13,9 @@ import TopDestinationsView from '@/components/home/TopDestinationsView';
 interface HomeScreenProps {
   onNavigateToMap?: () => void;
   onNotificationClick?: () => void;
+  onWishlistClick?: () => void;
   onProfileClick?: () => void;
+  onNavigateToRiwayat?: () => void;
   onItemClick?: (item: { id: string; name: string }) => void;
   favoritBadgeCount?: number;
   initialViewMode?: 'overview' | 'top-destinations';
@@ -23,7 +25,9 @@ interface HomeScreenProps {
 export default function HomeScreen({
   onNavigateToMap,
   onNotificationClick,
+  onWishlistClick,
   onProfileClick,
+  onNavigateToRiwayat,
   onItemClick,
   favoritBadgeCount = 0,
   initialViewMode = 'overview',
@@ -38,6 +42,10 @@ export default function HomeScreen({
     setActiveTab(tab);
     if (tab === 'peta') {
       onNavigateToMap?.();
+    } else if (tab === 'profil') {
+      onProfileClick?.();
+    } else if (tab === 'riwayat') {
+      onNavigateToRiwayat?.();
     }
   };
 
@@ -47,7 +55,9 @@ export default function HomeScreen({
         onBack={() => setViewMode('overview')}
         onNavigateToMap={onNavigateToMap}
         onNotificationClick={onNotificationClick}
+        onWishlistClick={onWishlistClick || onProfileClick}
         onProfileClick={onProfileClick}
+        onNavigateToRiwayat={onNavigateToRiwayat}
         onItemClick={onItemClick}
         favoritBadgeCount={favoritBadgeCount}
         className={className}
@@ -59,12 +69,12 @@ export default function HomeScreen({
     <div
       className={`relative w-full h-full flex flex-col bg-[#F9FAFB] overflow-hidden ${className}`}
     >
-      {/* Top Header with Brand Logo, Notifications, and Profile */}
+      {/* Top Header with Brand Logo, Notifications, and Wishlist Button */}
       <AppHeader
         unreadNotifications={2}
-        avatarSrc="/user-avatar.jpg"
+        wishlistCount={favoritBadgeCount}
         onNotificationClick={onNotificationClick}
-        onProfileClick={onProfileClick}
+        onWishlistClick={onWishlistClick || onProfileClick}
       />
 
       {/* Main Scrollable Content */}
@@ -106,9 +116,6 @@ export default function HomeScreen({
         <BottomNav
           activeTab={activeTab}
           onTabChange={handleTabChange}
-          badges={{
-            favorit: favoritBadgeCount,
-          }}
         />
       </div>
     </div>

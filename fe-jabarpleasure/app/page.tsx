@@ -10,14 +10,28 @@ import RegisterSuccess from '@/components/auth/RegisterSuccess';
 import InterestSelection from '@/components/auth/InterestSelection';
 import HomeScreen from '@/components/home/HomeScreen';
 import MapScreen from '@/components/map/MapScreen';
+import WishlistScreen from '@/components/wishlist/WishlistScreen';
+import ProfileScreen from '@/components/profile/ProfileScreen';
 import Toast from '@/components/ui/Toast';
 
-type ScreenState = 'splash' | 'gateway' | 'login' | 'register' | 'register-success' | 'interest-selection' | 'home' | 'top-destinations' | 'map';
+type ScreenState =
+  | 'splash'
+  | 'gateway'
+  | 'login'
+  | 'register'
+  | 'register-success'
+  | 'interest-selection'
+  | 'home'
+  | 'top-destinations'
+  | 'map'
+  | 'wishlist'
+  | 'profile';
 
 export default function Home() {
   const [currentScreen, setCurrentScreen] = useState<ScreenState>('gateway');
+  const [previousScreen, setPreviousScreen] = useState<ScreenState>('home');
   const [showSplash, setShowSplash] = useState(true);
-  const [savedWishlistCount, setSavedWishlistCount] = useState<number>(0);
+  const [savedWishlistCount, setSavedWishlistCount] = useState<number>(4);
   const [toast, setToast] = useState<{
     message: string;
     type: 'success' | 'info' | 'error';
@@ -136,7 +150,15 @@ export default function Home() {
         <HomeScreen
           onNavigateToMap={() => setCurrentScreen('map')}
           onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
-          onProfileClick={() => showToast('Membuka profil pengguna...', 'info')}
+          onWishlistClick={() => {
+            setPreviousScreen('home');
+            setCurrentScreen('wishlist');
+          }}
+          onProfileClick={() => {
+            setPreviousScreen('home');
+            setCurrentScreen('profile');
+          }}
+          onNavigateToRiwayat={() => showToast('Membuka riwayat perjalanan...', 'info')}
           onItemClick={(item) => showToast(`Membuka destinasi ${item.name}`, 'info')}
           favoritBadgeCount={savedWishlistCount}
         />
@@ -148,7 +170,15 @@ export default function Home() {
           initialViewMode="top-destinations"
           onNavigateToMap={() => setCurrentScreen('map')}
           onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
-          onProfileClick={() => showToast('Membuka profil pengguna...', 'info')}
+          onWishlistClick={() => {
+            setPreviousScreen('top-destinations');
+            setCurrentScreen('wishlist');
+          }}
+          onProfileClick={() => {
+            setPreviousScreen('top-destinations');
+            setCurrentScreen('profile');
+          }}
+          onNavigateToRiwayat={() => showToast('Membuka riwayat perjalanan...', 'info')}
           onItemClick={(item) => showToast(`Membuka destinasi ${item.name}`, 'info')}
           favoritBadgeCount={savedWishlistCount}
         />
@@ -159,12 +189,67 @@ export default function Home() {
         <MapScreen
           onNavigateToHome={() => setCurrentScreen('home')}
           onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
-          onProfileClick={() => showToast('Membuka profil pengguna...', 'info')}
+          onWishlistClick={() => {
+            setPreviousScreen('map');
+            setCurrentScreen('wishlist');
+          }}
+          onProfileClick={() => {
+            setPreviousScreen('map');
+            setCurrentScreen('profile');
+          }}
+          onNavigateToRiwayat={() => showToast('Membuka riwayat perjalanan...', 'info')}
           onSaveToWishlist={(count) => {
             setSavedWishlistCount(count);
-            showToast('Destinasi berhasil disimpan ke Favorit!', 'success');
+            showToast('Destinasi berhasil disimpan ke Favorit / Wishlist!', 'success');
           }}
           favoritBadgeCount={savedWishlistCount}
+        />
+      )}
+
+      {/* Screen 9: Wishlist Perjalanan (Matching Image 1 with AppHeader & BottomNav) */}
+      {currentScreen === 'wishlist' && (
+        <WishlistScreen
+          onBack={() => setCurrentScreen(previousScreen === 'wishlist' ? 'home' : previousScreen)}
+          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
+          onWishlistClick={() => showToast('Anda sedang berada di halaman Wishlist', 'info')}
+          onNavigateToHome={() => setCurrentScreen('home')}
+          onNavigateToMap={() => setCurrentScreen('map')}
+          onNavigateToProfile={() => {
+            setPreviousScreen('wishlist');
+            setCurrentScreen('profile');
+          }}
+          onNavigateToRencana={() => showToast('Membuka Rencana Perjalanan...', 'info')}
+          onNavigateToRiwayat={() => showToast('Membuka riwayat perjalanan...', 'info')}
+          onCreateItinerary={() => showToast('Menyiapkan itinerary dari 4 destinasi terpilih...', 'info')}
+          onItemClick={(item) => showToast(`Membuka destinasi ${item.name}`, 'info')}
+          wishlistCount={savedWishlistCount}
+          activeTab={previousScreen === 'map' ? 'peta' : previousScreen === 'profile' ? 'profil' : 'beranda'}
+        />
+      )}
+
+      {/* Screen 10: Profil Pengguna (Matching Image 2 with AppHeader & BottomNav) */}
+      {currentScreen === 'profile' && (
+        <ProfileScreen
+          onNavigateToHome={() => setCurrentScreen('home')}
+          onNavigateToMap={() => setCurrentScreen('map')}
+          onNavigateToWishlist={() => {
+            setPreviousScreen('profile');
+            setCurrentScreen('wishlist');
+          }}
+          onWishlistClick={() => {
+            setPreviousScreen('profile');
+            setCurrentScreen('wishlist');
+          }}
+          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
+          onNavigateToRencana={() => showToast('Membuka Rencana Perjalanan...', 'info')}
+          onNavigateToRiwayat={() => showToast('Membuka riwayat perjalanan...', 'info')}
+          onEditProfile={() => showToast('Fitur edit profil sedang disiapkan', 'info')}
+          onItemClick={(title) => showToast(`Membuka menu ${title}`, 'info')}
+          onLogout={() => {
+            showToast('Anda telah keluar dari akun.', 'info');
+            setCurrentScreen('gateway');
+          }}
+          wishlistCount={savedWishlistCount}
         />
       )}
     </MobileShell>
