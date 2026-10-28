@@ -82,25 +82,206 @@ flowchart TD
 The project utilizes a Mono-repo approach to centralize project management and API synchronization.
 
 ```text
-JabarPleasure/
+jabar-pleasure/
+├── .gitignore
+├── AGENTS.md
+├── ARCHITECTURE.md
+├── DESIGN_SYSTEM.md
+├── PRD.md
 │
-├── fe-jabarpleasure/       # Frontend Next.js application
-│   ├── src/
-│   │   ├── components/     # Reusable UI (Buttons, Cards, Bottom Sheets)
-│   │   ├── features/       # Map, Auth, Itinerary modules
-│   │   └── pages/          # Next.js routes
-│   └── public/
-│
-├── be-jabarpleasure/       # Backend Laravel REST API
+├── be-jabarpleasure/                         # Backend Engine (Laravel REST API)
+│   ├── .editorconfig
+│   ├── .env.example
+│   ├── .gitattributes
+│   ├── .gitignore
+│   ├── .npmrc
+│   ├── AGENTS.md
+│   ├── artisan
+│   ├── CLAUDE.md
+│   ├── composer.json
+│   ├── composer.lock
+│   ├── DATABASE.md
+│   ├── package.json
+│   ├── phpunit.xml
+│   ├── README.md
+│   ├── vite.config.js
 │   ├── app/
-│   │   ├── Http/Controllers/
-│   │   └── Models/         # Eloquent models (with PostGIS support)
+│   │   ├── Http/
+│   │   │   └── Controllers/
+│   │   │       └── Controller.php
+│   │   ├── Models/
+│   │   │   └── User.php
+│   │   └── Providers/
+│   │       └── AppServiceProvider.php
+│   ├── bootstrap/
+│   │   ├── app.php
+│   │   ├── providers.php
+│   │   └── cache/
+│   │       └── .gitignore
+│   ├── config/
+│   │   ├── app.php
+│   │   ├── auth.php
+│   │   ├── cache.php
+│   │   ├── database.php
+│   │   ├── filesystems.php
+│   │   ├── logging.php
+│   │   ├── mail.php
+│   │   ├── queue.php
+│   │   ├── services.php
+│   │   └── session.php
 │   ├── database/
-│   │   └── migrations/     # Schema and spatial index migrations
-│   └── routes/             # API endpoints
+│   │   ├── .gitignore
+│   │   ├── factories/
+│   │   │   └── UserFactory.php
+│   │   ├── migrations/
+│   │   │   ├── 0001_01_01_000000_create_users_table.php
+│   │   │   ├── 0001_01_01_000001_create_cache_table.php
+│   │   │   └── 0001_01_01_000002_create_jobs_table.php
+│   │   └── seeders/
+│   │       └── DatabaseSeeder.php
+│   ├── public/
+│   │   ├── .htaccess
+│   │   ├── favicon.ico
+│   │   ├── index.php
+│   │   └── robots.txt
+│   ├── resources/
+│   │   ├── css/
+│   │   │   └── app.css
+│   │   ├── js/
+│   │   │   └── app.js
+│   │   └── views/
+│   │       └── welcome.blade.php
+│   ├── routes/
+│   │   ├── console.php
+│   │   └── web.php
+│   ├── storage/
+│   │   ├── app/
+│   │   │   ├── .gitignore
+│   │   │   ├── private/
+│   │   │   │   └── .gitignore
+│   │   │   └── public/
+│   │   │       └── .gitignore
+│   │   ├── framework/
+│   │   │   ├── .gitignore
+│   │   │   ├── cache/
+│   │   │   │   ├── .gitignore
+│   │   │   │   ├── data/
+│   │   │   │   │   └── .gitignore
+│   │   │   │   └── locks/
+│   │   │   │       └── .gitignore
+│   │   │   ├── sessions/
+│   │   │   │   └── .gitignore
+│   │   │   ├── testing/
+│   │   │   │   └── .gitignore
+│   │   │   └── views/
+│   │   │       └── .gitignore
+│   │   └── logs/
+│   │       └── .gitignore
+│   └── tests/
+│       ├── TestCase.php
+│       ├── Feature/
+│       │   └── ExampleTest.php
+│       └── Unit/
+│           └── ExampleTest.php
 │
-├── data_spatial/           # QGIS project files and raw OSM GeoJSON data
-└── README.md
+└── fe-jabarpleasure/                         # Frontend Application (Next.js App Router)
+    ├── .gitignore
+    ├── AGENTS.md
+    ├── CLAUDE.md
+    ├── eslint.config.mjs
+    ├── next.config.ts
+    ├── package.json
+    ├── package-lock.json
+    ├── postcss.config.mjs
+    ├── README.md
+    ├── app/
+    │   ├── favicon.ico
+    │   ├── globals.css
+    │   ├── layout.tsx
+    │   ├── page.tsx
+    │   ├── auth/
+    │   │   └── page.tsx
+    │   ├── home/
+    │   │   └── page.tsx
+    │   ├── login/
+    │   │   └── page.tsx
+    │   ├── map/
+    │   │   └── page.tsx
+    │   ├── register/
+    │   │   └── page.tsx
+    │   └── splash/
+    │       └── page.tsx
+    ├── components/
+    │   ├── Map.tsx
+    │   ├── auth/
+    │   │   ├── AuthGateway.tsx
+    │   │   ├── InterestSelection.tsx
+    │   │   ├── LoginForm.tsx
+    │   │   ├── RegisterForm.tsx
+    │   │   ├── RegisterSuccess.tsx
+    │   │   └── SplashScreen.tsx
+    │   ├── history/
+    │   │   ├── DestinationDocScreen.tsx
+    │   │   ├── historyData.ts
+    │   │   ├── TripDetailScreen.tsx
+    │   │   ├── TripHistoryScreen.tsx
+    │   │   └── TripShowcaseScreen.tsx
+    │   ├── home/
+    │   │   ├── CategoryFilter.tsx
+    │   │   ├── FeaturedEntertainment.tsx
+    │   │   ├── HomeScreen.tsx
+    │   │   ├── NearbyRecommendations.tsx
+    │   │   ├── SearchBar.tsx
+    │   │   ├── SpatialRadarCard.tsx
+    │   │   └── TopDestinationsView.tsx
+    │   ├── itinerary/
+    │   │   ├── ActiveTripScreen.tsx
+    │   │   ├── DepartureLocationScreen.tsx
+    │   │   ├── DestinationSelectionScreen.tsx
+    │   │   ├── ItineraryScreen.tsx
+    │   │   ├── ItinerarySummaryScreen.tsx
+    │   │   ├── RouteMapIllustration.tsx
+    │   │   └── SavedPlanScreen.tsx
+    │   ├── layout/
+    │   │   ├── AppHeader.tsx
+    │   │   ├── BottomNav.tsx
+    │   │   └── MobileShell.tsx
+    │   ├── map/
+    │   │   ├── MapExplorationFilter.tsx
+    │   │   ├── MapScreen.tsx
+    │   │   ├── NearbyResultsSheet.tsx
+    │   │   └── WebGisMap.tsx
+    │   ├── profile/
+    │   │   └── ProfileScreen.tsx
+    │   ├── ui/
+    │   │   ├── BrandLogo.tsx
+    │   │   ├── Button.tsx
+    │   │   ├── ClappingIllustration.tsx
+    │   │   ├── Input.tsx
+    │   │   ├── NatureIllustration.tsx
+    │   │   ├── SocialIcons.tsx
+    │   │   └── Toast.tsx
+    │   └── wishlist/
+    │       └── WishlistScreen.tsx
+    └── public/
+        ├── botani-square.jpg
+        ├── clapping.png
+        ├── dusun-bambu.jpg
+        ├── file.svg
+        ├── floating-market.jpg
+        ├── friends-crater.jpg
+        ├── gedung-sate.jpg
+        ├── globe.svg
+        ├── gunung-malabar.jpg
+        ├── Masuk.png
+        ├── Masuk_or_Daftar.png
+        ├── next.svg
+        ├── ranca-upas.jpg
+        ├── taman-safari.jpg
+        ├── tebing-keraton.jpg
+        ├── trans-studio.jpg
+        ├── vercel.svg
+        └── window.svg
 ```
 
 ---
