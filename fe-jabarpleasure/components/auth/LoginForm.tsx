@@ -9,7 +9,7 @@ import Button from '@/components/ui/Button';
 interface LoginFormProps {
   onBack?: () => void;
   onNavigateToRegister?: () => void;
-  onSuccess?: (userData: { email: string }) => void;
+  onSuccess?: (userData: { id?: number; name?: string; email: string; token?: string }) => void;
 }
 
 export default function LoginForm({
@@ -19,14 +19,14 @@ export default function LoginForm({
 }: LoginFormProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [errors, setErrors] = useState<{ email?: string; password?: string; general?: string }>({});
   const [isLoading, setIsLoading] = useState(false);
 
   const isValidEmail = (val: string) => /\S+@\S+\.\S+/.test(val);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newErrors: { email?: string; password?: string } = {};
+    const newErrors: { email?: string; password?: string; general?: string } = {};
 
     if (!email) {
       newErrors.email = 'Email tidak boleh kosong';
@@ -48,13 +48,61 @@ export default function LoginForm({
     setErrors({});
     setIsLoading(true);
 
-    // Simulate authentication call
-    setTimeout(() => {
+    try {
+      const response = await fetch('/api/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({
+          email: email.trim(),
+          password: password,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        setIsLoading(false);
+        if (result.errors?.email) {
+          setErrors({ email: result.errors.email[0] });
+        } else if (result.errors?.password) {
+          setErrors({ password: result.errors.password[0] });
+        } else {
+          setErrors({ general: result.message || 'Gagal masuk. Periksa kembali email dan kata sandi Anda.' });
+        }
+        return;
+      }
+
+      // Store auth session in localStorage
+      if (result.data?.token) {
+        try {
+          localStorage.setItem('auth_token', result.data.token);
+          if (result.data.user) {
+            localStorage.setItem('user', JSON.stringify(result.data.user));
+          }
+        } catch (storageErr) {
+          console.warn('LocalStorage error:', storageErr);
+        }
+      }
+
       setIsLoading(false);
       if (onSuccess) {
-        onSuccess({ email });
+        onSuccess({
+          id: result.data?.user?.id,
+          name: result.data?.user?.name,
+          email: result.data?.user?.email || email,
+          token: result.data?.token,
+        });
       }
-    }, 1000);
+    } catch (err: any) {
+      console.error('Login network error:', err);
+      setIsLoading(false);
+      setErrors({
+        general: 'Gagal terhubung ke server backend. Pastikan server backend sedang aktif.',
+      });
+    }
   };
 
   return (
@@ -79,7 +127,6 @@ export default function LoginForm({
           textClassName="text-[19px] font-bold text-gray-900 tracking-tight font-sans"
         />
       </div>
-
 
       {/* Main Form Content - Perfectly Centered in Viewport */}
       <div className="w-full max-w-[380px] mx-auto my-auto flex flex-col items-center justify-center">
@@ -134,6 +181,12 @@ export default function LoginForm({
               </button>
             </div>
           </div>
+
+          {errors.general && (
+            <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-600 font-medium font-sans">
+              {errors.general}
+            </div>
+          )}
 
           {/* Action Button: Masuk -> */}
           <Button

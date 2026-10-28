@@ -10,18 +10,18 @@ export default function LoginPage() {
   const router = useRouter();
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
 
-  const handleSuccess = (user: { email: string }) => {
+  const handleSuccess = (user: { name?: string; email: string }) => {
     setToast({
-      message: `Berhasil masuk sebagai ${user.email}! Mengalihkan ke Beranda...`,
+      message: `Berhasil masuk! Selamat datang kembali, ${user.name || user.email}.`,
       type: 'success',
     });
     setTimeout(() => {
       router.push('/home');
-    }, 1200);
+    }, 1000);
   };
 
   return (
-    <MobileShell>
+    <MobileShell activeScreen="login">
       {toast && (
         <Toast
           message={toast.message}

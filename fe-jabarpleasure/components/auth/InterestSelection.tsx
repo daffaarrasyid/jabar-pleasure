@@ -4,10 +4,10 @@ import React, { useState } from 'react';
 import Button from '@/components/ui/Button';
 
 interface InterestSelectionProps {
-  onContinue?: (selectedInterests: string[]) => void;
+  onContinue?: (selectedInterests: string[]) => Promise<void> | void;
 }
 
-// Custom crisp vector icons matching the design mockup precisely
+// Crisp vector icons matching the design mockup precisely
 function NatureTentIcon({ className = 'w-4 h-4' }: { className?: string }) {
   return (
     <svg
@@ -27,27 +27,7 @@ function NatureTentIcon({ className = 'w-4 h-4' }: { className?: string }) {
   );
 }
 
-function CulinaryDishIcon({ className = 'w-4 h-4' }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.3"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="M3 17h18" />
-      <path d="M5 17a7 7 0 0 1 14 0" />
-      <path d="M12 10V7" />
-      <path d="M10 7h4" />
-      <path d="M7 20h10" />
-    </svg>
-  );
-}
-
-function ModernMicIcon({ className = 'w-4 h-4' }: { className?: string }) {
+function ModernLifestyleIcon({ className = 'w-4 h-4' }: { className?: string }) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -67,36 +47,93 @@ function ModernMicIcon({ className = 'w-4 h-4' }: { className?: string }) {
   );
 }
 
+function EducationIcon({ className = 'w-4 h-4' }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z" />
+      <path d="M6 6h10" />
+      <path d="M6 10h10" />
+    </svg>
+  );
+}
+
+function FamilyRecreationIcon({ className = 'w-4 h-4' }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  );
+}
+
+type InterestType = 'modern' | 'alam' | 'edukasi' | 'keluarga';
+
 interface InterestOption {
   id: string;
-  type: 'alam' | 'kuliner' | 'modern';
+  type: InterestType;
   label: string;
 }
 
 export default function InterestSelection({ onContinue }: InterestSelectionProps) {
-  // 8 rows x 3 columns matching the exact mockup
-  const options: InterestOption[] = Array.from({ length: 8 }).flatMap((_, rowIndex) => [
-    { id: `alam-${rowIndex}`, type: 'alam', label: 'Alam' },
-    { id: `kuliner-${rowIndex}`, type: 'kuliner', label: 'Kuliner' },
-    { id: `modern-${rowIndex}`, type: 'modern', label: 'Modern' },
-  ]);
+  // 4 master categories defined by product requirements
+  const options: InterestOption[] = [
+    { id: 'modern-lifestyle', type: 'modern', label: 'Modern & Lifestyle' },
+    { id: 'wisata-alam-terbuka', type: 'alam', label: 'Wisata Alam & Terbuka' },
+    { id: 'publik-edukasi', type: 'edukasi', label: 'Publik & Edukasi' },
+    { id: 'rekreasi-keluarga', type: 'keluarga', label: 'Rekreasi Keluarga' },
+  ];
 
-  // Initially select row 4 "Alam" to match the provided mockup visual
-  const [selectedIds, setSelectedIds] = useState<string[]>(['alam-3']);
+  // Pre-select 'wisata-alam-terbuka' initially to match the mockup visual
+  const [selectedIds, setSelectedIds] = useState<string[]>(['wisata-alam-terbuka']);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const toggleInterest = (id: string) => {
+    if (errorMessage) setErrorMessage(null);
     setSelectedIds((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
     );
   };
 
-  const handleContinue = () => {
-    if (onContinue) {
-      onContinue(selectedIds);
+  const handleContinue = async () => {
+    if (selectedIds.length === 0) {
+      setErrorMessage('Silakan pilih minimal satu minat.');
+      return;
+    }
+
+    setErrorMessage(null);
+    setIsLoading(true);
+
+    try {
+      if (onContinue) {
+        await onContinue(selectedIds);
+      }
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Gagal menyimpan minat. Silakan coba kembali.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const renderIcon = (type: 'alam' | 'kuliner' | 'modern', isSelected: boolean) => {
+  const renderIcon = (type: InterestType, isSelected: boolean) => {
     const iconClass = `w-4 h-4 shrink-0 transition-colors ${
       isSelected ? 'text-white' : 'text-[#4941EC]'
     }`;
@@ -104,10 +141,12 @@ export default function InterestSelection({ onContinue }: InterestSelectionProps
     switch (type) {
       case 'alam':
         return <NatureTentIcon className={iconClass} />;
-      case 'kuliner':
-        return <CulinaryDishIcon className={iconClass} />;
       case 'modern':
-        return <ModernMicIcon className={iconClass} />;
+        return <ModernLifestyleIcon className={iconClass} />;
+      case 'edukasi':
+        return <EducationIcon className={iconClass} />;
+      case 'keluarga':
+        return <FamilyRecreationIcon className={iconClass} />;
     }
   };
 
@@ -120,8 +159,8 @@ export default function InterestSelection({ onContinue }: InterestSelectionProps
           Pilih minat kamu apa?
         </h1>
 
-        {/* 3-Column Grid of Interest Chips matching Mockup */}
-        <div className="grid grid-cols-3 gap-2.5 sm:gap-3 w-full mb-8 sm:mb-9">
+        {/* 2-Column Grid for the 4 Categories, Preserving Original Chip Styling */}
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-3 w-full mb-8 sm:mb-9">
           {options.map((item) => {
             const isSelected = selectedIds.includes(item.id);
 
@@ -130,7 +169,7 @@ export default function InterestSelection({ onContinue }: InterestSelectionProps
                 key={item.id}
                 type="button"
                 onClick={() => toggleInterest(item.id)}
-                className={`h-[44px] rounded-xl flex items-center justify-center gap-1.5 px-2.5 transition-all duration-150 active:scale-95 cursor-pointer font-sans text-xs sm:text-[13px] font-semibold border ${
+                className={`h-[48px] rounded-xl flex items-center justify-center gap-1.5 px-2.5 transition-all duration-150 active:scale-95 cursor-pointer font-sans text-xs sm:text-[13px] font-semibold border ${
                   isSelected
                     ? 'bg-[#4941EC] border-[#4941EC] text-white shadow-xs'
                     : 'bg-white border-gray-100 text-gray-800 hover:bg-slate-50/80 hover:border-gray-200'
@@ -143,11 +182,16 @@ export default function InterestSelection({ onContinue }: InterestSelectionProps
           })}
         </div>
 
+        {errorMessage && (
+          <p className="text-xs text-red-500 font-sans mb-3 text-center">{errorMessage}</p>
+        )}
+
         {/* Primary Action Button: Lanjutkan -> */}
         <div className="w-full">
           <Button
             variant="primary"
             onClick={handleContinue}
+            isLoading={isLoading}
             rightIcon={<span className="text-lg leading-none font-medium">→</span>}
             className="w-full h-[50px] text-base font-semibold shadow-xs rounded-xl"
           >

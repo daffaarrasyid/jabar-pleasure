@@ -9,7 +9,7 @@ import Button from '@/components/ui/Button';
 interface RegisterFormProps {
   onBack?: () => void;
   onNavigateToLogin?: () => void;
-  onSuccess?: (userData: { name: string; email: string }) => void;
+  onSuccess?: (userData: { id?: number; name: string; email: string; token?: string }) => void;
 }
 
 export default function RegisterForm({
@@ -28,12 +28,13 @@ export default function RegisterForm({
     password?: string;
     confirmPassword?: string;
     agreeTerms?: string;
+    general?: string;
   }>({});
   const [isLoading, setIsLoading] = useState(false);
 
   const isValidEmail = (val: string) => /\S+@\S+\.\S+/.test(val);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const newErrors: typeof errors = {};
 
@@ -71,13 +72,66 @@ export default function RegisterForm({
     setErrors({});
     setIsLoading(true);
 
-    // Simulate API registration call
-    setTimeout(() => {
+    try {
+      const rawApiUrl = typeof window !== 'undefined' ? '/api' : (process.env.NEXT_PUBLIC_API_URL || '/api');
+      const apiUrl = rawApiUrl.replace(/\/$/, '');
+      const response = await fetch(`${apiUrl}/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({
+          name: name.trim(),
+          email: email.trim(),
+          password: password,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        const apiErrors: typeof errors = {};
+        if (result.errors) {
+          if (result.errors.name) apiErrors.name = result.errors.name[0];
+          if (result.errors.email) apiErrors.email = result.errors.email[0];
+          if (result.errors.password) apiErrors.password = result.errors.password[0];
+        } else {
+          apiErrors.general = result.message || 'Pendaftaran gagal. Silakan coba kembali.';
+        }
+        setErrors(apiErrors);
+        setIsLoading(false);
+        return;
+      }
+
+      // Store auth session in localStorage
+      if (result.data?.token) {
+        try {
+          localStorage.setItem('auth_token', result.data.token);
+          if (result.data.user) {
+            localStorage.setItem('user', JSON.stringify(result.data.user));
+          }
+        } catch (storageErr) {
+          console.warn('LocalStorage error:', storageErr);
+        }
+      }
+
       setIsLoading(false);
       if (onSuccess) {
-        onSuccess({ name, email });
+        onSuccess({
+          id: result.data?.user?.id,
+          name: result.data?.user?.name || name,
+          email: result.data?.user?.email || email,
+          token: result.data?.token,
+        });
       }
-    }, 1000);
+    } catch (networkError) {
+      console.error('Registration network error:', networkError);
+      setIsLoading(false);
+      setErrors({
+        general: 'Gagal terhubung ke server backend. Pastikan server backend sedang aktif.',
+      });
+    }
   };
 
   return (
@@ -204,6 +258,12 @@ export default function RegisterForm({
           </div>
           {errors.agreeTerms && (
             <p className="text-xs text-red-500 -mt-1 font-sans">{errors.agreeTerms}</p>
+          )}
+
+          {errors.general && (
+            <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-600 font-medium font-sans">
+              {errors.general}
+            </div>
           )}
 
           {/* Action Button: Daftar -> */}

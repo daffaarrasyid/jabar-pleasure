@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import MobileShell from '@/components/layout/MobileShell';
 import SplashScreen from '@/components/auth/SplashScreen';
 import AuthGateway from '@/components/auth/AuthGateway';
@@ -49,6 +50,8 @@ type ScreenState =
   | 'trip-showcase';
 
 export default function Home() {
+  const router = useRouter();
+  const [registeredUser, setRegisteredUser] = useState<{ id?: number; name: string; email: string; token?: string } | null>(null);
   const [currentScreen, setCurrentScreen] = useState<ScreenState>('gateway');
   const [previousScreen, setPreviousScreen] = useState<ScreenState>('home');
   const [showSplash, setShowSplash] = useState(true);
@@ -94,7 +97,8 @@ export default function Home() {
     }, 1000);
   };
 
-  const handleRegisterSuccess = () => {
+  const handleRegisterSuccess = (userData?: { id?: number; name: string; email: string; token?: string }) => {
+    if (userData) setRegisteredUser(userData);
     setCurrentScreen('register-success');
   };
 
@@ -125,15 +129,18 @@ export default function Home() {
       {showSplash && (
         <SplashScreen
           autoDismissDelay={2400}
-          onFinish={() => setShowSplash(false)}
+          onFinish={() => {
+            setShowSplash(false);
+            router.push('/auth');
+          }}
         />
       )}
 
       {/* Screen 2: Auth Gateway / "Sudah punya akun?" (Matching Image 2) */}
       {currentScreen === 'gateway' && (
         <AuthGateway
-          onLoginClick={() => setCurrentScreen('login')}
-          onRegisterClick={() => setCurrentScreen('register')}
+          onLoginClick={() => router.push('/login')}
+          onRegisterClick={() => router.push('/register')}
           onGoogleClick={() => handleSocialAuth('google')}
           onAppleClick={() => handleSocialAuth('apple')}
         />
@@ -142,8 +149,8 @@ export default function Home() {
       {/* Screen 3: Login Screen */}
       {currentScreen === 'login' && (
         <LoginForm
-          onBack={() => setCurrentScreen('gateway')}
-          onNavigateToRegister={() => setCurrentScreen('register')}
+          onBack={() => router.push('/auth')}
+          onNavigateToRegister={() => router.push('/register')}
           onSuccess={handleLoginSuccess}
         />
       )}
@@ -151,8 +158,8 @@ export default function Home() {
       {/* Screen 4: Register Screen */}
       {currentScreen === 'register' && (
         <RegisterForm
-          onBack={() => setCurrentScreen('gateway')}
-          onNavigateToLogin={() => setCurrentScreen('login')}
+          onBack={() => router.push('/auth')}
+          onNavigateToLogin={() => router.push('/login')}
           onSuccess={handleRegisterSuccess}
         />
       )}
@@ -167,11 +174,56 @@ export default function Home() {
       {/* Screen 6: Interest Selection Screen ("Pilih minat kamu apa?") */}
       {currentScreen === 'interest-selection' && (
         <InterestSelection
-          onContinue={() => {
-            showToast('Minat Anda berhasil disimpan! Membuka Beranda...', 'success');
-            setTimeout(() => {
-              setCurrentScreen('home');
-            }, 500);
+          onContinue={async (selectedInterests) => {
+            try {
+              const token =
+                registeredUser?.token ||
+                (typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null);
+
+              let userId = registeredUser?.id;
+              if (!userId && typeof window !== 'undefined') {
+                const stored = localStorage.getItem('user');
+                if (stored) {
+                  try {
+                    userId = JSON.parse(stored)?.id;
+                  } catch {
+                    // ignore
+                  }
+                }
+              }
+
+              const payload = {
+                user_id: userId,
+                interests: selectedInterests.length > 0 ? selectedInterests : ['wisata-alam-terbuka'],
+              };
+
+              const headers: Record<string, string> = {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+              };
+              if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+              }
+
+              const res = await fetch('/api/user/preferences', {
+                method: 'POST',
+                headers,
+                body: JSON.stringify(payload),
+              });
+
+              const result = await res.json();
+              if (!res.ok) {
+                throw new Error(result.message || 'Gagal menyimpan minat.');
+              }
+
+              showToast('Minat Anda berhasil disimpan! Membuka Beranda...', 'success');
+              setTimeout(() => {
+                setCurrentScreen('home');
+              }, 500);
+            } catch (err: any) {
+              showToast(err.message || 'Gagal menyimpan preferensi minat.', 'error');
+              throw err;
+            }
           }}
         />
       )}
