@@ -25,6 +25,7 @@ interface MapScreenProps {
   onNotificationClick?: () => void;
   onWishlistClick?: () => void;
   onProfileClick?: () => void;
+  onNavigateToRencana?: () => void;
   onNavigateToRiwayat?: () => void;
   onSaveToWishlist?: (count: number) => void;
   favoritBadgeCount?: number;
@@ -36,6 +37,7 @@ export default function MapScreen({
   onNotificationClick,
   onWishlistClick,
   onProfileClick,
+  onNavigateToRencana,
   onNavigateToRiwayat,
   onSaveToWishlist,
   favoritBadgeCount = 0,
@@ -133,6 +135,8 @@ export default function MapScreen({
       onProfileClick?.();
     } else if (tab === 'riwayat') {
       onNavigateToRiwayat?.();
+    } else if (tab === 'rencana') {
+      onNavigateToRencana?.();
     }
   };
 

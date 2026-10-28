@@ -5,7 +5,7 @@ import React from 'react';
 interface MobileShellProps {
   children: React.ReactNode;
   activeScreen?: string;
-  onScreenChange?: (screen: 'splash' | 'gateway' | 'login' | 'register' | 'register-success' | 'interest-selection' | 'home' | 'top-destinations' | 'map' | 'wishlist' | 'profile') => void;
+  onScreenChange?: (screen: 'splash' | 'gateway' | 'login' | 'register' | 'register-success' | 'interest-selection' | 'home' | 'top-destinations' | 'map' | 'wishlist' | 'profile' | 'itinerary' | 'departure-location' | 'destination-selection' | 'itinerary-summary' | 'saved-plan' | 'active-trip' | 'trip-history' | 'trip-detail' | 'destination-doc' | 'trip-showcase') => void;
   className?: string;
 }
 
@@ -135,6 +135,116 @@ export default function MobileShell({
             }`}
           >
             Wishlist
+          </button>
+          <button
+            type="button"
+            onClick={() => onScreenChange('itinerary')}
+            className={`px-3 py-1 rounded-full font-medium transition-colors ${
+              activeScreen === 'itinerary'
+                ? 'bg-[#4941EC] text-white shadow-xs'
+                : 'hover:bg-gray-100 text-gray-700'
+            }`}
+          >
+            Rencana
+          </button>
+          <button
+            type="button"
+            onClick={() => onScreenChange('departure-location')}
+            className={`px-3 py-1 rounded-full font-medium transition-colors ${
+              activeScreen === 'departure-location'
+                ? 'bg-[#4941EC] text-white shadow-xs'
+                : 'hover:bg-gray-100 text-gray-700'
+            }`}
+          >
+            Titik Keberangkatan
+          </button>
+          <button
+            type="button"
+            onClick={() => onScreenChange('destination-selection')}
+            className={`px-3 py-1 rounded-full font-medium transition-colors ${
+              activeScreen === 'destination-selection'
+                ? 'bg-[#4941EC] text-white shadow-xs'
+                : 'hover:bg-gray-100 text-gray-700'
+            }`}
+          >
+            Pilih Destinasi
+          </button>
+          <button
+            type="button"
+            onClick={() => onScreenChange('itinerary-summary')}
+            className={`px-3 py-1 rounded-full font-medium transition-colors ${
+              activeScreen === 'itinerary-summary'
+                ? 'bg-[#4941EC] text-white shadow-xs'
+                : 'hover:bg-gray-100 text-gray-700'
+            }`}
+          >
+            Ringkasan Rencana
+          </button>
+          <button
+            type="button"
+            onClick={() => onScreenChange('saved-plan')}
+            className={`px-3 py-1 rounded-full font-medium transition-colors ${
+              activeScreen === 'saved-plan'
+                ? 'bg-[#4941EC] text-white shadow-xs'
+                : 'hover:bg-gray-100 text-gray-700'
+            }`}
+          >
+            Rencana Tersimpan
+          </button>
+          <button
+            type="button"
+            onClick={() => onScreenChange('active-trip')}
+            className={`px-3 py-1 rounded-full font-medium transition-colors ${
+              activeScreen === 'active-trip'
+                ? 'bg-[#4941EC] text-white shadow-xs'
+                : 'hover:bg-gray-100 text-gray-700'
+            }`}
+          >
+            Perjalanan Aktif
+          </button>
+          <button
+            type="button"
+            onClick={() => onScreenChange('trip-history')}
+            className={`px-3 py-1 rounded-full font-medium transition-colors ${
+              activeScreen === 'trip-history'
+                ? 'bg-[#4941EC] text-white shadow-xs'
+                : 'hover:bg-gray-100 text-gray-700'
+            }`}
+          >
+            Riwayat Perjalanan
+          </button>
+          <button
+            type="button"
+            onClick={() => onScreenChange('trip-detail')}
+            className={`px-3 py-1 rounded-full font-medium transition-colors ${
+              activeScreen === 'trip-detail'
+                ? 'bg-[#4941EC] text-white shadow-xs'
+                : 'hover:bg-gray-100 text-gray-700'
+            }`}
+          >
+            Detail Perjalanan
+          </button>
+          <button
+            type="button"
+            onClick={() => onScreenChange('destination-doc')}
+            className={`px-3 py-1 rounded-full font-medium transition-colors ${
+              activeScreen === 'destination-doc'
+                ? 'bg-[#4941EC] text-white shadow-xs'
+                : 'hover:bg-gray-100 text-gray-700'
+            }`}
+          >
+            Dokumentasi Destinasi
+          </button>
+          <button
+            type="button"
+            onClick={() => onScreenChange('trip-showcase')}
+            className={`px-3 py-1 rounded-full font-medium transition-colors ${
+              activeScreen === 'trip-showcase'
+                ? 'bg-[#4941EC] text-white shadow-xs'
+                : 'hover:bg-gray-100 text-gray-700'
+            }`}
+          >
+            Lihat Perjalanan
           </button>
           <button
             type="button"

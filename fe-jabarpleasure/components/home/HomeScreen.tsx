@@ -15,6 +15,7 @@ interface HomeScreenProps {
   onNotificationClick?: () => void;
   onWishlistClick?: () => void;
   onProfileClick?: () => void;
+  onNavigateToRencana?: () => void;
   onNavigateToRiwayat?: () => void;
   onItemClick?: (item: { id: string; name: string }) => void;
   favoritBadgeCount?: number;
@@ -27,6 +28,7 @@ export default function HomeScreen({
   onNotificationClick,
   onWishlistClick,
   onProfileClick,
+  onNavigateToRencana,
   onNavigateToRiwayat,
   onItemClick,
   favoritBadgeCount = 0,
@@ -46,6 +48,8 @@ export default function HomeScreen({
       onProfileClick?.();
     } else if (tab === 'riwayat') {
       onNavigateToRiwayat?.();
+    } else if (tab === 'rencana') {
+      onNavigateToRencana?.();
     }
   };
 

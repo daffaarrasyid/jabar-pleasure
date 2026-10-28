@@ -2,7 +2,7 @@
 
 import React from 'react';
 
-export type NavTabId = 'beranda' | 'rencana' | 'peta' | 'riwayat' | 'profil';
+export type NavTabId = 'beranda' | 'riwayat' | 'peta' | 'rencana' | 'profil' | 'favorit';
 
 interface BottomNavProps {
   activeTab?: NavTabId;
@@ -146,34 +146,34 @@ export default function BottomNav({
           </span>
         </button>
 
-        {/* Item 2: Riwayat */}
+        {/* Item 2: Rencana (Per explicit user rule) */}
         <button
           type="button"
-          onClick={() => onTabChange?.('riwayat')}
+          onClick={() => onTabChange?.('rencana')}
           className="flex flex-col items-center justify-end h-full w-full py-1 text-center transition-colors group cursor-pointer focus:outline-none"
         >
           <div className="relative inline-flex items-center justify-center">
             <div
               className={`transition-transform duration-200 group-active:scale-90 ${
-                activeTab === 'riwayat' ? 'text-[#4941EC]' : 'text-gray-500 hover:text-gray-700'
+                activeTab === 'rencana' ? 'text-[#4941EC]' : 'text-gray-500 hover:text-gray-700'
               }`}
             >
-              <RiwayatIcon />
+              <RencanaIcon />
             </div>
-            {badges?.riwayat && badges.riwayat > 0 && (
+            {badges?.rencana && badges.rencana > 0 && (
               <span className="absolute -top-1.5 -right-2.5 min-w-[17px] h-[17px] px-1 bg-[#EF4444] text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white shadow-xs leading-none">
-                {badges.riwayat}
+                {badges.rencana}
               </span>
             )}
           </div>
           <span
             className={`text-[11px] mt-1 transition-colors ${
-              activeTab === 'riwayat'
+              activeTab === 'rencana'
                 ? 'font-semibold text-[#4941EC]'
                 : 'font-normal text-gray-500 group-hover:text-gray-700'
             }`}
           >
-            Riwayat
+            Rencana
           </span>
         </button>
 
@@ -205,34 +205,34 @@ export default function BottomNav({
           </span>
         </div>
 
-        {/* Item 4: Rencana */}
+        {/* Item 4: Riwayat (Per explicit user rule) */}
         <button
           type="button"
-          onClick={() => onTabChange?.('rencana')}
+          onClick={() => onTabChange?.('riwayat')}
           className="flex flex-col items-center justify-end h-full w-full py-1 text-center transition-colors group cursor-pointer focus:outline-none"
         >
           <div className="relative inline-flex items-center justify-center">
             <div
               className={`transition-transform duration-200 group-active:scale-90 ${
-                activeTab === 'rencana' ? 'text-[#4941EC]' : 'text-gray-500 hover:text-gray-700'
+                activeTab === 'riwayat' ? 'text-[#4941EC]' : 'text-gray-500 hover:text-gray-700'
               }`}
             >
-              <RencanaIcon />
+              <RiwayatIcon />
             </div>
-            {badges?.rencana && badges.rencana > 0 && (
+            {badges?.riwayat && badges.riwayat > 0 && (
               <span className="absolute -top-1.5 -right-2.5 min-w-[17px] h-[17px] px-1 bg-[#EF4444] text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white shadow-xs leading-none">
-                {badges.rencana}
+                {badges.riwayat}
               </span>
             )}
           </div>
           <span
             className={`text-[11px] mt-1 transition-colors ${
-              activeTab === 'rencana'
+              activeTab === 'riwayat'
                 ? 'font-semibold text-[#4941EC]'
                 : 'font-normal text-gray-500 group-hover:text-gray-700'
             }`}
           >
-            Rencana
+            Riwayat
           </span>
         </button>
 
