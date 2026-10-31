@@ -25,6 +25,7 @@ import DestinationDocScreen from '@/components/history/DestinationDocScreen';
 import TripShowcaseScreen from '@/components/history/TripShowcaseScreen';
 import { TRIP_HISTORY_DATA, TripItem, DestinationItem } from '@/components/history/historyData';
 import Toast from '@/components/ui/Toast';
+import { removeAuthToken } from '@/lib/auth';
 
 type ScreenState =
   | 'splash'
@@ -350,6 +351,7 @@ export default function Home() {
           onEditProfile={() => showToast('Fitur edit profil sedang disiapkan', 'info')}
           onItemClick={(title) => showToast(`Membuka menu ${title}`, 'info')}
           onLogout={() => {
+            removeAuthToken();
             showToast('Anda telah keluar dari akun.', 'info');
             setCurrentScreen('gateway');
           }}

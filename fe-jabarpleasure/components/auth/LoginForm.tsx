@@ -5,6 +5,7 @@ import { ArrowLeft, Mail, Lock } from 'lucide-react';
 import BrandLogo from '@/components/ui/BrandLogo';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
+import { setAuthToken } from '@/lib/auth';
 
 interface LoginFormProps {
   onBack?: () => void;
@@ -75,16 +76,9 @@ export default function LoginForm({
         return;
       }
 
-      // Store auth session in localStorage
+      // Store auth session in localStorage and cookie for middleware
       if (result.data?.token) {
-        try {
-          localStorage.setItem('auth_token', result.data.token);
-          if (result.data.user) {
-            localStorage.setItem('user', JSON.stringify(result.data.user));
-          }
-        } catch (storageErr) {
-          console.warn('LocalStorage error:', storageErr);
-        }
+        setAuthToken(result.data.token, result.data.user);
       }
 
       setIsLoading(false);

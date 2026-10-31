@@ -18,6 +18,8 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             CategorySeeder::class,
+            RegencyCitySeeder::class,
+            DestinationSeeder::class,
         ]);
 
         // Seed or update sample user Nabila Putri

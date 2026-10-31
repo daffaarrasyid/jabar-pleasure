@@ -5,6 +5,7 @@ import { ArrowLeft, User, Mail, Lock, Check } from 'lucide-react';
 import BrandLogo from '@/components/ui/BrandLogo';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
+import { setAuthToken } from '@/lib/auth';
 
 interface RegisterFormProps {
   onBack?: () => void;
@@ -104,16 +105,9 @@ export default function RegisterForm({
         return;
       }
 
-      // Store auth session in localStorage
+      // Store auth session in localStorage and cookie
       if (result.data?.token) {
-        try {
-          localStorage.setItem('auth_token', result.data.token);
-          if (result.data.user) {
-            localStorage.setItem('user', JSON.stringify(result.data.user));
-          }
-        } catch (storageErr) {
-          console.warn('LocalStorage error:', storageErr);
-        }
+        setAuthToken(result.data.token, result.data.user);
       }
 
       setIsLoading(false);

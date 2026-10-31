@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import MobileShell from '@/components/layout/MobileShell';
 import ProfileScreen, { UserProfileData } from '@/components/profile/ProfileScreen';
 import Toast from '@/components/ui/Toast';
+import { removeAuthToken } from '@/lib/auth';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -107,9 +108,8 @@ export default function ProfilePage() {
       }
     }
 
-    // Clear client storage
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('user');
+    // Clear client storage and cookie
+    removeAuthToken();
 
     showToast('Anda telah keluar dari akun.', 'info');
     setTimeout(() => {

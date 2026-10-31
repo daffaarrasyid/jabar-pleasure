@@ -1,20 +1,22 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import AppHeader from '@/components/layout/AppHeader';
 import BottomNav, { NavTabId } from '@/components/layout/BottomNav';
 import SearchBar from '@/components/home/SearchBar';
 import CategoryFilter from '@/components/home/CategoryFilter';
 import { Star, ArrowLeft } from 'lucide-react';
+import { getDestinations, ApiDestination } from '@/lib/api';
 
 export interface TopDestinationItem {
-  id: string;
+  id: string | number;
   name: string;
   category: string;
   rating: number;
   distance: string;
   regency: string;
   image: string;
+  slug?: string;
 }
 
 interface TopDestinationsViewProps {
@@ -26,47 +28,18 @@ interface TopDestinationsViewProps {
   onNavigateToRiwayat?: () => void;
   onItemClick?: (item: TopDestinationItem) => void;
   favoritBadgeCount?: number;
+  selectedCategory?: string;
   initialQuery?: string;
   className?: string;
 }
 
-const DEFAULT_DESTINATIONS: TopDestinationItem[] = [
-  {
-    id: 'malabar-1',
-    name: 'Gunung Malabar',
-    category: 'Alam',
-    rating: 4.8,
-    distance: '4.5 km',
-    regency: 'Bandung Timur',
-    image: '/gunung-malabar.jpg',
-  },
-  {
-    id: 'malabar-2',
-    name: 'Gunung Malabar',
-    category: 'Alam',
-    rating: 4.8,
-    distance: '4.5 km',
-    regency: 'Bandung Timur',
-    image: '/gunung-malabar.jpg',
-  },
-  {
-    id: 'malabar-3',
-    name: 'Gunung Malabar',
-    category: 'Alam',
-    rating: 4.8,
-    distance: '4.5 km',
-    regency: 'Bandung Timur',
-    image: '/gunung-malabar.jpg',
-  },
-  {
-    id: 'malabar-4',
-    name: 'Gunung Malabar',
-    category: 'Alam',
-    rating: 4.8,
-    distance: '4.5 km',
-    regency: 'Bandung Timur',
-    image: '/gunung-malabar.jpg',
-  },
+const FALLBACK_TOP_IMAGES = [
+  '/gunung-malabar.jpg',
+  '/tangkuban-parahu.jpg',
+  '/gedung-sate.jpg',
+  '/floating-market.jpg',
+  '/ranca-upas.jpg',
+  '/tahura-juanda.jpg',
 ];
 
 export default function TopDestinationsView({
@@ -78,31 +51,63 @@ export default function TopDestinationsView({
   onNavigateToRiwayat,
   onItemClick,
   favoritBadgeCount = 0,
-  initialQuery = 'Gunung disekitar bandung',
+  selectedCategory: initialCategory = 'Semua',
+  initialQuery = '',
   className = '',
 }: TopDestinationsViewProps) {
   const [searchQuery, setSearchQuery] = useState(initialQuery);
-  const [selectedCategory, setSelectedCategory] = useState('Semua');
+  const [selectedCategory, setSelectedCategory] = useState(initialCategory);
+  const [destinations, setDestinations] = useState<TopDestinationItem[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [activeTab, setActiveTab] = useState<NavTabId>('beranda');
 
-  const filteredItems = useMemo(() => {
-    return DEFAULT_DESTINATIONS.filter((item) => {
-      const matchCategory =
-        selectedCategory === 'Semua' || item.category === selectedCategory;
-      const matchQuery =
-        !searchQuery.trim() ||
-        item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.regency.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        searchQuery.toLowerCase().includes('gunung') ||
-        searchQuery.toLowerCase().includes('bandung');
-      return matchCategory && matchQuery;
-    });
-  }, [searchQuery, selectedCategory]);
+  useEffect(() => {
+    let isMounted = true;
+    setIsLoading(true);
+
+    getDestinations({
+      category: selectedCategory !== 'Semua' ? selectedCategory : undefined,
+      search: searchQuery.trim() || undefined,
+      per_page: 12,
+    })
+      .then((res) => {
+        if (!isMounted) return;
+        const items = res.data || [];
+
+        const mapped: TopDestinationItem[] = items.map((dest: ApiDestination, idx: number) => {
+          const fallbackImg = FALLBACK_TOP_IMAGES[idx % FALLBACK_TOP_IMAGES.length];
+          const distStr = dest.distance_km ? `${dest.distance_km} km` : '4.5 km';
+
+          return {
+            id: dest.id,
+            name: dest.name,
+            category: dest.category?.name || 'Wisata',
+            rating: 4.8,
+            distance: distStr,
+            regency: dest.regency?.name || 'Jawa Barat',
+            image: dest.cover_image_url || fallbackImg,
+            slug: dest.slug,
+          };
+        });
+
+        setDestinations(mapped);
+      })
+      .catch((err) => {
+        console.warn('Failed to load top destinations:', err);
+      })
+      .finally(() => {
+        if (isMounted) setIsLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedCategory, searchQuery]);
 
   const handleTabChange = (tab: NavTabId) => {
+    setActiveTab(tab);
     if (tab === 'peta') {
       onNavigateToMap?.();
-    } else if (tab === 'beranda') {
-      onBack?.();
     } else if (tab === 'profil') {
       onProfileClick?.();
     } else if (tab === 'riwayat') {
@@ -111,120 +116,132 @@ export default function TopDestinationsView({
   };
 
   return (
-    <div
-      className={`relative w-full h-full flex flex-col bg-[#F9FAFB] overflow-hidden ${className}`}
-    >
-      {/* 1. App Header with Wishlist Button */}
+    <div className={`relative w-full h-full flex flex-col bg-[#F9FAFB] overflow-hidden ${className}`}>
+      {/* Top Header */}
       <AppHeader
         unreadNotifications={2}
         wishlistCount={favoritBadgeCount}
         onNotificationClick={onNotificationClick}
         onWishlistClick={onWishlistClick || onProfileClick}
-        className="shrink-0"
       />
 
-      {/* 2. Main Scrollable Content */}
+      {/* Main Content Area */}
       <main className="flex-1 w-full overflow-y-auto overflow-x-hidden no-scrollbar pb-24">
-        {/* Search Bar with Query */}
+        {/* Back Button & Title Header */}
+        <div className="flex items-center gap-3 px-5 pt-3 pb-1">
+          <button
+            type="button"
+            onClick={onBack}
+            className="w-9 h-9 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-700 hover:text-gray-900 shadow-xs cursor-pointer active:scale-95 transition-all"
+            aria-label="Kembali ke Beranda"
+          >
+            <ArrowLeft className="w-5 h-5 stroke-[2.2]" />
+          </button>
+          <div>
+            <h1 className="text-base font-bold text-gray-900 tracking-tight">
+              Semua Destinasi Wisata
+            </h1>
+            <p className="text-xs text-gray-500">
+              {destinations.length > 0 ? `${destinations.length} destinasi ditemukan` : 'Eksplorasi destinasi Jawa Barat'}
+            </p>
+          </div>
+        </div>
+
+        {/* Search Bar */}
         <SearchBar
           value={searchQuery}
           onChange={setSearchQuery}
           onClear={() => setSearchQuery('')}
+          placeholder="Cari nama destinasi atau kota..."
           onFilterClick={() => {}}
-          placeholder="Cari destinasi, kuliner, hiburan"
         />
 
-        {/* Category Pills Filter */}
+        {/* Category Carousel Filter */}
         <CategoryFilter
           selectedCategory={selectedCategory}
           onSelectCategory={setSelectedCategory}
         />
 
-        {/* Section Heading: Top Destinasi with subtle back action */}
-        <div className="flex items-center justify-between px-5 pt-3 pb-2 select-none">
-          <div className="flex items-center gap-2">
-            {onBack && (
-              <button
-                type="button"
-                onClick={onBack}
-                aria-label="Kembali ke Beranda"
-                className="p-1 -ml-1 text-gray-500 hover:text-gray-900 rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
-              >
-                <ArrowLeft className="w-4 h-4 stroke-[2.4]" />
-              </button>
-            )}
-            <h2 className="text-base sm:text-lg font-bold text-gray-900 tracking-tight">
-              Top Destinasi
-            </h2>
-          </div>
-          <span className="text-xs text-gray-400 font-medium">
-            {filteredItems.length} destinasi
-          </span>
-        </div>
-
-        {/* Vertical List of Cards */}
-        <div className="flex flex-col gap-4 px-5 pt-1 pb-4">
-          {filteredItems.map((item) => (
-            <div
-              key={item.id}
-              onClick={() => onItemClick?.(item)}
-              className="group bg-white rounded-3xl p-3 border border-gray-100 shadow-[0_2px_10px_rgba(0,0,0,0.03)] hover:shadow-md transition-all cursor-pointer flex flex-col"
-            >
-              {/* Full Width Image Container */}
-              <div className="relative w-full aspect-[16/9] rounded-2xl overflow-hidden bg-gray-100">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={item.image}
-                  alt={item.name}
-                  className="w-full h-full object-cover group-hover:scale-103 transition-transform duration-300"
-                />
-              </div>
-
-              {/* Card Meta & Details */}
-              <div className="px-1 pt-2.5 pb-0.5 flex flex-col">
-                {/* Badge & Rating Row */}
-                <div className="flex items-center justify-between">
-                  <span className="bg-[#4941EC] text-white text-[10px] font-semibold px-2.5 py-0.5 rounded-md">
-                    {item.category}
-                  </span>
-                  <div className="flex items-center gap-1">
-                    <Star className="w-3.5 h-3.5 fill-[#EDAD40] text-[#EDAD40]" />
-                    <span className="text-xs font-bold text-gray-800">
-                      {item.rating}
-                    </span>
+        {/* 2-Card Row Grid */}
+        <div className="px-5 py-3">
+          {isLoading ? (
+            <div className="grid grid-cols-2 gap-3.5">
+              {[1, 2, 3, 4].map((n) => (
+                <div key={n} className="flex flex-col bg-white rounded-2xl overflow-hidden animate-pulse">
+                  <div className="w-full aspect-[4/3] bg-gray-200" />
+                  <div className="p-2.5 space-y-2">
+                    <div className="h-4 bg-gray-200 rounded w-1/3" />
+                    <div className="h-4 bg-gray-200 rounded w-3/4" />
+                    <div className="h-3 bg-gray-200 rounded w-1/2" />
                   </div>
                 </div>
-
-                {/* Destination Title */}
-                <h3 className="text-sm sm:text-base font-bold text-gray-900 group-hover:text-[#4941EC] transition-colors mt-1.5">
-                  {item.name}
-                </h3>
-
-                {/* Distance & Action Row */}
-                <div className="flex items-center justify-between mt-1 text-xs">
-                  <span className="text-gray-500 font-medium">
-                    {item.distance} &ndash; {item.regency}
-                  </span>
-                  <span className="font-bold text-[#60CE9F] group-hover:text-[#4EB789] transition-colors flex items-center gap-0.5">
-                    Detail <span className="text-sm leading-none">&rsaquo;</span>
-                  </span>
-                </div>
-              </div>
+              ))}
             </div>
-          ))}
+          ) : destinations.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center bg-white rounded-2xl border border-gray-100 p-6 mt-2">
+              <p className="text-sm font-semibold text-gray-800">
+                Tidak ada destinasi yang ditemukan
+              </p>
+              <p className="text-xs text-gray-500 mt-1 max-w-[260px]">
+                Coba ubah kata kunci pencarian atau pilih kategori lain.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3.5">
+              {destinations.map((item) => (
+                <div
+                  key={item.id}
+                  onClick={() => onItemClick?.(item)}
+                  className="min-w-0 group flex flex-col bg-white rounded-2xl overflow-hidden cursor-pointer transition-all duration-200 hover:-translate-y-0.5 border border-gray-100 shadow-xs"
+                >
+                  {/* Card Image */}
+                  <div className="relative w-full aspect-[4/3] rounded-t-2xl overflow-hidden bg-gray-100">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={item.image}
+                      alt={item.name}
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = '/gunung-malabar.jpg';
+                      }}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  </div>
 
-          {filteredItems.length === 0 && (
-            <div className="py-12 text-center text-gray-400 text-sm">
-              Tidak ada destinasi yang cocok dengan pencarian.
+                  {/* Badges & Meta Row */}
+                  <div className="p-2.5 flex flex-col gap-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <span className="bg-[#4941EC] text-white text-[10px] font-semibold px-2 py-0.5 rounded-md truncate max-w-[95px]">
+                        {item.category}
+                      </span>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Star className="w-3.5 h-3.5 fill-[#EDAD40] text-[#EDAD40]" />
+                        <span className="text-xs font-bold text-gray-800">
+                          {item.rating}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Destination Title */}
+                    <h3 className="text-sm font-bold text-gray-900 truncate mt-0.5 group-hover:text-[#4941EC] transition-colors" title={item.name}>
+                      {item.name}
+                    </h3>
+
+                    {/* Distance & Location */}
+                    <div className="flex items-center gap-1.5 text-xs text-gray-500 truncate">
+                      <span className="truncate">{item.regency}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
       </main>
 
-      {/* 3. Fixed Bottom Navigation Bar */}
-      <div className="shrink-0 w-full z-30">
+      {/* Fixed Bottom Navigation Bar */}
+      <div className="absolute bottom-0 left-0 right-0 w-full z-30">
         <BottomNav
-          activeTab="beranda"
+          activeTab={activeTab}
           onTabChange={handleTabChange}
         />
       </div>

@@ -45,5 +45,13 @@ class Category extends Model
     {
         return $this->hasMany(UserPreference::class);
     }
+
+    /**
+     * Destinations belonging to this category.
+     */
+    public function destinations(): HasMany
+    {
+        return $this->hasMany(Destination::class, 'category_id');
+    }
 }
 
