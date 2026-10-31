@@ -13,7 +13,7 @@ export default function HomePage() {
       <HomeScreen
         onNavigateToMap={() => router.push('/map')}
         onNotificationClick={() => {}}
-        onProfileClick={() => {}}
+        onProfileClick={() => router.push('/profile')}
       />
     </MobileShell>
   );

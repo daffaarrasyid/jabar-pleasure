@@ -14,7 +14,24 @@ import {
 import AppHeader from '@/components/layout/AppHeader';
 import BottomNav, { NavTabId } from '@/components/layout/BottomNav';
 
+export interface UserProfileData {
+  id?: number;
+  name?: string;
+  email?: string;
+  phone?: string;
+  city?: string;
+  avatar_url?: string | null;
+  initials?: string;
+  role?: string;
+  statistics?: {
+    trips_count?: number;
+    wishlist_count?: number;
+    itinerary_count?: number;
+  };
+}
+
 interface ProfileScreenProps {
+  user?: UserProfileData | null;
   onNavigateToHome?: () => void;
   onNavigateToMap?: () => void;
   onNavigateToWishlist?: () => void;
@@ -30,6 +47,7 @@ interface ProfileScreenProps {
 }
 
 export default function ProfileScreen({
+  user,
   onNavigateToHome,
   onNavigateToMap,
   onNavigateToWishlist,
@@ -43,6 +61,22 @@ export default function ProfileScreen({
   wishlistCount = 4,
   className = '',
 }: ProfileScreenProps) {
+  const displayName = user?.name || 'Nabila Putri';
+  const displayEmail = user?.email || 'nabila.putri@gmail.com';
+  const displayCity = user?.city || 'Bogor, Jawa Barat';
+  const displayInitials =
+    user?.initials ||
+    displayName
+      .split(' ')
+      .filter(Boolean)
+      .map((n) => n[0])
+      .join('')
+      .slice(0, 2)
+      .toUpperCase() ||
+    'NP';
+  const tripsCount = user?.statistics?.trips_count ?? 3;
+  const effectiveWishlistCount = user?.statistics?.wishlist_count ?? wishlistCount;
+  const itineraryCount = user?.statistics?.itinerary_count ?? 2;
   const handleTabChange = (tab: NavTabId) => {
     if (tab === 'beranda') {
       onNavigateToHome?.();
@@ -84,19 +118,19 @@ export default function ProfileScreen({
             <div className="flex items-center gap-3.5">
               {/* Initials Avatar */}
               <div className="w-14 h-14 rounded-full bg-[#EEF2FF] text-[#4941EC] font-bold text-xl flex items-center justify-center shrink-0">
-                NP
+                {displayInitials}
               </div>
 
               {/* User Details */}
               <div>
                 <h2 className="font-bold text-[16px] text-gray-900 leading-snug">
-                  Nabila Putri
+                  {displayName}
                 </h2>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  nabila.putri@gmail.com
+                  {displayEmail}
                 </p>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  Bogor, Jawa Barat
+                  {displayCity}
                 </p>
               </div>
             </div>
@@ -119,7 +153,7 @@ export default function ProfileScreen({
           <div className="grid grid-cols-3 text-center">
             <div className="flex flex-col items-center">
               <span className="font-bold text-[20px] text-[#4941EC] leading-tight">
-                3
+                {tripsCount}
               </span>
               <span className="text-xs text-gray-500 mt-0.5">
                 Perjalanan
@@ -131,7 +165,7 @@ export default function ProfileScreen({
               onClick={onNavigateToWishlist}
             >
               <span className="font-bold text-[20px] text-[#4941EC] leading-tight group-hover:scale-105 transition-transform">
-                {wishlistCount}
+                {effectiveWishlistCount}
               </span>
               <span className="text-xs text-gray-500 mt-0.5 group-hover:text-[#4941EC] transition-colors">
                 Wishlist
@@ -140,7 +174,7 @@ export default function ProfileScreen({
 
             <div className="flex flex-col items-center">
               <span className="font-bold text-[20px] text-[#4941EC] leading-tight">
-                2
+                {itineraryCount}
               </span>
               <span className="text-xs text-gray-500 mt-0.5">
                 Rencana

@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useRouter } from 'next/navigation';
 
 export type NavTabId = 'beranda' | 'riwayat' | 'peta' | 'rencana' | 'profil' | 'favorit';
 
@@ -109,6 +110,7 @@ export default function BottomNav({
   badges,
   className = '',
 }: BottomNavProps) {
+  const router = useRouter();
   return (
     <nav
       aria-label="Navigasi Utama"
@@ -239,7 +241,10 @@ export default function BottomNav({
         {/* Item 5: Profile */}
         <button
           type="button"
-          onClick={() => onTabChange?.('profil')}
+          onClick={() => {
+            onTabChange?.('profil');
+            router.push('/profile');
+          }}
           className="flex flex-col items-center justify-end h-full w-full py-1 text-center transition-colors group cursor-pointer focus:outline-none"
         >
           <div className="relative inline-flex items-center justify-center">
