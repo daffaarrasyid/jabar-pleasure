@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import MobileShell from '@/components/layout/MobileShell';
 import ProfileScreen, { UserProfileData } from '@/components/profile/ProfileScreen';
 import Toast from '@/components/ui/Toast';
-import { removeAuthToken } from '@/lib/auth';
+import { getAuthToken, removeAuthToken } from '@/lib/auth';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -91,7 +91,7 @@ export default function ProfilePage() {
   }, [router]);
 
   const handleLogout = async () => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+    const token = getAuthToken();
 
     if (token) {
       try {
@@ -108,13 +108,13 @@ export default function ProfilePage() {
       }
     }
 
-    // Clear client storage and cookie
+    // Completely purge client cookie and storage
     removeAuthToken();
 
     showToast('Anda telah keluar dari akun.', 'info');
     setTimeout(() => {
-      router.push('/login');
-    }, 800);
+      window.location.href = '/login';
+    }, 600);
   };
 
   return (

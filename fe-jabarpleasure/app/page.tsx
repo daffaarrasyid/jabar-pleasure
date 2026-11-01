@@ -25,7 +25,7 @@ import DestinationDocScreen from '@/components/history/DestinationDocScreen';
 import TripShowcaseScreen from '@/components/history/TripShowcaseScreen';
 import { TRIP_HISTORY_DATA, TripItem, DestinationItem } from '@/components/history/historyData';
 import Toast from '@/components/ui/Toast';
-import { removeAuthToken } from '@/lib/auth';
+import { getAuthToken, removeAuthToken } from '@/lib/auth';
 
 type ScreenState =
   | 'splash'
@@ -350,7 +350,22 @@ export default function Home() {
           onNavigateToRiwayat={navigateToRiwayat}
           onEditProfile={() => showToast('Fitur edit profil sedang disiapkan', 'info')}
           onItemClick={(title) => showToast(`Membuka menu ${title}`, 'info')}
-          onLogout={() => {
+          onLogout={async () => {
+            const token = getAuthToken();
+            if (token) {
+              try {
+                await fetch('/api/logout', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                  },
+                });
+              } catch (err) {
+                console.warn('Logout error:', err);
+              }
+            }
             removeAuthToken();
             showToast('Anda telah keluar dari akun.', 'info');
             setCurrentScreen('gateway');

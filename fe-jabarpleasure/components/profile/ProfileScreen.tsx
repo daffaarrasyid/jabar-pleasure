@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Pencil,
   User,
@@ -61,6 +61,7 @@ export default function ProfileScreen({
   wishlistCount = 4,
   className = '',
 }: ProfileScreenProps) {
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const displayName = user?.name || 'Nabila Putri';
   const displayEmail = user?.email || 'nabila.putri@gmail.com';
   const displayCity = user?.city || 'Bogor, Jawa Barat';
@@ -318,7 +319,7 @@ export default function ProfileScreen({
         {/* 5. Logout Button */}
         <button
           type="button"
-          onClick={onLogout}
+          onClick={() => setShowLogoutConfirm(true)}
           className="w-full bg-white border border-red-200/90 hover:bg-red-50/50 active:scale-[0.98] text-[#EF4444] rounded-xl py-3 px-4 flex items-center justify-center gap-2 font-semibold text-xs mt-5 shadow-xs transition-colors cursor-pointer"
         >
           <LogOut className="w-4 h-4 stroke-[2.2] text-[#EF4444]" />
@@ -330,6 +331,51 @@ export default function ProfileScreen({
           Versi aplikasi 1.0.0
         </p>
       </main>
+
+      {/* Logout Confirmation Pop-up Modal */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200">
+          <div
+            className="absolute inset-0"
+            onClick={() => setShowLogoutConfirm(false)}
+            aria-hidden="true"
+          />
+          <div className="relative w-full max-w-[340px] bg-white rounded-3xl p-6 shadow-2xl flex flex-col items-center text-center animate-in zoom-in-95 duration-200 border border-gray-100 z-10">
+            <div className="w-14 h-14 rounded-full bg-red-50 text-[#EF4444] flex items-center justify-center mb-3.5">
+              <LogOut className="w-7 h-7 stroke-[2.2]" />
+            </div>
+
+            <h2 className="text-base font-bold text-gray-900 tracking-tight">
+              Konfirmasi Keluar Akun
+            </h2>
+
+            <p className="text-xs text-gray-500 mt-2 mb-6 leading-relaxed max-w-[260px]">
+              apakah ingin benar-benar logout akun?
+            </p>
+
+            <div className="w-full flex flex-col gap-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLogoutConfirm(false);
+                  onLogout?.();
+                }}
+                className="w-full py-3 px-4 rounded-xl bg-[#EF4444] hover:bg-red-600 active:scale-[0.98] text-white text-xs font-bold shadow-md shadow-red-500/20 transition-all cursor-pointer"
+              >
+                Ya, Keluar
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowLogoutConfirm(false)}
+                className="w-full py-3 px-4 rounded-xl bg-gray-100 hover:bg-gray-200 active:scale-[0.98] text-gray-700 text-xs font-semibold transition-all cursor-pointer"
+              >
+                Batal
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 7. Fixed Bottom Navigation Bar */}
       <div className="shrink-0 w-full z-30">

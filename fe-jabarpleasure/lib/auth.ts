@@ -34,7 +34,14 @@ export function removeAuthToken(): void {
   try {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('user');
-    document.cookie = 'auth_token=; path=/; max-age=0; SameSite=Lax';
+    sessionStorage.removeItem('auth_token');
+    sessionStorage.removeItem('user');
+
+    // Thoroughly delete the auth_token cookie across potential path and domain variations
+    const pastDate = 'Thu, 01 Jan 1970 00:00:00 GMT';
+    document.cookie = `auth_token=; path=/; expires=${pastDate}; max-age=0; SameSite=Lax`;
+    document.cookie = `auth_token=; path=/; expires=${pastDate}; max-age=0`;
+    document.cookie = `auth_token=; expires=${pastDate}; max-age=0`;
   } catch (err) {
     console.warn('Failed to remove auth token:', err);
   }
