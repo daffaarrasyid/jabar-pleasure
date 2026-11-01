@@ -1,24 +1,50 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import dynamic from 'next/dynamic';
+import { MapPin, AlertTriangle, Search, X, Compass, Locate, ChevronRight, Check } from 'lucide-react';
 import AppHeader from '@/components/layout/AppHeader';
 import BottomNav, { NavTabId } from '@/components/layout/BottomNav';
 import SearchBar from '@/components/home/SearchBar';
 import MapExplorationFilter from '@/components/map/MapExplorationFilter';
 import NearbyResultsSheet, { NearbyDestination } from '@/components/map/NearbyResultsSheet';
+import { MarkerData } from '@/components/map/WebGisMap';
+import { getNearbyDestinations, searchDestinations, ApiDestination } from '@/lib/api';
 
 // Dynamic import with SSR disabled for Leaflet WebGIS Map
 const WebGisMap = dynamic(() => import('@/components/map/WebGisMap'), {
   ssr: false,
   loading: () => (
     <div className="flex h-full w-full items-center justify-center bg-gray-100">
-      <p className="animate-pulse text-sm font-semibold text-gray-600">
-        Memuat Peta...
-      </p>
+      <div className="flex flex-col items-center gap-2">
+        <div className="w-8 h-8 border-3 border-[#4941EC] border-t-transparent rounded-full animate-spin" />
+        <p className="text-xs font-semibold text-gray-600">Memuat Peta Jawa Barat...</p>
+      </div>
     </div>
   ),
 });
+
+// Bounding box geografis Jawa Barat (SRID 4326)
+export const JABAR_BOUNDS = {
+  south: -7.82,
+  north: -5.91,
+  west: 106.36,
+  east: 108.85,
+};
+
+// Preset kota populer di Jawa Barat untuk fallback manual
+const JABAR_PRESET_CITIES = [
+  { name: 'Kota Bandung', lat: -6.9175, lng: 107.6191 },
+  { name: 'Kota Bogor', lat: -6.5950, lng: 106.7972 },
+  { name: 'Lembang', lat: -6.8166, lng: 107.6166 },
+  { name: 'Kota Cirebon', lat: -6.7320, lng: 108.5523 },
+  { name: 'Sukabumi', lat: -6.9277, lng: 106.9300 },
+  { name: 'Kota Bekasi', lat: -6.2383, lng: 106.9756 },
+  { name: 'Garut', lat: -7.2278, lng: 107.9087 },
+  { name: 'Depok', lat: -6.4025, lng: 106.7942 },
+];
+
+const DEFAULT_CENTER: [number, number] = [-6.9175, 107.6191]; // Default Kota Bandung
 
 interface MapScreenProps {
   onNavigateToHome?: () => void;
@@ -43,88 +69,377 @@ export default function MapScreen({
   favoritBadgeCount = 0,
   className = '',
 }: MapScreenProps) {
-  // State 1: Search Query (Empty on landing Peta.png, 'Kota Bogor' on results)
+  // 1. Geolocation & User Coordinates State
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [locationMode, setLocationMode] = useState<'gps' | 'manual'>('gps');
+  const [activeLocationName, setActiveLocationName] = useState<string>('Kota Bandung');
+  const [mapCenter, setMapCenter] = useState<[number, number]>(DEFAULT_CENTER);
+  const [zoomLevel, setZoomLevel] = useState<number>(13);
+  const [isOutsideJabar, setIsOutsideJabar] = useState<boolean>(false);
+  const [isGpsDenied, setIsGpsDenied] = useState<boolean>(false);
+  const [isLocationModalOpen, setIsLocationModalOpen] = useState<boolean>(false);
+  const [manualAddressInput, setManualAddressInput] = useState<string>('');
+  const [isGeocoding, setIsGeocoding] = useState<boolean>(false);
+  const [locationAlertDismissed, setLocationAlertDismissed] = useState<boolean>(false);
+
+  // 2. Search & Filter State
   const [searchQuery, setSearchQuery] = useState('');
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string>('Semua');
+  const [radius, setRadius] = useState<number>(10); // default 10 km
 
-  // State 2: Filter Card Visibility (Open on initial landing Peta.png & Peta (2).png)
-  const [isFilterOpen, setIsFilterOpen] = useState(true);
-
-  // State 3: Filter Categories & Radius
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [radius, setRadius] = useState<number>(1);
-
-  // State 4: Has performed search / Showing Results Bottom Sheet
-  const [showResults, setShowResults] = useState(false);
-
-  // State 5: Selected Destinations for saving
-  const [selectedDestIds, setSelectedDestIds] = useState<string[]>(['krb-1']);
-
-  // State 6: Local Wishlist Badge Count (falls back to prop or internal state)
+  // 3. Destinations Data State
+  const [destinations, setDestinations] = useState<NearbyDestination[]>([]);
+  const [, setRawDestinations] = useState<ApiDestination[]>([]);
+  const [selectedDestIds, setSelectedDestIds] = useState<string[]>([]);
+  const [activeDestinationId, setActiveDestinationId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [localFavoritCount, setLocalFavoritCount] = useState<number>(favoritBadgeCount);
 
-  // Handle category toggle
-  const handleToggleCategory = (category: string) => {
-    setSelectedCategories((prev) => {
-      const updated = prev.includes(category)
-        ? prev.filter((c) => c !== category)
-        : [...prev, category];
+  // Debounce timer ref for search input
+  const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
-      // If user starts selecting categories, automatically perform search for Bogor
-      if (updated.length > 0 && !showResults) {
-        setSearchQuery('Kota Bogor');
-        setShowResults(true);
-      }
-      return updated;
-    });
+  // Helper untuk mengecek apakah koordinat ada di Jawa Barat
+  const isInJawaBarat = useCallback((lat: number, lng: number): boolean => {
+    return (
+      lat >= JABAR_BOUNDS.south &&
+      lat <= JABAR_BOUNDS.north &&
+      lng >= JABAR_BOUNDS.west &&
+      lng <= JABAR_BOUNDS.east
+    );
+  }, []);
+
+  // Haversine distance calculator (fallback jika backend belum return distance_km)
+  const calculateHaversine = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const R = 6371; // km
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return Math.round(R * c * 10) / 10;
   };
 
-  // Handle Search Submission (by Enter or typing)
-  const handleSearchSubmit = () => {
-    if (searchQuery.trim().length > 0) {
-      setShowResults(true);
-      if (selectedCategories.length === 0) {
-        setSelectedCategories(['Alam', 'Kuliner', 'Sejarah']);
+  // Convert ApiDestination to NearbyDestination format for sheet & markers
+  const transformDestinations = useCallback(
+    (apiItems: ApiDestination[], refLat: number, refLng: number): NearbyDestination[] => {
+      return apiItems.map((item) => {
+        const itemLat = item.latitude || refLat;
+        const itemLng = item.longitude || refLng;
+        const distKm =
+          item.distance_km != null
+            ? Number(item.distance_km)
+            : calculateHaversine(refLat, refLng, itemLat, itemLng);
+
+        return {
+          id: String(item.id),
+          name: item.name,
+          category: item.category?.name || 'Wisata',
+          distance: `${distKm} km`,
+          regency: item.regency?.name || item.address || 'Jawa Barat',
+          rating: 4.7,
+          ratingCountText: '100+ ulasan',
+          image: item.cover_image_url || item.cover_image || '/gedung-sate.jpg',
+          coordinates: [itemLat, itemLng],
+          raw: item,
+        };
+      });
+    },
+    []
+  );
+
+  // Fetch destinations from backend based on coords, category, radius, or search query
+  const fetchDestinationsData = useCallback(
+    async (
+      lat: number,
+      lng: number,
+      rad: number,
+      cat: string,
+      search: string
+    ) => {
+      setIsLoading(true);
+      try {
+        let items: ApiDestination[] = [];
+
+        if (search.trim().length >= 2) {
+          // Gunakan search endpoint jika ada kata kunci
+          items = await searchDestinations(search.trim(), {
+            category: cat !== 'Semua' ? cat : undefined,
+            lat,
+            lng,
+            limit: 25,
+          });
+        } else {
+          // Gunakan nearby endpoint dengan filter radius & kategori
+          items = await getNearbyDestinations({
+            lat,
+            lng,
+            radius: rad,
+            category: cat !== 'Semua' ? cat : undefined,
+            limit: 20,
+          });
+
+          // Strict radius filtering safety check
+          items = items.filter((item) => {
+            if (item.distance_km != null) {
+              return Number(item.distance_km) <= rad + 0.1;
+            }
+            const d = calculateHaversine(lat, lng, item.latitude || lat, item.longitude || lng);
+            return d <= rad + 0.1;
+          });
+        }
+
+        setRawDestinations(items);
+        const transformed = transformDestinations(items, lat, lng);
+        setDestinations(transformed);
+
+        // Jika ada hasil pencarian teks, fokus ke hasil pertama
+        if (search.trim().length >= 2 && transformed.length > 0) {
+          setMapCenter(transformed[0].coordinates);
+          setZoomLevel(14);
+        }
+      } catch (error) {
+        console.error('Error fetching map destinations:', error);
+      } finally {
+        setIsLoading(false);
       }
+    },
+    [transformDestinations]
+  );
+
+  // Fungsi untuk meminta lokasi GPS perangkat
+  const requestDeviceGpsLocation = useCallback(() => {
+    if (typeof window === 'undefined') return;
+
+    if (!('geolocation' in navigator)) {
+      setIsGpsDenied(true);
+      setLocationMode('manual');
+      setActiveLocationName('Kota Bandung (Manual)');
+      setUserLocation({ lat: DEFAULT_CENTER[0], lng: DEFAULT_CENTER[1] });
+      fetchDestinationsData(DEFAULT_CENTER[0], DEFAULT_CENTER[1], radius, selectedCategory, searchQuery);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+
+        if (isInJawaBarat(latitude, longitude)) {
+          // Pengguna berada di dalam batas Jawa Barat
+          const loc = { lat: latitude, lng: longitude };
+          setUserLocation(loc);
+          setLocationMode('gps');
+          setActiveLocationName('Lokasi GPS Anda');
+          setMapCenter([latitude, longitude]);
+          setZoomLevel(14);
+          setIsOutsideJabar(false);
+          setIsGpsDenied(false);
+          setLocationAlertDismissed(true);
+          setIsLocationModalOpen(false);
+
+          fetchDestinationsData(latitude, longitude, radius, selectedCategory, searchQuery);
+        } else {
+          // Pengguna terdeteksi di luar Jawa Barat
+          setIsOutsideJabar(true);
+          setIsGpsDenied(false);
+          setLocationMode('manual');
+          setActiveLocationName('Kota Bandung (Acuan Jabar)');
+          const fallbackLoc = { lat: DEFAULT_CENTER[0], lng: DEFAULT_CENTER[1] };
+          setUserLocation(fallbackLoc);
+          setMapCenter(DEFAULT_CENTER);
+          setZoomLevel(12);
+
+          fetchDestinationsData(DEFAULT_CENTER[0], DEFAULT_CENTER[1], radius, selectedCategory, searchQuery);
+        }
+      },
+      (error) => {
+        console.warn('Geolocation access denied or error:', error.message);
+        setIsGpsDenied(true);
+        setIsOutsideJabar(false);
+        setLocationMode('manual');
+        setActiveLocationName('Kota Bandung (Manual)');
+        const fallbackLoc = { lat: DEFAULT_CENTER[0], lng: DEFAULT_CENTER[1] };
+        setUserLocation(fallbackLoc);
+        setMapCenter(DEFAULT_CENTER);
+        setZoomLevel(12);
+
+        fetchDestinationsData(DEFAULT_CENTER[0], DEFAULT_CENTER[1], radius, selectedCategory, searchQuery);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 9000,
+        maximumAge: 300000,
+      }
+    );
+  }, [fetchDestinationsData, isInJawaBarat, radius, searchQuery, selectedCategory]);
+
+  // Inisialisasi awal saat load
+  useEffect(() => {
+    requestDeviceGpsLocation();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Handler memilih opsi "Gunakan Lokasi Saat Ini (GPS)" dari Modal
+  const handleUseCurrentGps = () => {
+    requestDeviceGpsLocation();
+  };
+
+  // Handler untuk memilih preset kota manual di Jawa Barat
+  const handleSelectPresetCity = (city: { name: string; lat: number; lng: number }) => {
+    const loc = { lat: city.lat, lng: city.lng };
+    setUserLocation(loc);
+    setLocationMode('manual');
+    setActiveLocationName(city.name);
+    setMapCenter([city.lat, city.lng]);
+    setZoomLevel(14);
+    setIsOutsideJabar(false);
+    setIsGpsDenied(false);
+    setIsLocationModalOpen(false);
+    setLocationAlertDismissed(true);
+
+    fetchDestinationsData(city.lat, city.lng, radius, selectedCategory, searchQuery);
+  };
+
+  // Handler untuk submit alamat manual melalui geocoding
+  const handleManualGeocodeSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const query = manualAddressInput.trim();
+    if (!query) return;
+
+    setIsGeocoding(true);
+    try {
+      // Coba pencarian via OpenStreetMap Nominatim dibatasi Jawa Barat
+      const nominatimUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+        query + ', Jawa Barat'
+      )}&countrycodes=id&viewbox=106.36,-5.91,108.85,-7.82&bounded=1&limit=1`;
+
+      const res = await fetch(nominatimUrl);
+      const data = await res.json();
+
+      if (data && data.length > 0) {
+        const lat = parseFloat(data[0].lat);
+        const lng = parseFloat(data[0].lon);
+
+        const loc = { lat, lng };
+        setUserLocation(loc);
+        setLocationMode('manual');
+        setActiveLocationName(query);
+        setMapCenter([lat, lng]);
+        setZoomLevel(14);
+        setIsOutsideJabar(false);
+        setIsGpsDenied(false);
+        setIsLocationModalOpen(false);
+        setLocationAlertDismissed(true);
+
+        fetchDestinationsData(lat, lng, radius, selectedCategory, searchQuery);
+      } else {
+        // Jika nominatim tidak mengembalikan hasil, cari kesamaan dengan kota preset
+        const matchedCity = JABAR_PRESET_CITIES.find((c) =>
+          query.toLowerCase().includes(c.name.toLowerCase().replace('kota ', ''))
+        );
+
+        if (matchedCity) {
+          handleSelectPresetCity(matchedCity);
+        } else {
+          alert('Alamat tidak ditemukan di Jawa Barat. Silakan pilih salah satu kota populer di bawah.');
+        }
+      }
+    } catch (err) {
+      console.warn('Geocoding request failed:', err);
+      handleSelectPresetCity(JABAR_PRESET_CITIES[0]);
+    } finally {
+      setIsGeocoding(false);
     }
   };
 
-  // Trigger search when typing or selecting quick filter
+  // Handler saat user mengubah radius pencarian
+  const handleChangeRadius = (newRadius: number) => {
+    setRadius(newRadius);
+    const activeLat = userLocation?.lat || DEFAULT_CENTER[0];
+    const activeLng = userLocation?.lng || DEFAULT_CENTER[1];
+    fetchDestinationsData(activeLat, activeLng, newRadius, selectedCategory, searchQuery);
+  };
+
+  // Handler saat user toggle kategori
+  const handleToggleCategory = (category: string) => {
+    setSelectedCategory((prev) => (prev === category ? 'Semua' : category));
+    const nextCategory = selectedCategory === category ? 'Semua' : category;
+    const activeLat = userLocation?.lat || DEFAULT_CENTER[0];
+    const activeLng = userLocation?.lng || DEFAULT_CENTER[1];
+    fetchDestinationsData(activeLat, activeLng, radius, nextCategory, searchQuery);
+  };
+
+  // Handler Reset Filter
+  const handleResetFilter = () => {
+    setSelectedCategory('Semua');
+    setRadius(10);
+    setSearchQuery('');
+    const activeLat = userLocation?.lat || DEFAULT_CENTER[0];
+    const activeLng = userLocation?.lng || DEFAULT_CENTER[1];
+    fetchDestinationsData(activeLat, activeLng, 10, 'Semua', '');
+  };
+
+  // Handler saat search bar diinput (dengan debounce 350ms)
   const handleSearchChange = (query: string) => {
     setSearchQuery(query);
-    if (query.toLowerCase().includes('bogor') || query.trim().length >= 3) {
-      setShowResults(true);
-      if (selectedCategories.length === 0) {
-        setSelectedCategories(['Alam', 'Kuliner', 'Sejarah']);
-      }
-    } else if (query.trim().length === 0) {
-      setShowResults(false);
+
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+    }
+
+    searchDebounceRef.current = setTimeout(() => {
+      const activeLat = userLocation?.lat || DEFAULT_CENTER[0];
+      const activeLng = userLocation?.lng || DEFAULT_CENTER[1];
+      fetchDestinationsData(activeLat, activeLng, radius, selectedCategory, query);
+    }, 350);
+  };
+
+  // Handler Search Submit
+  const handleSearchSubmit = () => {
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+    }
+    const activeLat = userLocation?.lat || DEFAULT_CENTER[0];
+    const activeLng = userLocation?.lng || DEFAULT_CENTER[1];
+    fetchDestinationsData(activeLat, activeLng, radius, selectedCategory, searchQuery);
+  };
+
+  // Handler Re-center GPS Button
+  const handleRecenter = () => {
+    if (userLocation) {
+      setMapCenter([userLocation.lat, userLocation.lng]);
+      setZoomLevel(14);
     }
   };
 
-  // Handle Reset Filter
-  const handleResetFilter = () => {
-    setSelectedCategories([]);
-    setRadius(1);
-    setSearchQuery('');
-    setShowResults(false);
+  // Handler klik marker pada peta
+  const handleMarkerClick = (marker: MarkerData) => {
+    setActiveDestinationId(marker.id);
+    setMapCenter(marker.coordinates);
   };
 
-  // Handle Toggle Selection in Bottom Sheet
+  // Handler klik kartu destinasi pada bottom sheet
+  const handleDestinationCardClick = (dest: NearbyDestination) => {
+    setActiveDestinationId(dest.id);
+    setMapCenter(dest.coordinates);
+    setZoomLevel(15);
+  };
+
+  // Handler Toggle Selection Bookmark
   const handleToggleDestination = (id: string) => {
     setSelectedDestIds((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
     );
   };
 
-  // Flow Step: "Simpan Destinasi" -> Increment badge, close sheet, transition back to landing Peta.png
+  // Handler Simpan Destinasi ke Wishlist
   const handleSaveDestinations = (savedItems: NearbyDestination[]) => {
-    const newCount = (localFavoritCount || 0) + (savedItems.length > 0 ? 1 : 1);
+    const newCount = (localFavoritCount || 0) + (savedItems.length > 0 ? savedItems.length : 1);
     setLocalFavoritCount(newCount);
     onSaveToWishlist?.(newCount);
-
-    // Return back to landing Peta.png view as specified
-    setShowResults(false);
-    setIsFilterOpen(true); // Return to Peta.png landing filter state
   };
 
   // Handle BottomNav Tab Switching
@@ -140,9 +455,17 @@ export default function MapScreen({
     }
   };
 
-  // Active filter count for badge on filter button
+  // Convert destinations to MarkerData format for Leaflet
+  const mapMarkers: MarkerData[] = destinations.map((d) => ({
+    id: d.id,
+    label: d.name,
+    category: d.category,
+    coordinates: d.coordinates,
+  }));
+
+  // Badge count filter aktif
   const activeFiltersCount =
-    (selectedCategories.length > 0 ? 1 : 0) + (radius > 1 ? 1 : 0) || (showResults ? 2 : 0);
+    (selectedCategory !== 'Semua' ? 1 : 0) + (radius !== 10 ? 1 : 0);
 
   return (
     <div
@@ -154,70 +477,294 @@ export default function MapScreen({
         wishlistCount={localFavoritCount}
         onNotificationClick={onNotificationClick}
         onWishlistClick={onWishlistClick || onProfileClick}
-        className="shrink-0"
+        className="shrink-0 z-30"
       />
 
-      {/* 2. Floating Search Bar & Filter Button Overlay */}
+      {/* 2. Floating Search Bar & Location Controls */}
       <div className="absolute top-[68px] left-0 right-0 z-20">
         <SearchBar
           value={searchQuery}
           onChange={handleSearchChange}
           onClear={() => {
             setSearchQuery('');
-            setShowResults(false);
+            const activeLat = userLocation?.lat || DEFAULT_CENTER[0];
+            const activeLng = userLocation?.lng || DEFAULT_CENTER[1];
+            fetchDestinationsData(activeLat, activeLng, radius, selectedCategory, '');
           }}
           onSubmit={handleSearchSubmit}
           onFilterClick={() => setIsFilterOpen((prev) => !prev)}
-          filterBadgeCount={showResults ? activeFiltersCount : 0}
-          placeholder="Cari destinasi, kuliner, hiburan"
+          filterBadgeCount={activeFiltersCount}
+          placeholder="Cari destinasi wisata di Jawa Barat..."
         />
 
-        {/* 3. Floating Filter Eksplorasi Card (toggled or landing) */}
+        {/* Dedicated Location Setting Bar */}
+        <div className="px-5 mt-2 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => setIsLocationModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-white/95 backdrop-blur-xs hover:bg-white border border-gray-200/90 rounded-full shadow-[0_2px_8px_rgba(0,0,0,0.06)] text-xs font-semibold text-gray-800 transition-all active:scale-95 cursor-pointer group"
+          >
+            <div
+              className={`w-2 h-2 rounded-full shrink-0 ${
+                locationMode === 'gps'
+                  ? 'bg-[#10B981] animate-pulse'
+                  : 'bg-[#4941EC]'
+              }`}
+            />
+            <MapPin className="w-3.5 h-3.5 text-[#4941EC] shrink-0" />
+            <span className="truncate max-w-[190px]">
+              {locationMode === 'gps'
+                ? 'Lokasi GPS Anda'
+                : activeLocationName}
+            </span>
+            <span className="text-[10px] text-[#4941EC] font-bold group-hover:underline ml-1">
+              Atur Titik
+            </span>
+          </button>
+
+          {/* Quick Radius Indicator */}
+          <span className="text-[11px] font-bold text-gray-600 bg-white/90 backdrop-blur-xs px-2.5 py-1 rounded-full border border-gray-200/80 shadow-2xs">
+            Radius {radius} km
+          </span>
+        </div>
+
+        {/* 3. Floating Filter Eksplorasi Card */}
         {isFilterOpen && (
-          <div className="px-5 mt-1">
+          <div className="px-5 mt-2">
             <MapExplorationFilter
-              selectedCategories={selectedCategories}
+              selectedCategory={selectedCategory}
               onToggleCategory={handleToggleCategory}
               radius={radius}
-              onChangeRadius={(r) => {
-                setRadius(r);
-                if (!showResults) {
-                  setSearchQuery('Kota Bogor');
-                  setShowResults(true);
-                }
-              }}
+              onChangeRadius={handleChangeRadius}
               onReset={handleResetFilter}
             />
           </div>
         )}
+
+        {/* 4. Alert Banner: Di Luar Jawa Barat ATAU GPS Ditolak */}
+        {(isOutsideJabar || isGpsDenied) && !locationAlertDismissed && (
+          <div className="px-5 mt-2 animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="bg-amber-50/95 backdrop-blur-xs border border-amber-200 rounded-2xl p-3 shadow-[0_4px_16px_rgba(245,158,11,0.15)] flex items-start gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-amber-100 flex items-center justify-center shrink-0 text-amber-600 mt-0.5">
+                <AlertTriangle className="w-4 h-4 stroke-[2.2]" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h4 className="text-xs font-bold text-amber-900 leading-tight">
+                  {isOutsideJabar
+                    ? 'Lokasi di Luar Jawa Barat'
+                    : 'Izin Lokasi (GPS) Tidak Aktif'}
+                </h4>
+                <p className="text-[11px] text-amber-700 mt-0.5 leading-snug">
+                  {isOutsideJabar
+                    ? 'Titik GPS Anda berada di luar Jawa Barat. Silakan tentukan titik alamat manual untuk mencari destinasi terdekat.'
+                    : 'Aktifkan GPS atau tentukan alamat manual di Jawa Barat untuk mencari destinasi terdekat.'}
+                </p>
+
+                {/* Tombol aksi cepat */}
+                <div className="flex items-center gap-2 mt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsLocationModalOpen(true)}
+                    className="bg-[#4941EC] hover:bg-[#3C35C7] text-white text-[11px] font-semibold px-2.5 py-1 rounded-lg transition-all active:scale-95 cursor-pointer shadow-2xs flex items-center gap-1"
+                  >
+                    <MapPin className="w-3 h-3" />
+                    <span>Pilih Lokasi</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLocationAlertDismissed(true)}
+                    className="text-amber-800 hover:text-amber-950 text-[11px] font-medium px-2 py-1 cursor-pointer"
+                  >
+                    Nanti Saja
+                  </button>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setLocationAlertDismissed(true)}
+                aria-label="Tutup pesan"
+                className="text-amber-500 hover:text-amber-700 p-1 cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* 4. Fullscreen / Interactive Leaflet WebGIS Map Background */}
+      {/* 5. Fullscreen Interactive Leaflet WebGIS Map */}
       <main className="relative flex-1 w-full h-full overflow-hidden">
         <WebGisMap
-          center={[-6.5982, 106.8028]}
-          zoom={16}
-          showRouteAndMarkers={showResults}
+          center={mapCenter}
+          zoom={zoomLevel}
+          userLocation={userLocation}
+          radiusKm={radius}
+          markers={mapMarkers}
+          selectedMarkerId={activeDestinationId}
+          onMarkerClick={handleMarkerClick}
+          onRecenter={handleRecenter}
         />
       </main>
 
-      {/* 5. Floating Bottom Sheet: Hasil Sekitar (when results are active) */}
-      {showResults && (
-        <div className="absolute bottom-16 left-0 right-0 z-20 max-w-[480px] mx-auto">
-          <NearbyResultsSheet
-            selectedIds={selectedDestIds}
-            onToggleSelect={handleToggleDestination}
-            onSaveDestinations={handleSaveDestinations}
-          />
+      {/* 6. Floating Bottom Sheet: Hasil Destinasi Sekitar */}
+      <div className="absolute bottom-16 left-0 right-0 z-20 max-w-[480px] mx-auto">
+        <NearbyResultsSheet
+          destinations={destinations}
+          selectedIds={selectedDestIds}
+          isLoading={isLoading}
+          onToggleSelect={handleToggleDestination}
+          onItemClick={handleDestinationCardClick}
+          onSaveDestinations={handleSaveDestinations}
+        />
+      </div>
+
+      {/* 7. Modal Titikkan Lokasi: Pilihan GPS atau Masukkan Lokasi Manual */}
+      {isLocationModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl w-full max-w-[440px] p-5 shadow-2xl border border-gray-100 flex flex-col gap-4 animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-[#EEF0FF] text-[#4941EC] flex items-center justify-center">
+                  <Compass className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900">
+                    Tentukan Titik Acuan Lokasi
+                  </h3>
+                  <p className="text-[11px] text-gray-500">
+                    Pilih metode penentuan titik pencarian destinasi
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsLocationModalOpen(false)}
+                className="w-8 h-8 rounded-full hover:bg-gray-100 text-gray-400 flex items-center justify-center cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Pilihan 1: Gunakan Lokasi Saat Ini (GPS) */}
+            <button
+              type="button"
+              onClick={handleUseCurrentGps}
+              className={`w-full flex items-center justify-between p-3.5 rounded-2xl border transition-all active:scale-98 cursor-pointer text-left group ${
+                locationMode === 'gps'
+                  ? 'bg-[#EEF0FF] border-[#4941EC]'
+                  : 'bg-gray-50 hover:bg-[#EEF0FF]/50 border-gray-200 hover:border-[#4941EC]/40'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-2xs ${
+                    locationMode === 'gps'
+                      ? 'bg-[#4941EC] text-white'
+                      : 'bg-white text-[#4941EC] border border-gray-200'
+                  }`}
+                >
+                  <Locate className="w-5 h-5 stroke-[2.2]" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <h4 className="text-xs font-bold text-gray-900 group-hover:text-[#4941EC] transition-colors">
+                      Gunakan Lokasi Saat Ini (GPS)
+                    </h4>
+                    {locationMode === 'gps' && (
+                      <span className="text-[10px] bg-[#10B981] text-white font-bold px-1.5 py-0.2 rounded-md">
+                        Aktif
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-gray-500 mt-0.5">
+                    Deteksi koordinat GPS langsung dari perangkat Anda
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-[#4941EC] shrink-0 ml-2" />
+            </button>
+
+            {/* Divider */}
+            <div className="relative flex items-center justify-center my-0.5">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-200" />
+              </div>
+              <span className="relative px-3 bg-white text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                Atau Masukkan Lokasi Manual
+              </span>
+            </div>
+
+            {/* Pilihan 2: Form Input Alamat Manual */}
+            <form onSubmit={handleManualGeocodeSubmit} className="flex flex-col gap-2">
+              <label className="text-xs font-semibold text-gray-700">
+                Tulis Nama Alamat / Tempat di Jawa Barat:
+              </label>
+              <div className="relative flex items-center">
+                <input
+                  type="text"
+                  value={manualAddressInput}
+                  onChange={(e) => setManualAddressInput(e.target.value)}
+                  placeholder="Contoh: Jl. Dago, Bandung atau Lembang"
+                  className="w-full text-xs py-2.5 pl-3 pr-20 bg-gray-50 border border-gray-200 rounded-xl focus:border-[#4941EC] focus:bg-white outline-none text-gray-800 placeholder-gray-400 transition-all"
+                />
+                <button
+                  type="submit"
+                  disabled={isGeocoding || !manualAddressInput.trim()}
+                  className="absolute right-1.5 px-3 py-1.5 bg-[#4941EC] hover:bg-[#3C35C7] disabled:bg-gray-300 text-white text-xs font-semibold rounded-lg transition-all active:scale-95 cursor-pointer"
+                >
+                  {isGeocoding ? 'Mencari...' : 'Terapkan'}
+                </button>
+              </div>
+            </form>
+
+            {/* Pilihan 3: Quick Preset Cities in Jabar */}
+            <div>
+              <span className="block text-xs font-semibold text-gray-600 mb-2">
+                Pilih Kota Populer di Jawa Barat:
+              </span>
+              <div className="grid grid-cols-2 gap-2 max-h-[160px] overflow-y-auto no-scrollbar pr-0.5">
+                {JABAR_PRESET_CITIES.map((city) => {
+                  const isCityActive =
+                    locationMode === 'manual' && activeLocationName === city.name;
+
+                  return (
+                    <button
+                      key={city.name}
+                      type="button"
+                      onClick={() => handleSelectPresetCity(city)}
+                      className={`flex items-center gap-2 p-2.5 rounded-xl text-left transition-all active:scale-95 cursor-pointer group border ${
+                        isCityActive
+                          ? 'bg-[#EEF0FF] border-[#4941EC]'
+                          : 'bg-gray-50 hover:bg-[#EEF0FF]/50 border-gray-100 hover:border-[#4941EC]/30'
+                      }`}
+                    >
+                      <MapPin
+                        className={`w-3.5 h-3.5 shrink-0 ${
+                          isCityActive ? 'text-[#4941EC]' : 'text-gray-400 group-hover:text-[#4941EC]'
+                        }`}
+                      />
+                      <span
+                        className={`text-xs font-semibold truncate ${
+                          isCityActive
+                            ? 'text-[#4941EC]'
+                            : 'text-gray-800 group-hover:text-[#4941EC]'
+                        }`}
+                      >
+                        {city.name}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* 6. Fixed Bottom Navigation Bar */}
+      {/* 8. Fixed Bottom Navigation Bar */}
       <div className="shrink-0 w-full z-30">
-        <BottomNav
-          activeTab="peta"
-          onTabChange={handleTabChange}
-        />
+        <BottomNav activeTab="peta" onTabChange={handleTabChange} />
       </div>
     </div>
   );

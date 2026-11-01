@@ -1,9 +1,20 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Filter, Check, Plus } from 'lucide-react';
+import { getCategories, ApiCategory } from '@/lib/api';
+
+export const DEFAULT_MAP_CATEGORIES = [
+  'Semua',
+  'Wisata Alam & Terbuka',
+  'Modern & Lifestyle',
+  'Publik & Edukasi',
+  'Rekreasi Keluarga',
+];
 
 interface MapExplorationFilterProps {
+  categories?: string[];
+  selectedCategory?: string;
   selectedCategories?: string[];
   onToggleCategory?: (category: string) => void;
   radius?: number; // 1 | 10 | 25
@@ -12,17 +23,52 @@ interface MapExplorationFilterProps {
   className?: string;
 }
 
-const CATEGORIES = ['Alam', 'Kuliner', 'Sejarah', 'Modern'];
 const RADIUS_STEPS = [1, 10, 25];
 
 export default function MapExplorationFilter({
-  selectedCategories = [],
+  categories: initialCategories,
+  selectedCategory = 'Semua',
+  selectedCategories,
   onToggleCategory,
-  radius = 1,
+  radius = 10,
   onChangeRadius,
   onReset,
   className = '',
 }: MapExplorationFilterProps) {
+  const [categoriesList, setCategoriesList] = useState<string[]>(
+    initialCategories || DEFAULT_MAP_CATEGORIES
+  );
+
+  useEffect(() => {
+    if (initialCategories && initialCategories.length > 0) {
+      setCategoriesList(initialCategories);
+      return;
+    }
+
+    let isMounted = true;
+    getCategories()
+      .then((items: ApiCategory[]) => {
+        if (isMounted && items && items.length > 0) {
+          const names = ['Semua', ...items.map((c) => c.name)];
+          setCategoriesList(names);
+        }
+      })
+      .catch((err) => {
+        console.warn('Failed to load categories from API, using default list:', err);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [initialCategories]);
+
+  const isCategorySelected = (cat: string) => {
+    if (selectedCategories && selectedCategories.length > 0) {
+      return selectedCategories.includes(cat);
+    }
+    return selectedCategory === cat;
+  };
+
   return (
     <div
       className={`bg-white rounded-2xl p-4 shadow-[0_8px_24px_rgba(0,0,0,0.08)] border border-gray-100 select-none animate-in fade-in slide-in-from-top-3 duration-200 ${className}`}
@@ -44,23 +90,23 @@ export default function MapExplorationFilter({
         </button>
       </div>
 
-      {/* Destinasi Section */}
+      {/* Destinasi Kategori Section */}
       <div className="mb-3">
         <span className="block text-xs text-gray-600 font-medium mb-2">
-          Destinasi
+          Kategori Wisata
         </span>
-        <div className="grid grid-cols-4 gap-2">
-          {CATEGORIES.map((category) => {
-            const isSelected = selectedCategories.includes(category);
+        <div className="flex flex-wrap gap-1.5">
+          {categoriesList.map((category) => {
+            const isSelected = isCategorySelected(category);
             return (
               <button
                 key={category}
                 type="button"
                 onClick={() => onToggleCategory?.(category)}
-                className={`flex items-center justify-center gap-1 py-1.5 px-2 rounded-xl text-xs font-semibold transition-all active:scale-95 cursor-pointer border ${
+                className={`flex items-center justify-center gap-1 py-1.5 px-2.5 rounded-xl text-xs font-semibold transition-all active:scale-95 cursor-pointer border ${
                   isSelected
                     ? 'bg-[#4941EC] border-[#4941EC] text-white shadow-xs'
-                    : 'bg-white border-[#4941EC] text-[#4941EC] hover:bg-[#4941EC]/5'
+                    : 'bg-white border-gray-200 text-gray-700 hover:border-[#4941EC] hover:text-[#4941EC]'
                 }`}
               >
                 {isSelected ? (
@@ -78,7 +124,7 @@ export default function MapExplorationFilter({
       {/* Jangkauan Radius Section */}
       <div>
         <span className="block text-xs text-gray-600 font-medium mb-2">
-          Jangkauan Radius
+          Jangkauan Radius dari Titik Anda
         </span>
 
         {/* Custom Segmented Radius Slider */}
@@ -91,7 +137,7 @@ export default function MapExplorationFilter({
             className="absolute top-2.5 left-2 h-1 bg-[#4941EC] rounded-full transition-all duration-300"
             style={{
               width:
-                radius === 1 ? '0%' : radius === 10 ? '50%' : '100%',
+                radius <= 1 ? '0%' : radius <= 10 ? '50%' : '100%',
             }}
           />
 
@@ -121,7 +167,7 @@ export default function MapExplorationFilter({
                         : 'text-gray-500'
                     }`}
                   >
-                    {step}km
+                    {step} km
                   </span>
                 </button>
               );

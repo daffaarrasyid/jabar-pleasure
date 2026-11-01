@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Star, ChevronDown } from 'lucide-react';
+import { Star, ChevronDown, MapPin, Navigation, Compass } from 'lucide-react';
+import { ApiDestination } from '@/lib/api';
 
 export interface NearbyDestination {
   id: string;
@@ -13,63 +14,19 @@ export interface NearbyDestination {
   ratingCountText: string;
   image: string;
   coordinates: [number, number];
+  raw?: ApiDestination;
 }
 
 interface NearbyResultsSheetProps {
   destinations?: NearbyDestination[];
   selectedIds?: string[];
   onToggleSelect?: (id: string) => void;
+  onItemClick?: (dest: NearbyDestination) => void;
   onSaveDestinations?: (selectedDestinations: NearbyDestination[]) => void;
   defaultMinimized?: boolean;
+  isLoading?: boolean;
   className?: string;
 }
-
-const DEFAULT_DESTINATIONS: NearbyDestination[] = [
-  {
-    id: 'krb-1',
-    name: 'Kebun Raya Bogor',
-    category: 'Alam',
-    distance: '2.4 km',
-    regency: 'Bogor Tengah, Kota Bogor',
-    rating: 4.8,
-    ratingCountText: '1rb+ rating',
-    image: '/kebun-raya-bogor.jpg',
-    coordinates: [-6.595, 106.7972],
-  },
-  {
-    id: 'krb-2',
-    name: 'Kebun Raya Bogor',
-    category: 'Alam',
-    distance: '2.4 km',
-    regency: 'Bogor Tengah, Kota Bogor',
-    rating: 4.8,
-    ratingCountText: '1rb+ rating',
-    image: '/kebun-raya-bogor.jpg',
-    coordinates: [-6.5962, 106.7995],
-  },
-  {
-    id: 'krb-3',
-    name: 'Kebun Raya Bogor',
-    category: 'Alam',
-    distance: '2.4 km',
-    regency: 'Bogor Tengah, Kota Bogor',
-    rating: 4.8,
-    ratingCountText: '1rb+ rating',
-    image: '/kebun-raya-bogor.jpg',
-    coordinates: [-6.6015, 106.8062],
-  },
-  {
-    id: 'krb-4',
-    name: 'Kebun Raya Bogor',
-    category: 'Alam',
-    distance: '2.4 km',
-    regency: 'Bogor Tengah, Kota Bogor',
-    rating: 4.8,
-    ratingCountText: '1rb+ rating',
-    image: '/kebun-raya-bogor.jpg',
-    coordinates: [-6.5982, 106.8028],
-  },
-];
 
 // Precision custom vector icon matching the green signpost in the mockup
 function SignpostIcon({ className = 'w-5 h-5' }: { className?: string }) {
@@ -81,11 +38,13 @@ function SignpostIcon({ className = 'w-5 h-5' }: { className?: string }) {
 }
 
 export default function NearbyResultsSheet({
-  destinations = DEFAULT_DESTINATIONS,
-  selectedIds = ['krb-1'],
+  destinations = [],
+  selectedIds = [],
   onToggleSelect,
+  onItemClick,
   onSaveDestinations,
   defaultMinimized = false,
+  isLoading = false,
   className = '',
 }: NearbyResultsSheetProps) {
   const [internalSelected, setInternalSelected] = useState<string[]>(selectedIds);
@@ -106,7 +65,7 @@ export default function NearbyResultsSheet({
 
   const handleSave = () => {
     const toSave = destinations.filter((d) => activeSelected.includes(d.id));
-    onSaveDestinations?.(toSave.length > 0 ? toSave : [destinations[0]]);
+    onSaveDestinations?.(toSave.length > 0 ? toSave : destinations.slice(0, 1));
   };
 
   // Touch Swipe Gesture for dragging handle to minimize/expand
@@ -169,7 +128,7 @@ export default function NearbyResultsSheet({
             Hasil Sekitar
           </h3>
           <span className="bg-[#D1FAE5] text-[#059669] text-[11px] font-semibold px-2 py-0.5 rounded-md">
-            {destinations.length} ditemukan
+            {isLoading ? 'Memuat...' : `${destinations.length} ditemukan`}
           </span>
         </div>
 
@@ -196,81 +155,123 @@ export default function NearbyResultsSheet({
             : 'max-h-[460px] opacity-100 pointer-events-auto'
         }`}
       >
+        {/* Loading State */}
+        {isLoading && (
+          <div className="flex flex-col items-center justify-center py-8">
+            <div className="w-8 h-8 border-3 border-[#4941EC] border-t-transparent rounded-full animate-spin mb-2" />
+            <p className="text-xs text-gray-500 font-medium">Mencari destinasi di sekitar Anda...</p>
+          </div>
+        )}
+
+        {/* Empty State */}
+        {!isLoading && destinations.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-6 px-4 text-center">
+            <div className="w-12 h-12 bg-[#EEF0FF] rounded-2xl flex items-center justify-center mb-2.5 text-[#4941EC]">
+              <Compass className="w-6 h-6 animate-pulse" />
+            </div>
+            <h4 className="text-xs sm:text-sm font-bold text-gray-900">
+              Belum Ada Destinasi di Radius Ini
+            </h4>
+            <p className="text-[11px] text-gray-500 mt-1 max-w-[280px]">
+              Coba perbesar radius pencarian (mis. 10km atau 25km) atau geser titik lokasi di Jawa Barat.
+            </p>
+          </div>
+        )}
+
         {/* Destination Items List (scrollable) */}
-        <div className="flex flex-col gap-2.5 max-h-[290px] overflow-y-auto no-scrollbar pr-0.5 mb-3 pt-1">
-          {destinations.map((dest) => {
-            const isSelected = activeSelected.includes(dest.id);
+        {!isLoading && destinations.length > 0 && (
+          <>
+            <div className="flex flex-col gap-2.5 max-h-[290px] overflow-y-auto no-scrollbar pr-0.5 mb-3 pt-1">
+              {destinations.map((dest) => {
+                const isSelected = activeSelected.includes(dest.id);
 
-            return (
-              <div
-                key={dest.id}
-                className="flex items-center gap-3 p-2 bg-white rounded-2xl border border-gray-100 hover:border-gray-200 shadow-2xs transition-all"
-              >
-                {/* Thumbnail */}
-                <div className="relative w-[76px] h-[76px] rounded-xl overflow-hidden bg-gray-100 shrink-0">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={dest.image}
-                    alt={dest.name}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
+                return (
+                  <div
+                    key={dest.id}
+                    onClick={() => onItemClick?.(dest)}
+                    className="flex items-center gap-3 p-2 bg-white rounded-2xl border border-gray-100 hover:border-[#4941EC]/40 hover:shadow-xs shadow-2xs transition-all cursor-pointer group"
+                  >
+                    {/* Thumbnail */}
+                    <div className="relative w-[76px] h-[76px] rounded-xl overflow-hidden bg-gray-100 shrink-0">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={dest.image || '/gedung-sate.jpg'}
+                        alt={dest.name}
+                        onError={(e) => {
+                          // Fallback to placeholder if image fails to load
+                          (e.target as HTMLImageElement).src = '/gedung-sate.jpg';
+                        }}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                    </div>
 
-                {/* Details */}
-                <div className="flex-1 min-w-0 flex flex-col justify-center">
-                  <span className="inline-block bg-[#EEF0FF] text-[#4941EC] text-[10px] font-semibold px-2 py-0.5 rounded-md w-fit">
-                    {dest.category}
-                  </span>
+                    {/* Details */}
+                    <div className="flex-1 min-w-0 flex flex-col justify-center">
+                      <span className="inline-block bg-[#EEF0FF] text-[#4941EC] text-[10px] font-semibold px-2 py-0.5 rounded-md w-fit">
+                        {dest.category}
+                      </span>
 
-                  <h4 className="text-xs sm:text-sm font-bold text-gray-900 truncate mt-1">
-                    {dest.name}
-                  </h4>
+                      <h4 className="text-xs sm:text-sm font-bold text-gray-900 truncate mt-1">
+                        {dest.name}
+                      </h4>
 
-                  <p className="text-[11px] text-gray-500 truncate mt-0.5">
-                    {dest.distance} &ndash; {dest.regency}
-                  </p>
+                      <p className="text-[11px] text-gray-500 truncate mt-0.5 flex items-center gap-1">
+                        <MapPin className="w-3 h-3 text-[#4941EC] shrink-0" />
+                        <span>{dest.distance} &ndash; {dest.regency}</span>
+                      </p>
 
-                  <div className="flex items-center gap-1 mt-1">
-                    <Star className="w-3 h-3 fill-[#EDAD40] text-[#EDAD40]" />
-                    <span className="text-[11px] font-semibold text-gray-700">
-                      {dest.rating}
-                    </span>
-                    <span className="text-[11px] text-gray-400">&ndash;</span>
-                    <span className="text-[11px] text-gray-500">
-                      {dest.ratingCountText}
-                    </span>
+                      <div className="flex items-center gap-2 mt-1">
+                        <div className="flex items-center gap-1">
+                          <Star className="w-3 h-3 fill-[#EDAD40] text-[#EDAD40]" />
+                          <span className="text-[11px] font-semibold text-gray-700">
+                            {dest.rating}
+                          </span>
+                        </div>
+                        <span className="text-[11px] text-gray-400">&ndash;</span>
+                        <a
+                          href={`https://www.google.com/maps/dir/?api=1&destination=${dest.coordinates[0]},${dest.coordinates[1]}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-[10px] text-[#4941EC] hover:underline flex items-center gap-0.5 font-medium ml-auto"
+                        >
+                          <Navigation className="w-2.5 h-2.5" />
+                          Rute
+                        </a>
+                      </div>
+                    </div>
+
+                    {/* Signpost Bookmark Action Button */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleToggle(dest.id);
+                      }}
+                      aria-label={`Pilih ${dest.name}`}
+                      className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all active:scale-95 cursor-pointer ${
+                        isSelected
+                          ? 'bg-[#60CE9F] text-white shadow-xs'
+                          : 'bg-[#D1FAE5] text-white/90 hover:bg-[#60CE9F]'
+                      }`}
+                    >
+                      <SignpostIcon className="w-5 h-5 text-white" />
+                    </button>
                   </div>
-                </div>
+                );
+              })}
+            </div>
 
-                {/* Signpost Bookmark Action Button */}
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleToggle(dest.id);
-                  }}
-                  aria-label={`Pilih ${dest.name}`}
-                  className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all active:scale-95 cursor-pointer ${
-                    isSelected
-                      ? 'bg-[#60CE9F] text-white shadow-xs'
-                      : 'bg-[#D1FAE5] text-white/90 hover:bg-[#60CE9F]'
-                  }`}
-                >
-                  <SignpostIcon className="w-5 h-5 text-white" />
-                </button>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Primary CTA: Simpan Destinasi */}
-        <button
-          type="button"
-          onClick={handleSave}
-          className="w-full py-3.5 bg-[#4941EC] hover:bg-[#3C35C7] text-white font-semibold text-sm rounded-xl shadow-[0_4px_12px_rgba(73,65,236,0.3)] active:scale-98 transition-all cursor-pointer flex items-center justify-center"
-        >
-          Simpan Destinasi
-        </button>
+            {/* Primary CTA: Simpan Destinasi */}
+            <button
+              type="button"
+              onClick={handleSave}
+              className="w-full py-3.5 bg-[#4941EC] hover:bg-[#3C35C7] text-white font-semibold text-sm rounded-xl shadow-[0_4px_12px_rgba(73,65,236,0.3)] active:scale-98 transition-all cursor-pointer flex items-center justify-center"
+            >
+              Simpan Destinasi Ke Rencana
+            </button>
+          </>
+        )}
       </div>
     </div>
   );

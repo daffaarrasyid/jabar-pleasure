@@ -104,8 +104,9 @@ class DestinationController extends Controller
     {
         $lat = (float) $request->input('lat', -6.9175);
         $lng = (float) $request->input('lng', 107.6191);
+        $hasExplicitRadius = $request->has('radius');
         $radiusKm = (float) $request->input('radius', 5.0);
-        $limit = min((int) $request->input('limit', 6), 20);
+        $limit = min((int) $request->input('limit', 20), 50);
         $category = $request->input('category');
 
         $query = Destination::with(['category:id,name,slug', 'regency:id,name'])
@@ -118,8 +119,8 @@ class DestinationController extends Controller
 
         $items = $query->limit($limit)->get();
 
-        // If radius is strict (5km) and returns fewer than 3 items, expand search slightly to provide helpful recommendations
-        if ($items->count() < 3 && $radiusKm <= 5.0) {
+        // Only expand search to 25km fallback if caller did NOT specify an explicit radius (e.g. general home screen overview)
+        if (!$hasExplicitRadius && $items->count() < 3) {
             $fallbackQuery = Destination::with(['category:id,name,slug', 'regency:id,name'])
                 ->withCoordinates()
                 ->nearby($lat, $lng, 25.0);
