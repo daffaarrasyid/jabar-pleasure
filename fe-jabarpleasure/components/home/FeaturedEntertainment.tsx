@@ -41,30 +41,31 @@ export default function FeaturedEntertainment({
   onItemClick,
   className = '',
 }: FeaturedEntertainmentProps) {
-  const [destinations, setDestinations] = useState<FeaturedItem[]>(initialItems || []);
+  const [destinations, setDestinations] = useState<FeaturedItem[]>(
+    initialItems ? initialItems.slice(0, 5) : []
+  );
   const [isLoading, setIsLoading] = useState<boolean>(!initialItems);
 
   useEffect(() => {
     if (initialItems && initialItems.length > 0) {
-      setDestinations(initialItems);
-      setIsLoading(false);
       return;
     }
 
     let isMounted = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsLoading(true);
 
     getFeaturedDestinations({
       category: selectedCategory !== 'Semua' ? selectedCategory : undefined,
       lat: userCoords?.lat ?? -6.9175,
       lng: userCoords?.lng ?? 107.6191,
-      limit: 4,
+      limit: 5,
     })
       .then((data: ApiDestination[]) => {
         if (!isMounted) return;
 
         if (data && data.length > 0) {
-          const mapped: FeaturedItem[] = data.map((dest, idx) => {
+          const mapped: FeaturedItem[] = data.slice(0, 5).map((dest, idx) => {
             const fallbackImg = FALLBACK_IMAGES[idx % FALLBACK_IMAGES.length];
             const distanceStr = dest.distance_km ? `${dest.distance_km} km` : 'Terdekat';
 
@@ -105,7 +106,7 @@ export default function FeaturedEntertainment({
             Tempat Hiburan untuk Anda
           </h2>
           <p className="text-xs text-gray-500 mt-0.5">
-            Kurasi destinasi berbasis pola penjelajahan
+            Kurasi 5 destinasi terbaik berbasis minat
           </p>
         </div>
         <button
@@ -117,14 +118,20 @@ export default function FeaturedEntertainment({
         </button>
       </div>
 
-      {/* Loading Skeleton */}
+      {/* Loading Skeleton - Horizontal Scroll */}
       {isLoading ? (
-        <div className="grid grid-cols-2 gap-3 min-w-0">
-          {[1, 2].map((n) => (
-            <div key={n} className="flex flex-col bg-white rounded-2xl overflow-hidden animate-pulse">
-              <div className="w-full aspect-[4/3] bg-gray-200" />
-              <div className="p-2.5 space-y-2">
-                <div className="h-4 bg-gray-200 rounded w-1/3" />
+        <div className="flex gap-3.5 overflow-x-auto no-scrollbar pb-2">
+          {[1, 2, 3].map((n) => (
+            <div
+              key={n}
+              className="w-[195px] shrink-0 flex flex-col bg-white rounded-2xl overflow-hidden border border-gray-100 animate-pulse"
+            >
+              <div className="w-full h-[120px] bg-gray-200" />
+              <div className="p-3 space-y-2">
+                <div className="flex justify-between items-center">
+                  <div className="h-4 bg-gray-200 rounded w-1/3" />
+                  <div className="h-4 bg-gray-200 rounded w-1/4" />
+                </div>
                 <div className="h-4 bg-gray-200 rounded w-3/4" />
                 <div className="h-3 bg-gray-200 rounded w-1/2" />
               </div>
@@ -138,30 +145,29 @@ export default function FeaturedEntertainment({
           </p>
         </div>
       ) : (
-        /* 2-Card Row Grid matching mockup */
-        <div className="grid grid-cols-2 gap-3 min-w-0">
-          {destinations.map((item) => (
+        /* Horizontal Scroll Carousel - limited to 5 items */
+        <div className="flex gap-3.5 overflow-x-auto no-scrollbar pb-2 pt-0.5">
+          {destinations.slice(0, 5).map((item) => (
             <div
               key={item.id}
               onClick={() => onItemClick?.(item)}
-              className="min-w-0 group flex flex-col bg-white rounded-2xl overflow-hidden cursor-pointer transition-all duration-200 hover:-translate-y-0.5"
+              className="w-[195px] shrink-0 snap-start group flex flex-col bg-white rounded-2xl overflow-hidden cursor-pointer transition-all duration-200 hover:-translate-y-0.5 border border-gray-100/90 shadow-xs hover:shadow-md"
             >
               {/* Card Image */}
-              <div className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden bg-gray-100">
+              <div className="relative w-full h-[120px] bg-gray-100 overflow-hidden">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={item.image}
                   alt={item.name}
                   onError={(e) => {
-                    // Fallback if image fails to load
                     (e.target as HTMLImageElement).src = '/tangkuban-parahu.jpg';
                   }}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                 />
               </div>
 
-              {/* Badges & Meta Row */}
-              <div className="pt-2.5 pb-1 flex flex-col gap-1">
+              {/* Card Meta & Content */}
+              <div className="p-3 flex flex-col gap-1.5 flex-1">
                 <div className="flex items-center justify-between">
                   <span className="bg-[#4941EC] text-white text-[10px] font-semibold px-2 py-0.5 rounded-md truncate max-w-[100px]">
                     {item.category}
@@ -175,14 +181,17 @@ export default function FeaturedEntertainment({
                 </div>
 
                 {/* Destination Title */}
-                <h3 className="text-sm font-bold text-gray-900 truncate mt-0.5 group-hover:text-[#4941EC] transition-colors" title={item.name}>
+                <h3
+                  className="text-xs sm:text-sm font-bold text-gray-900 truncate mt-0.5 group-hover:text-[#4941EC] transition-colors"
+                  title={item.name}
+                >
                   {item.name}
                 </h3>
 
                 {/* Distance & Location */}
-                <div className="flex items-center gap-1.5 text-xs text-gray-500 truncate">
+                <div className="flex items-center gap-1.5 text-xs text-gray-500 truncate mt-auto pt-0.5">
                   <Navigation className="w-3 h-3 text-[#60CE9F] fill-[#60CE9F] shrink-0 rotate-45" />
-                  <span className="truncate">{item.distance} - {item.regency}</span>
+                  <span className="truncate">{item.distance} • {item.regency}</span>
                 </div>
               </div>
             </div>

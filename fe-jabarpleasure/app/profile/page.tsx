@@ -9,8 +9,18 @@ import { getAuthToken, removeAuthToken } from '@/lib/auth';
 
 export default function ProfilePage() {
   const router = useRouter();
-  const [user, setUser] = useState<UserProfileData | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [user, setUser] = useState<UserProfileData | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('user');
+        if (stored) return JSON.parse(stored);
+      } catch (e) {
+        console.warn('Failed to parse cached user:', e);
+      }
+    }
+    return null;
+  });
+  const [, setIsLoading] = useState<boolean>(true);
   const [toast, setToast] = useState<{
     message: string;
     type: 'success' | 'info' | 'error';
@@ -113,7 +123,7 @@ export default function ProfilePage() {
 
     showToast('Anda telah keluar dari akun.', 'info');
     setTimeout(() => {
-      window.location.href = '/login';
+      router.push('/login');
     }, 600);
   };
 
@@ -131,11 +141,11 @@ export default function ProfilePage() {
         wishlistCount={user?.statistics?.wishlist_count ?? 4}
         onNavigateToHome={() => router.push('/home')}
         onNavigateToMap={() => router.push('/map')}
-        onNavigateToWishlist={() => showToast('Membuka halaman Wishlist', 'info')}
-        onNavigateToRencana={() => router.push('/home')}
-        onNavigateToRiwayat={() => router.push('/home')}
+        onNavigateToWishlist={() => router.push('/home?tab=wishlist')}
+        onNavigateToRencana={() => router.push('/home?tab=rencana')}
+        onNavigateToRiwayat={() => router.push('/home?tab=riwayat')}
         onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
-        onWishlistClick={() => showToast('Membuka halaman Wishlist', 'info')}
+        onWishlistClick={() => router.push('/home?tab=wishlist')}
         onEditProfile={() => showToast('Fitur edit profil sedang disiapkan', 'info')}
         onItemClick={(title) => showToast(`Membuka menu ${title}`, 'info')}
         onLogout={handleLogout}

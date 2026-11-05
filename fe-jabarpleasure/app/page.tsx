@@ -25,6 +25,7 @@ import DestinationDocScreen from '@/components/history/DestinationDocScreen';
 import TripShowcaseScreen from '@/components/history/TripShowcaseScreen';
 import { TRIP_HISTORY_DATA, TripItem, DestinationItem } from '@/components/history/historyData';
 import Toast from '@/components/ui/Toast';
+import DestinationDetailModal, { DestinationDetailData } from '@/components/ui/DestinationDetailModal';
 import { getAuthToken, removeAuthToken } from '@/lib/auth';
 
 type ScreenState =
@@ -57,6 +58,7 @@ export default function Home() {
   const [previousScreen, setPreviousScreen] = useState<ScreenState>('home');
   const [showSplash, setShowSplash] = useState(true);
   const [savedWishlistCount, setSavedWishlistCount] = useState<number>(4);
+  const [globalDetailDestination, setGlobalDetailDestination] = useState<DestinationDetailData | null>(null);
   const [selectedOrigin, setSelectedOrigin] = useState<string>('Stasiun Bogor');
   const [selectedTrip, setSelectedTrip] = useState<TripItem>(TRIP_HISTORY_DATA[0]);
   const [selectedDestination, setSelectedDestination] = useState<DestinationItem>(
@@ -221,8 +223,9 @@ export default function Home() {
               setTimeout(() => {
                 setCurrentScreen('home');
               }, 500);
-            } catch (err: any) {
-              showToast(err.message || 'Gagal menyimpan preferensi minat.', 'error');
+            } catch (err: unknown) {
+              const errorMessage = err instanceof Error ? err.message : 'Gagal menyimpan preferensi minat.';
+              showToast(errorMessage, 'error');
               throw err;
             }
           }}
@@ -247,7 +250,7 @@ export default function Home() {
             setCurrentScreen('itinerary');
           }}
           onNavigateToRiwayat={navigateToRiwayat}
-          onItemClick={(item) => showToast(`Membuka destinasi ${item.name}`, 'info')}
+          onItemClick={(item) => setGlobalDetailDestination(item)}
           favoritBadgeCount={savedWishlistCount}
         />
       )}
@@ -271,7 +274,7 @@ export default function Home() {
             setCurrentScreen('itinerary');
           }}
           onNavigateToRiwayat={navigateToRiwayat}
-          onItemClick={(item) => showToast(`Membuka destinasi ${item.name}`, 'info')}
+          onItemClick={(item) => setGlobalDetailDestination(item)}
           favoritBadgeCount={savedWishlistCount}
         />
       )}
@@ -323,7 +326,7 @@ export default function Home() {
             setPreviousScreen('wishlist');
             setCurrentScreen('departure-location');
           }}
-          onItemClick={(item) => showToast(`Membuka destinasi ${item.name}`, 'info')}
+          onItemClick={(item) => setGlobalDetailDestination(item)}
           wishlistCount={savedWishlistCount}
           activeTab={previousScreen === 'map' ? 'peta' : previousScreen === 'profile' ? 'profil' : previousScreen === 'itinerary' ? 'rencana' : 'beranda'}
         />
@@ -332,6 +335,7 @@ export default function Home() {
       {/* Screen 10: Profil Pengguna (Matching Image 2 with AppHeader & BottomNav) */}
       {currentScreen === 'profile' && (
         <ProfileScreen
+          user={registeredUser}
           onNavigateToHome={() => setCurrentScreen('home')}
           onNavigateToMap={() => setCurrentScreen('map')}
           onNavigateToWishlist={() => {
@@ -511,8 +515,9 @@ export default function Home() {
           planTitle="Sehari di Bogor"
           startTime="11.30"
           onBack={() => setCurrentScreen('itinerary-summary')}
-          onFinishTrip={() => {
-            showToast('Perjalanan selesai dan berhasil disimpan ke Riwayat!', 'success');
+          onFinishTrip={(visitedCount) => {
+            const countStr = typeof visitedCount === 'number' && visitedCount > 0 ? ` (${visitedCount} destinasi tercapai)` : '';
+            showToast(`Perjalanan selesai${countStr} dan berhasil disimpan ke Riwayat!`, 'success');
             setCurrentScreen('trip-history');
           }}
           onNavigateToHome={() => setCurrentScreen('home')}
@@ -572,6 +577,11 @@ export default function Home() {
             setSelectedDestination(dest);
             setPreviousScreen('trip-detail');
             setCurrentScreen('destination-doc');
+          }}
+          onViewTimelapse={(t) => {
+            setSelectedTrip(t);
+            setPreviousScreen('trip-detail');
+            setCurrentScreen('trip-showcase');
           }}
           onNavigateToHome={() => setCurrentScreen('home')}
           onNavigateToRencana={() => {
@@ -646,6 +656,19 @@ export default function Home() {
           wishlistCount={savedWishlistCount}
         />
       )}
+      {/* Global Destination Detail Popup Modal */}
+      <DestinationDetailModal
+        isOpen={!!globalDetailDestination}
+        destination={globalDetailDestination}
+        onClose={() => setGlobalDetailDestination(null)}
+        onStartTrip={() => {
+          setGlobalDetailDestination(null);
+          setCurrentScreen('map');
+        }}
+        onToggleWishlist={(_, isSaved) => {
+          setSavedWishlistCount((prev) => (isSaved ? prev + 1 : Math.max(0, prev - 1)));
+        }}
+      />
     </MobileShell>
   );
 }

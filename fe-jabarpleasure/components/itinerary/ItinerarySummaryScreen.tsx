@@ -56,6 +56,13 @@ const DEFAULT_WAYPOINTS: RouteWaypoint[] = [
     role: 'Destinasi kedua',
     orderNumber: 2,
   },
+  {
+    id: 'kebun-raya',
+    name: 'Kebun Raya Bogor',
+    address: 'Jl. Ir. H. Juanda No.13',
+    role: 'Destinasi ketiga',
+    orderNumber: 3,
+  },
 ];
 
 export default function ItinerarySummaryScreen({

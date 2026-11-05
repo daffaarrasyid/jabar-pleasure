@@ -181,30 +181,53 @@ export default function DestinationDocScreen({
               Dokumentasi kunjungan
             </h3>
             <span className="text-xs text-[#4941EC] font-semibold">
-              {destination.photos.length} foto
+              {destination.photos.length} media
             </span>
           </div>
 
-          {/* 3 Photos Grid */}
-          <div className="grid grid-cols-3 gap-2">
-            {destination.photos.map((item, idx) => (
-              <div
-                key={idx}
-                className="relative aspect-square rounded-xl overflow-hidden bg-gray-100 shadow-2xs group"
-              >
-                <Image
-                  src={item.url}
-                  alt={item.caption}
-                  fill
-                  className="object-cover group-hover:scale-105 transition-transform duration-300"
-                  sizes="130px"
-                />
-              </div>
-            ))}
-          </div>
+          {/* Media Grid with Captions */}
+          {destination.photos.length > 0 ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+              {destination.photos.map((item, idx) => (
+                <div
+                  key={idx}
+                  className="group relative bg-[#F8FAFC] rounded-xl overflow-hidden border border-gray-100 shadow-2xs flex flex-col"
+                >
+                  <div className="relative aspect-square w-full bg-gray-100 overflow-hidden">
+                    {item.isVideo ? (
+                      <div className="w-full h-full flex flex-col items-center justify-center bg-gray-900 text-white">
+                        <PlayCircle className="w-7 h-7 text-[#60CE9F]" />
+                        <span className="text-[10px] font-bold mt-1">Video</span>
+                      </div>
+                    ) : (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={item.url}
+                        alt={item.caption}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                    )}
+                  </div>
+                  {item.caption && (
+                    <div className="p-1.5 bg-white border-t border-gray-100">
+                      <p className="text-[10px] font-semibold text-gray-800 line-clamp-1" title={item.caption}>
+                        {item.caption}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="p-3 bg-gray-50 rounded-xl text-center border border-gray-100">
+              <p className="text-xs text-gray-500">
+                Belum ada media terlampir. Anda dapat mengunggah foto/video melalui menu Kelola Media Jurnal.
+              </p>
+            </div>
+          )}
 
           <p className="text-[11px] text-gray-500 mt-1">
-            {destination.photos.length} dari {trip.stats.photos} foto {trip.title} • sudah dimasukkan
+            {destination.photos.length} media {trip.title} • sudah dimasukkan
           </p>
         </div>
 

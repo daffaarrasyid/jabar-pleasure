@@ -24,7 +24,6 @@ interface TripHistoryScreenProps {
 export default function TripHistoryScreen({
   trips = TRIP_HISTORY_DATA,
   onSelectTrip,
-  onViewShowcase,
   onNotificationClick,
   onWishlistClick,
   onNavigateToHome,
@@ -101,14 +100,18 @@ export default function TripHistoryScreen({
 
                 {/* Details */}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2 mb-1">
-                    <h2 className="text-base font-bold text-gray-900 truncate">
-                      {trip.title}
-                    </h2>
+                  <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                    <span className="bg-[#EEF0FF] text-[#4941EC] text-[10px] font-bold px-2 py-0.5 rounded-md truncate max-w-[150px]">
+                      {trip.category || 'Wisata Alam & Terbuka'}
+                    </span>
                     <span className="bg-[#D1FAE5] text-[#059669] text-[10px] font-semibold px-2 py-0.5 rounded-md shrink-0">
                       {trip.status}
                     </span>
                   </div>
+
+                  <h2 className="text-base font-bold text-gray-900 truncate mb-1">
+                    {trip.title}
+                  </h2>
 
                   <div className="flex items-center gap-2 text-[11px] text-gray-500 font-medium mb-1 truncate">
                     <span className="flex items-center gap-1 shrink-0">
@@ -178,7 +181,7 @@ export default function TripHistoryScreen({
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    onViewShowcase?.(trip);
+                    onSelectTrip?.(trip);
                   }}
                   className="px-4 py-2 bg-[#4941EC] hover:bg-[#3D35D9] active:scale-95 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
                 >

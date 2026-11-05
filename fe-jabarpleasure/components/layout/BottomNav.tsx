@@ -40,7 +40,7 @@ function RencanaIcon({ className = '' }: { className?: string }) {
   );
 }
 
-// 3. Peta Icon (Featured inside prominent floating button: rotated lozenge with circle)
+// 3. Peta Icon (Featured inside prominent floating button: Jarum Kompas / Compass Needle)
 function PetaCompassIcon({ className = '' }: { className?: string }) {
   return (
     <svg
@@ -50,19 +50,28 @@ function PetaCompassIcon({ className = '' }: { className?: string }) {
       fill="none"
       className={className}
       xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
     >
-      <rect
-        x="5.5"
-        y="5.5"
-        width="21"
-        height="21"
-        rx="7"
-        transform="rotate(-10 16 16)"
-        stroke="white"
-        strokeWidth="3.2"
-        strokeLinejoin="round"
-      />
-      <circle cx="16" cy="16" r="3.6" fill="white" />
+      {/* Outer subtle compass ring */}
+      <circle cx="16" cy="16" r="13" stroke="white" strokeWidth="1.8" strokeOpacity="0.4" />
+      {/* 4 Cardinal tick dots */}
+      <circle cx="16" cy="4" r="1.2" fill="white" fillOpacity="0.95" />
+      <circle cx="28" cy="16" r="1" fill="white" fillOpacity="0.5" />
+      <circle cx="16" cy="28" r="1" fill="white" fillOpacity="0.5" />
+      <circle cx="4" cy="16" r="1" fill="white" fillOpacity="0.5" />
+      {/* Dynamic 30-degree angled Jarum Kompas (Compass Needle) */}
+      <g transform="rotate(30 16 16)">
+        {/* North needle tip - bright solid white left facet */}
+        <polygon points="16,5 12.5,16 16,14.2" fill="white" />
+        {/* North needle tip - beveled right facet */}
+        <polygon points="16,5 19.5,16 16,14.2" fill="white" fillOpacity="0.85" />
+        {/* South needle tip - left translucent facet */}
+        <polygon points="16,27 12.5,16 16,14.2" fill="white" fillOpacity="0.3" />
+        {/* South needle tip - right translucent facet */}
+        <polygon points="16,27 19.5,16 16,14.2" fill="white" fillOpacity="0.55" />
+        {/* Central pivot bezel */}
+        <circle cx="16" cy="16" r="2.5" fill="#4941EC" stroke="white" strokeWidth="1.8" />
+      </g>
     </svg>
   );
 }

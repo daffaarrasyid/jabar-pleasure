@@ -18,6 +18,7 @@ import DestinationDocScreen from '@/components/history/DestinationDocScreen';
 import TripShowcaseScreen from '@/components/history/TripShowcaseScreen';
 import { TRIP_HISTORY_DATA, TripItem, DestinationItem } from '@/components/history/historyData';
 import Toast from '@/components/ui/Toast';
+import DestinationDetailModal, { DestinationDetailData } from '@/components/ui/DestinationDetailModal';
 
 export default function MapPage() {
   const router = useRouter();
@@ -42,6 +43,7 @@ export default function MapPage() {
   );
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
   const [favoritCount, setFavoritCount] = useState<number>(4);
+  const [detailDestination, setDetailDestination] = useState<DestinationDetailData | null>(null);
 
   const showToast = (message: string, type: 'success' | 'info' | 'error' = 'info') => {
     setToast({ message, type });
@@ -61,12 +63,12 @@ export default function MapPage() {
       )}
       {currentScreen === 'map' && (
         <MapScreen
-          onNavigateToHome={() => router.push('/')}
+          onNavigateToHome={() => router.push('/home')}
           onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
           onWishlistClick={() => setCurrentScreen('wishlist')}
           onProfileClick={() => setCurrentScreen('profile')}
           onNavigateToRencana={() => setCurrentScreen('itinerary')}
-          onNavigateToRiwayat={() => showToast('Membuka riwayat perjalanan...', 'info')}
+          onNavigateToRiwayat={() => setCurrentScreen('trip-history')}
           onSaveToWishlist={(count) => {
             setFavoritCount(count);
             showToast('Destinasi berhasil disimpan ke Favorit / Wishlist!', 'success');
@@ -79,26 +81,26 @@ export default function MapPage() {
           onBack={() => setCurrentScreen('map')}
           onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
           onWishlistClick={() => showToast('Anda sedang berada di halaman Wishlist', 'info')}
-          onNavigateToHome={() => router.push('/')}
+          onNavigateToHome={() => router.push('/home')}
           onNavigateToMap={() => setCurrentScreen('map')}
           onNavigateToProfile={() => setCurrentScreen('profile')}
           onNavigateToRencana={() => setCurrentScreen('itinerary')}
-          onNavigateToRiwayat={() => showToast('Membuka riwayat perjalanan...', 'info')}
+          onNavigateToRiwayat={() => setCurrentScreen('trip-history')}
           onCreateItinerary={() => setCurrentScreen('departure-location')}
-          onItemClick={(item) => showToast(`Membuka destinasi ${item.name}`, 'info')}
+          onItemClick={(item) => setDetailDestination(item)}
           wishlistCount={favoritCount}
           activeTab="peta"
         />
       )}
       {currentScreen === 'profile' && (
         <ProfileScreen
-          onNavigateToHome={() => router.push('/')}
+          onNavigateToHome={() => router.push('/home')}
           onNavigateToMap={() => setCurrentScreen('map')}
           onNavigateToWishlist={() => setCurrentScreen('wishlist')}
           onWishlistClick={() => setCurrentScreen('wishlist')}
           onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
           onNavigateToRencana={() => setCurrentScreen('itinerary')}
-          onNavigateToRiwayat={() => showToast('Membuka riwayat perjalanan...', 'info')}
+          onNavigateToRiwayat={() => setCurrentScreen('trip-history')}
           onEditProfile={() => showToast('Fitur edit profil sedang disiapkan', 'info')}
           onItemClick={(title) => showToast(`Membuka menu ${title}`, 'info')}
           onLogout={() => {
@@ -110,10 +112,10 @@ export default function MapPage() {
       )}
       {currentScreen === 'itinerary' && (
         <ItineraryScreen
-          onNavigateToHome={() => router.push('/')}
+          onNavigateToHome={() => router.push('/home')}
           onNavigateToMap={() => setCurrentScreen('map')}
           onNavigateToProfile={() => setCurrentScreen('profile')}
-          onNavigateToRiwayat={() => showToast('Membuka riwayat perjalanan...', 'info')}
+          onNavigateToRiwayat={() => setCurrentScreen('trip-history')}
           onWishlistClick={() => setCurrentScreen('wishlist')}
           onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
           onCreatePlan={() => setCurrentScreen('departure-location')}
@@ -124,10 +126,10 @@ export default function MapPage() {
       {currentScreen === 'departure-location' && (
         <DepartureLocationScreen
           onBack={() => setCurrentScreen('itinerary')}
-          onNavigateToHome={() => router.push('/')}
+          onNavigateToHome={() => router.push('/home')}
           onNavigateToMap={() => setCurrentScreen('map')}
           onNavigateToProfile={() => setCurrentScreen('profile')}
-          onNavigateToRiwayat={() => showToast('Membuka riwayat perjalanan...', 'info')}
+          onNavigateToRiwayat={() => setCurrentScreen('trip-history')}
           onWishlistClick={() => setCurrentScreen('wishlist')}
           onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
           onNext={() => {
@@ -141,10 +143,10 @@ export default function MapPage() {
           originName="Stasiun Bogor"
           onBack={() => setCurrentScreen('departure-location')}
           onChangeOrigin={() => setCurrentScreen('departure-location')}
-          onNavigateToHome={() => router.push('/')}
+          onNavigateToHome={() => router.push('/home')}
           onNavigateToMap={() => setCurrentScreen('map')}
           onNavigateToProfile={() => setCurrentScreen('profile')}
-          onNavigateToRiwayat={() => showToast('Membuka riwayat perjalanan...', 'info')}
+          onNavigateToRiwayat={() => setCurrentScreen('trip-history')}
           onWishlistClick={() => setCurrentScreen('wishlist')}
           onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
           onFinishSelection={() => {
@@ -167,10 +169,10 @@ export default function MapPage() {
             showToast('Memulai perjalanan! Buka navigasi arah...', 'info');
             setCurrentScreen('active-trip');
           }}
-          onNavigateToHome={() => router.push('/')}
+          onNavigateToHome={() => router.push('/home')}
           onNavigateToMap={() => setCurrentScreen('map')}
           onNavigateToProfile={() => setCurrentScreen('profile')}
-          onNavigateToRiwayat={() => showToast('Membuka riwayat perjalanan...', 'info')}
+          onNavigateToRiwayat={() => setCurrentScreen('trip-history')}
           onWishlistClick={() => setCurrentScreen('wishlist')}
           onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
           wishlistCount={favoritCount}
@@ -181,10 +183,10 @@ export default function MapPage() {
           originName="Stasiun Bogor"
           planTitle="Sehari di Bogor"
           onBackToRencana={() => setCurrentScreen('itinerary')}
-          onNavigateToHome={() => router.push('/')}
+          onNavigateToHome={() => router.push('/home')}
           onNavigateToMap={() => setCurrentScreen('map')}
           onNavigateToProfile={() => setCurrentScreen('profile')}
-          onNavigateToRiwayat={() => showToast('Membuka riwayat perjalanan...', 'info')}
+          onNavigateToRiwayat={() => setCurrentScreen('trip-history')}
           onWishlistClick={() => setCurrentScreen('wishlist')}
           onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
           wishlistCount={favoritCount}
@@ -196,11 +198,12 @@ export default function MapPage() {
           planTitle="Sehari di Bogor"
           startTime="11.30"
           onBack={() => setCurrentScreen('itinerary-summary')}
-          onFinishTrip={() => {
-            showToast('Perjalanan selesai dan berhasil disimpan ke Riwayat!', 'success');
+          onFinishTrip={(visitedCount) => {
+            const countStr = typeof visitedCount === 'number' && visitedCount > 0 ? ` (${visitedCount} destinasi tercapai)` : '';
+            showToast(`Perjalanan selesai${countStr} dan berhasil disimpan ke Riwayat!`, 'success');
             setCurrentScreen('trip-history');
           }}
-          onNavigateToHome={() => router.push('/')}
+          onNavigateToHome={() => router.push('/home')}
           onNavigateToMap={() => setCurrentScreen('map')}
           onNavigateToProfile={() => setCurrentScreen('profile')}
           onNavigateToRiwayat={() => setCurrentScreen('trip-history')}
@@ -219,7 +222,7 @@ export default function MapPage() {
             setSelectedTrip(trip);
             setCurrentScreen('trip-showcase');
           }}
-          onNavigateToHome={() => router.push('/')}
+          onNavigateToHome={() => router.push('/home')}
           onNavigateToRencana={() => setCurrentScreen('itinerary')}
           onNavigateToMap={() => setCurrentScreen('map')}
           onNavigateToProfile={() => setCurrentScreen('profile')}
@@ -236,7 +239,11 @@ export default function MapPage() {
             setSelectedDestination(dest);
             setCurrentScreen('destination-doc');
           }}
-          onNavigateToHome={() => router.push('/')}
+          onViewTimelapse={(t) => {
+            setSelectedTrip(t);
+            setCurrentScreen('trip-showcase');
+          }}
+          onNavigateToHome={() => router.push('/home')}
           onNavigateToRencana={() => setCurrentScreen('itinerary')}
           onNavigateToMap={() => setCurrentScreen('map')}
           onNavigateToProfile={() => setCurrentScreen('profile')}
@@ -251,7 +258,7 @@ export default function MapPage() {
           destination={selectedDestination}
           onBack={() => setCurrentScreen('trip-detail')}
           onViewShowcase={() => setCurrentScreen('trip-showcase')}
-          onNavigateToHome={() => router.push('/')}
+          onNavigateToHome={() => router.push('/home')}
           onNavigateToRencana={() => setCurrentScreen('itinerary')}
           onNavigateToMap={() => setCurrentScreen('map')}
           onNavigateToProfile={() => setCurrentScreen('profile')}
@@ -264,7 +271,7 @@ export default function MapPage() {
         <TripShowcaseScreen
           trip={selectedTrip}
           onBack={() => setCurrentScreen('destination-doc')}
-          onNavigateToHome={() => router.push('/')}
+          onNavigateToHome={() => router.push('/home')}
           onNavigateToRencana={() => setCurrentScreen('itinerary')}
           onNavigateToMap={() => setCurrentScreen('map')}
           onNavigateToProfile={() => setCurrentScreen('profile')}
@@ -273,6 +280,19 @@ export default function MapPage() {
           wishlistCount={favoritCount}
         />
       )}
+      {/* Destination Detail Popup Modal */}
+      <DestinationDetailModal
+        isOpen={!!detailDestination}
+        destination={detailDestination}
+        onClose={() => setDetailDestination(null)}
+        onStartTrip={() => {
+          setDetailDestination(null);
+          setCurrentScreen('map');
+        }}
+        onToggleWishlist={(_, isSaved) => {
+          setFavoritCount((prev) => (isSaved ? prev + 1 : Math.max(0, prev - 1)));
+        }}
+      />
     </MobileShell>
   );
 }

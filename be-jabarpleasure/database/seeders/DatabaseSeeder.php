@@ -20,6 +20,7 @@ class DatabaseSeeder extends Seeder
             CategorySeeder::class,
             RegencyCitySeeder::class,
             DestinationSeeder::class,
+            AdminSeeder::class,
         ]);
 
         // Seed or update sample user Nabila Putri

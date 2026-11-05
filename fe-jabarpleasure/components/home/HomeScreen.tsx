@@ -6,10 +6,12 @@ import BottomNav, { NavTabId } from '@/components/layout/BottomNav';
 import SearchBar from '@/components/home/SearchBar';
 import CategoryFilter from '@/components/home/CategoryFilter';
 import FeaturedEntertainment from '@/components/home/FeaturedEntertainment';
-import SpatialRadarCard from '@/components/home/SpatialRadarCard';
+import SuggestDestinationCard from '@/components/home/SuggestDestinationCard';
+import SuggestDestinationModal from '@/components/home/SuggestDestinationModal';
 import NearbyRecommendations, { NearbyItem } from '@/components/home/NearbyRecommendations';
 import TopDestinationsView from '@/components/home/TopDestinationsView';
 import CategoryFilterModal from '@/components/home/CategoryFilterModal';
+import DestinationDetailModal, { DestinationDetailData } from '@/components/ui/DestinationDetailModal';
 import { searchDestinations, ApiDestination } from '@/lib/api';
 import { Star, Navigation, MapPin, SearchX } from 'lucide-react';
 
@@ -20,7 +22,7 @@ interface HomeScreenProps {
   onProfileClick?: () => void;
   onNavigateToRencana?: () => void;
   onNavigateToRiwayat?: () => void;
-  onItemClick?: (item: { id: string | number; name: string; slug?: string }) => void;
+  onItemClick?: (item: DestinationDetailData) => void;
   favoritBadgeCount?: number;
   initialViewMode?: 'overview' | 'top-destinations';
   className?: string;
@@ -57,6 +59,8 @@ export default function HomeScreen({
   const [searchResults, setSearchResults] = useState<ApiDestination[]>([]);
   const [isSearching, setIsSearching] = useState<boolean>(false);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState<boolean>(false);
+  const [isSuggestModalOpen, setIsSuggestModalOpen] = useState<boolean>(false);
+  const [selectedDestinationForDetail, setSelectedDestinationForDetail] = useState<DestinationDetailData | null>(null);
   const [, startTransition] = useTransition();
 
   // Try to acquire device geolocation for real spatial proximity
@@ -83,6 +87,7 @@ export default function HomeScreen({
     const trimmed = searchQuery.trim();
 
     if (!trimmed) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSearchResults([]);
       setIsSearching(false);
       return;
@@ -125,6 +130,14 @@ export default function HomeScreen({
     }
   };
 
+  const handleDestinationClick = (item: DestinationDetailData) => {
+    if (onItemClick) {
+      onItemClick(item);
+    } else {
+      setSelectedDestinationForDetail(item);
+    }
+  };
+
   const isSearchActive = searchQuery.trim().length > 0;
 
   if (viewMode === 'top-destinations') {
@@ -136,7 +149,7 @@ export default function HomeScreen({
         onWishlistClick={onWishlistClick || onProfileClick}
         onProfileClick={onProfileClick}
         onNavigateToRiwayat={onNavigateToRiwayat}
-        onItemClick={onItemClick}
+        onItemClick={handleDestinationClick}
         favoritBadgeCount={favoritBadgeCount}
         selectedCategory={selectedCategory}
         className={className}
@@ -247,7 +260,18 @@ export default function HomeScreen({
                   return (
                     <div
                       key={item.id}
-                      onClick={() => onItemClick?.({ id: item.id, name: item.name, slug: item.slug })}
+                      onClick={() =>
+                        handleDestinationClick({
+                          id: item.id,
+                          name: item.name,
+                          slug: item.slug,
+                          category: item.category?.name || 'Wisata',
+                          distance: distStr,
+                          radiusKm: item.distance_km,
+                          image: item.cover_image_url || fallbackImg,
+                          regency: locStr,
+                        })
+                      }
                       className="group flex items-center gap-3.5 p-2 bg-white rounded-2xl border border-gray-100 hover:border-gray-200 shadow-xs hover:shadow-sm transition-all cursor-pointer"
                     >
                       {/* Image Thumbnail */}
@@ -311,25 +335,25 @@ export default function HomeScreen({
         ) : (
           /* Standard Overview Home Feed */
           <>
-            {/* Featured Section: Tempat Hiburan untuk Anda */}
+            {/* Featured Section: Tempat Hiburan untuk Anda (Horizontal Scroll & Top 5) */}
             <FeaturedEntertainment
               selectedCategory={selectedCategory}
               userCoords={userCoords}
               onViewAll={() => setViewMode('top-destinations')}
-              onItemClick={(item) => onItemClick?.(item)}
+              onItemClick={handleDestinationClick}
             />
 
-            {/* Spatial Radar Card: Jawa Barat */}
-            <SpatialRadarCard
-              latitude={userCoords ? userCoords.lat.toFixed(4) : "-6.9175"}
-              longitude={userCoords ? userCoords.lng.toFixed(4) : "107.6191"}
+            {/* Ajukan Destinasi Baru CTA Card (Replaces Spatial Radar) */}
+            <SuggestDestinationCard
+              onOpenForm={() => setIsSuggestModalOpen(true)}
             />
 
-            {/* Rekomendasi Terdekat Section */}
+            {/* Rekomendasi Terdekat Section (Top 5) */}
             <NearbyRecommendations
               selectedCategory={selectedCategory}
               userCoords={userCoords}
-              onItemClick={(item: NearbyItem) => onItemClick?.(item)}
+              onViewAll={() => setViewMode('top-destinations')}
+              onItemClick={(item: NearbyItem) => handleDestinationClick(item)}
             />
           </>
         )}
@@ -341,6 +365,24 @@ export default function HomeScreen({
         selectedCategory={selectedCategory}
         onClose={() => setIsFilterModalOpen(false)}
         onApply={(cat) => setSelectedCategory(cat)}
+      />
+
+      {/* Form Ajukan Destinasi Baru Modal */}
+      <SuggestDestinationModal
+        isOpen={isSuggestModalOpen}
+        onClose={() => setIsSuggestModalOpen(false)}
+        userCoords={userCoords}
+      />
+
+      {/* Detail Destinasi Modal / Bottom Sheet Popup */}
+      <DestinationDetailModal
+        isOpen={!!selectedDestinationForDetail}
+        destination={selectedDestinationForDetail}
+        onClose={() => setSelectedDestinationForDetail(null)}
+        onStartTrip={() => {
+          setSelectedDestinationForDetail(null);
+          onNavigateToMap?.();
+        }}
       />
 
       {/* Fixed Bottom Navigation Bar */}

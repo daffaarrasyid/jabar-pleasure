@@ -13,12 +13,14 @@ export interface DestinationItem {
     url: string;
     caption: string;
     subCaption?: string;
+    isVideo?: boolean;
   }[];
 }
 
 export interface TripItem {
   id: string;
   title: string;
+  category?: string;
   status: 'Selesai';
   duration: string;
   dateRange: string;
@@ -40,6 +42,7 @@ export const TRIP_HISTORY_DATA: TripItem[] = [
   {
     id: 'bandung-trip',
     title: 'Bandung Trip',
+    category: 'Wisata Alam & Terbuka',
     status: 'Selesai',
     duration: '3 hari 2 malam',
     dateRange: '10–12 Jan 2025',
@@ -195,6 +198,7 @@ export const TRIP_HISTORY_DATA: TripItem[] = [
   {
     id: 'lembang-weekend',
     title: 'Lembang Weekend',
+    category: 'Modern & Lifestyle',
     status: 'Selesai',
     duration: '2 hari 1 malam',
     dateRange: '27–28 Des 2024',
@@ -214,6 +218,7 @@ export const TRIP_HISTORY_DATA: TripItem[] = [
   {
     id: 'subang-roadtrip',
     title: 'Subang Roadtrip',
+    category: 'Wisata Alam & Terbuka',
     status: 'Selesai',
     duration: '1 hari',
     dateRange: '15 Des 2024',

@@ -96,12 +96,15 @@ class AuthController extends Controller
      */
     public function login(Request $request): JsonResponse
     {
+        $loginInput = $request->input('username') ?? $request->input('email');
+
         $validator = Validator::make($request->all(), [
-            'email' => ['required', 'string', 'email'],
+            'email' => ['required_without:username', 'string'],
+            'username' => ['required_without:email', 'string'],
             'password' => ['required', 'string'],
         ], [
-            'email.required' => 'Email tidak boleh kosong.',
-            'email.email' => 'Format email tidak valid.',
+            'email.required_without' => 'Username atau email tidak boleh kosong.',
+            'username.required_without' => 'Username atau email tidak boleh kosong.',
             'password.required' => 'Kata sandi tidak boleh kosong.',
         ]);
 
@@ -113,15 +116,18 @@ class AuthController extends Controller
             ], 422);
         }
 
-        $email = strtolower(trim($request->input('email')));
-        $user = User::where('email', $email)->first();
+        $loginId = strtolower(trim($loginInput));
+        $user = User::where('email', $loginId)
+            ->orWhere('name', $loginId)
+            ->orWhere('email', $loginId . '@jabarpleasure.id')
+            ->first();
 
         if (!$user || !Hash::check($request->input('password'), $user->password)) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Email atau kata sandi yang Anda masukkan salah.',
+                'message' => 'Username/email atau kata sandi yang Anda masukkan salah.',
                 'errors' => [
-                    'email' => ['Email atau kata sandi salah.'],
+                    'email' => ['Username/email atau kata sandi salah.'],
                 ],
             ], 401);
         }

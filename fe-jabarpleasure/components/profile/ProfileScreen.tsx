@@ -62,22 +62,39 @@ export default function ProfileScreen({
   className = '',
 }: ProfileScreenProps) {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const displayName = user?.name || 'Nabila Putri';
-  const displayEmail = user?.email || 'nabila.putri@gmail.com';
-  const displayCity = user?.city || 'Bogor, Jawa Barat';
+
+  // Synchronously resolve logged-in user from localStorage on initial render to prevent flash of placeholder
+  const [cachedUser] = useState<UserProfileData | null>(() => {
+    if (user) return user;
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('user');
+        if (raw) return JSON.parse(raw);
+      } catch {
+        // ignore JSON parse error
+      }
+    }
+    return null;
+  });
+
+  const activeUser = user || cachedUser;
+  const displayName = activeUser?.name || 'Pengguna JabarPleasure';
+  const displayEmail = activeUser?.email || '';
+  const displayCity = activeUser?.city || 'Jawa Barat, Indonesia';
   const displayInitials =
-    user?.initials ||
-    displayName
-      .split(' ')
-      .filter(Boolean)
-      .map((n) => n[0])
-      .join('')
-      .slice(0, 2)
-      .toUpperCase() ||
-    'NP';
-  const tripsCount = user?.statistics?.trips_count ?? 3;
-  const effectiveWishlistCount = user?.statistics?.wishlist_count ?? wishlistCount;
-  const itineraryCount = user?.statistics?.itinerary_count ?? 2;
+    activeUser?.initials ||
+    (displayName !== 'Pengguna JabarPleasure'
+      ? displayName
+          .split(' ')
+          .filter(Boolean)
+          .map((n) => n[0])
+          .join('')
+          .slice(0, 2)
+          .toUpperCase()
+      : 'JP');
+  const tripsCount = activeUser?.statistics?.trips_count ?? 3;
+  const effectiveWishlistCount = activeUser?.statistics?.wishlist_count ?? wishlistCount;
+  const itineraryCount = activeUser?.statistics?.itinerary_count ?? 2;
   const handleTabChange = (tab: NavTabId) => {
     if (tab === 'beranda') {
       onNavigateToHome?.();

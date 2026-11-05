@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Star, AlignJustify } from 'lucide-react';
+import { Star } from 'lucide-react';
 import { getNearbyDestinations, ApiDestination } from '@/lib/api';
 
 export interface NearbyItem {
@@ -20,6 +20,7 @@ interface NearbyRecommendationsProps {
   selectedCategory?: string;
   userCoords?: { lat: number; lng: number } | null;
   onItemClick?: (item: NearbyItem) => void;
+  onViewAll?: () => void;
   onSortClick?: () => void;
   className?: string;
 }
@@ -38,20 +39,22 @@ export default function NearbyRecommendations({
   selectedCategory = 'Semua',
   userCoords,
   onItemClick,
+  onViewAll,
   onSortClick,
   className = '',
 }: NearbyRecommendationsProps) {
-  const [destinations, setDestinations] = useState<NearbyItem[]>(initialItems || []);
+  const [destinations, setDestinations] = useState<NearbyItem[]>(
+    initialItems ? initialItems.slice(0, 5) : []
+  );
   const [isLoading, setIsLoading] = useState<boolean>(!initialItems);
 
   useEffect(() => {
     if (initialItems && initialItems.length > 0) {
-      setDestinations(initialItems);
-      setIsLoading(false);
       return;
     }
 
     let isMounted = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsLoading(true);
 
     getNearbyDestinations({
@@ -59,13 +62,13 @@ export default function NearbyRecommendations({
       lat: userCoords?.lat ?? -6.9175,
       lng: userCoords?.lng ?? 107.6191,
       radius: 25.0, // Friendly radius covering surrounding POIs
-      limit: 6,
+      limit: 5,
     })
       .then((data: ApiDestination[]) => {
         if (!isMounted) return;
 
         if (data && data.length > 0) {
-          const mapped: NearbyItem[] = data.map((dest, idx) => {
+          const mapped: NearbyItem[] = data.slice(0, 5).map((dest, idx) => {
             const fallbackImg = FALLBACK_NEARBY_IMAGES[idx % FALLBACK_NEARBY_IMAGES.length];
             const distStr = dest.distance_km ? `${dest.distance_km} km` : 'Dekat Anda';
             const locStr = dest.address || dest.regency?.name || 'Jawa Barat';
@@ -107,16 +110,15 @@ export default function NearbyRecommendations({
             Rekomendasi Terdekat
           </h2>
           <p className="text-xs text-gray-500 mt-0.5">
-            Pilihan populer terverifikasi disekeliling Anda
+            5 destinasi populer terdekat di sekeliling Anda
           </p>
         </div>
         <button
           type="button"
-          onClick={onSortClick}
-          className="flex items-center gap-1.5 text-xs font-semibold text-[#60CE9F] hover:text-[#4EB789] transition-colors cursor-pointer py-1"
+          onClick={onViewAll || onSortClick}
+          className="shrink-0 bg-[#60CE9F] hover:bg-[#4EB789] text-white text-[11px] font-semibold px-2.5 py-1 rounded-md transition-colors active:scale-95 cursor-pointer shadow-xs"
         >
-          <AlignJustify className="w-3.5 h-3.5 stroke-[2.5]" />
-          <span>Jarak</span>
+          Lihat Semua
         </button>
       </div>
 
@@ -124,7 +126,10 @@ export default function NearbyRecommendations({
       {isLoading ? (
         <div className="flex flex-col gap-3.5">
           {[1, 2, 3].map((n) => (
-            <div key={n} className="flex items-center gap-3.5 p-2 bg-white rounded-2xl border border-gray-100 animate-pulse">
+            <div
+              key={n}
+              className="flex items-center gap-3.5 p-2 bg-white rounded-2xl border border-gray-100 animate-pulse"
+            >
               <div className="w-[92px] h-[92px] rounded-xl bg-gray-200 shrink-0" />
               <div className="flex-1 space-y-2 py-1">
                 <div className="h-4 bg-gray-200 rounded w-1/4" />
@@ -141,9 +146,9 @@ export default function NearbyRecommendations({
           </p>
         </div>
       ) : (
-        /* Vertical List of Destinations */
+        /* Vertical List of Destinations (Max 5 items) */
         <div className="flex flex-col gap-3.5">
-          {destinations.map((item) => (
+          {destinations.slice(0, 5).map((item) => (
             <div
               key={item.id}
               onClick={() => onItemClick?.(item)}
@@ -179,7 +184,10 @@ export default function NearbyRecommendations({
 
                 {/* Title & Location */}
                 <div className="mt-1">
-                  <h3 className="text-sm font-bold text-gray-900 group-hover:text-[#4941EC] transition-colors truncate" title={item.name}>
+                  <h3
+                    className="text-sm font-bold text-gray-900 group-hover:text-[#4941EC] transition-colors truncate"
+                    title={item.name}
+                  >
                     {item.name}
                   </h3>
                   <p className="text-xs text-gray-500 truncate mt-0.5">
