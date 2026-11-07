@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo } from 'react';
-import { MapContainer, TileLayer, Marker, Circle, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Circle, Polyline, useMap } from 'react-leaflet';
 import { Locate } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -20,6 +20,7 @@ interface WebGisMapProps {
   radiusKm?: number;
   markers?: MarkerData[];
   selectedMarkerId?: string | null;
+  routeCoordinates?: [number, number][];
   onMarkerClick?: (marker: MarkerData) => void;
   onRecenter?: () => void;
   className?: string;
@@ -36,6 +37,18 @@ function MapViewUpdater({ center, zoom }: { center: [number, number]; zoom: numb
   return null;
 }
 
+// Helper to fit map bounds when a route polyline is active
+function MapRouteBoundsUpdater({ routeCoordinates }: { routeCoordinates?: [number, number][] }) {
+  const map = useMap();
+  useEffect(() => {
+    if (routeCoordinates && routeCoordinates.length >= 2) {
+      const bounds = L.latLngBounds(routeCoordinates);
+      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15, animate: true });
+    }
+  }, [routeCoordinates, map]);
+  return null;
+}
+
 export default function WebGisMap({
   center = DEFAULT_CENTER,
   zoom = 13,
@@ -43,6 +56,7 @@ export default function WebGisMap({
   radiusKm = 10,
   markers = [],
   selectedMarkerId,
+  routeCoordinates,
   onMarkerClick,
   onRecenter,
   className = '',
@@ -109,6 +123,23 @@ export default function WebGisMap({
         />
 
         <MapViewUpdater center={center} zoom={zoom} />
+
+        {/* Internal Route Polyline (Rencana Perjalanan) */}
+        {routeCoordinates && routeCoordinates.length >= 2 && (
+          <>
+            <Polyline
+              positions={routeCoordinates}
+              pathOptions={{
+                color: '#4941EC',
+                weight: 4.5,
+                opacity: 0.9,
+                lineCap: 'round',
+                lineJoin: 'round',
+              }}
+            />
+            <MapRouteBoundsUpdater routeCoordinates={routeCoordinates} />
+          </>
+        )}
 
         {/* User Location Marker & Proximity Radius Circle */}
         {userLocation && userIcon && (

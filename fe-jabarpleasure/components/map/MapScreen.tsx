@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { MapPin, AlertTriangle, Search, X, Compass, Locate, ChevronRight, Check } from 'lucide-react';
 import AppHeader from '@/components/layout/AppHeader';
@@ -9,7 +9,8 @@ import SearchBar from '@/components/home/SearchBar';
 import MapExplorationFilter from '@/components/map/MapExplorationFilter';
 import NearbyResultsSheet, { NearbyDestination } from '@/components/map/NearbyResultsSheet';
 import { MarkerData } from '@/components/map/WebGisMap';
-import { getNearbyDestinations, searchDestinations, ApiDestination } from '@/lib/api';
+import { getNearbyDestinations, searchDestinations, ApiDestination, createItinerary, ApiItinerary } from '@/lib/api';
+import { fetchRoadRoute } from '@/lib/routing';
 
 // Dynamic import with SSR disabled for Leaflet WebGIS Map
 const WebGisMap = dynamic(() => import('@/components/map/WebGisMap'), {
@@ -51,7 +52,11 @@ interface MapScreenProps {
   onNotificationClick?: () => void;
   onWishlistClick?: () => void;
   onProfileClick?: () => void;
-  onNavigateToRencana?: () => void;
+  onNavigateToRencana?: (
+    createdItinerary?: any,
+    selectedDestinations?: NearbyDestination[],
+    userDeparture?: { name: string; address: string; lat: number; lng: number }
+  ) => void;
   onNavigateToRiwayat?: () => void;
   onSaveToWishlist?: (count: number) => void;
   favoritBadgeCount?: number;
@@ -95,6 +100,12 @@ export default function MapScreen({
   const [activeDestinationId, setActiveDestinationId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [localFavoritCount, setLocalFavoritCount] = useState<number>(favoritBadgeCount);
+
+  // 4. Spatial Road Routing State (OSRM Turn-by-Turn Geometry)
+  const [roadRouteCoords, setRoadRouteCoords] = useState<[number, number][] | undefined>(undefined);
+  const [roadGeoJson, setRoadGeoJson] = useState<any>(null);
+  const [, setRoadDistanceKm] = useState<number>(0);
+  const [, setIsSavingPlan] = useState<boolean>(false);
 
   // Debounce timer ref for search input
   const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
@@ -141,8 +152,7 @@ export default function MapScreen({
           category: item.category?.name || 'Wisata',
           distance: `${distKm} km`,
           regency: item.regency?.name || item.address || 'Jawa Barat',
-          rating: 4.7,
-          ratingCountText: '100+ ulasan',
+          visitorsCount: item.check_ins_count || 0,
           image: item.cover_image_url || item.cover_image || '/gedung-sate.jpg',
           coordinates: [itemLat, itemLng],
           raw: item,
@@ -211,7 +221,70 @@ export default function MapScreen({
     [transformDestinations]
   );
 
-  // Fungsi untuk meminta lokasi GPS perangkat
+  // Flag untuk mencegah permintaan geolokasi ganda bersamaan
+  const isRequestingGpsRef = useRef<boolean>(false);
+
+  // Helper pemrosesan koordinat GPS sukses
+  const handleGpsSuccess = useCallback(
+    (position: GeolocationPosition) => {
+      const { latitude, longitude } = position.coords;
+
+      if (isInJawaBarat(latitude, longitude)) {
+        // Pengguna berada di dalam batas Jawa Barat
+        const loc = { lat: latitude, lng: longitude };
+        setUserLocation(loc);
+        setLocationMode('gps');
+        setActiveLocationName('Lokasi GPS Anda');
+        setMapCenter([latitude, longitude]);
+        setZoomLevel(14);
+        setIsOutsideJabar(false);
+        setIsGpsDenied(false);
+        setLocationAlertDismissed(true);
+        setIsLocationModalOpen(false);
+
+        fetchDestinationsData(latitude, longitude, radius, selectedCategory, searchQuery);
+      } else {
+        // Pengguna terdeteksi di luar Jawa Barat
+        setIsOutsideJabar(true);
+        setIsGpsDenied(false);
+        setLocationMode('manual');
+        setActiveLocationName('Kota Bandung (Acuan Jabar)');
+        const fallbackLoc = { lat: DEFAULT_CENTER[0], lng: DEFAULT_CENTER[1] };
+        setUserLocation(fallbackLoc);
+        setMapCenter(DEFAULT_CENTER);
+        setZoomLevel(12);
+
+        fetchDestinationsData(DEFAULT_CENTER[0], DEFAULT_CENTER[1], radius, selectedCategory, searchQuery);
+      }
+    },
+    [fetchDestinationsData, isInJawaBarat, radius, searchQuery, selectedCategory]
+  );
+
+  // Helper pemrosesan fallback saat GPS gagal / timeout / ditolak
+  const handleGpsFailure = useCallback(
+    (error: GeolocationPositionError) => {
+      // PERMISSION_DENIED = 1
+      if (error.code === error.PERMISSION_DENIED) {
+        setIsGpsDenied(true);
+      } else {
+        // Timeout (3) atau Position Unavailable (2)
+        setIsGpsDenied(false);
+      }
+
+      setIsOutsideJabar(false);
+      setLocationMode('manual');
+      setActiveLocationName('Kota Bandung (Acuan Jabar)');
+      const fallbackLoc = { lat: DEFAULT_CENTER[0], lng: DEFAULT_CENTER[1] };
+      setUserLocation(fallbackLoc);
+      setMapCenter(DEFAULT_CENTER);
+      setZoomLevel(12);
+
+      fetchDestinationsData(DEFAULT_CENTER[0], DEFAULT_CENTER[1], radius, selectedCategory, searchQuery);
+    },
+    [fetchDestinationsData, radius, searchQuery, selectedCategory]
+  );
+
+  // Fungsi untuk meminta lokasi GPS perangkat dengan fallback cerdas (High -> Low accuracy)
   const requestDeviceGpsLocation = useCallback(() => {
     if (typeof window === 'undefined') return;
 
@@ -224,58 +297,47 @@ export default function MapScreen({
       return;
     }
 
+    if (isRequestingGpsRef.current) return;
+    isRequestingGpsRef.current = true;
+
+    // Tahap 1: Coba ambil posisi dengan toleransi cache yang baik
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        const { latitude, longitude } = position.coords;
-
-        if (isInJawaBarat(latitude, longitude)) {
-          // Pengguna berada di dalam batas Jawa Barat
-          const loc = { lat: latitude, lng: longitude };
-          setUserLocation(loc);
-          setLocationMode('gps');
-          setActiveLocationName('Lokasi GPS Anda');
-          setMapCenter([latitude, longitude]);
-          setZoomLevel(14);
-          setIsOutsideJabar(false);
-          setIsGpsDenied(false);
-          setLocationAlertDismissed(true);
-          setIsLocationModalOpen(false);
-
-          fetchDestinationsData(latitude, longitude, radius, selectedCategory, searchQuery);
-        } else {
-          // Pengguna terdeteksi di luar Jawa Barat
-          setIsOutsideJabar(true);
-          setIsGpsDenied(false);
-          setLocationMode('manual');
-          setActiveLocationName('Kota Bandung (Acuan Jabar)');
-          const fallbackLoc = { lat: DEFAULT_CENTER[0], lng: DEFAULT_CENTER[1] };
-          setUserLocation(fallbackLoc);
-          setMapCenter(DEFAULT_CENTER);
-          setZoomLevel(12);
-
-          fetchDestinationsData(DEFAULT_CENTER[0], DEFAULT_CENTER[1], radius, selectedCategory, searchQuery);
-        }
+        isRequestingGpsRef.current = false;
+        handleGpsSuccess(position);
       },
       (error) => {
-        console.warn('Geolocation access denied or error:', error.message);
-        setIsGpsDenied(true);
-        setIsOutsideJabar(false);
-        setLocationMode('manual');
-        setActiveLocationName('Kota Bandung (Manual)');
-        const fallbackLoc = { lat: DEFAULT_CENTER[0], lng: DEFAULT_CENTER[1] };
-        setUserLocation(fallbackLoc);
-        setMapCenter(DEFAULT_CENTER);
-        setZoomLevel(12);
-
-        fetchDestinationsData(DEFAULT_CENTER[0], DEFAULT_CENTER[1], radius, selectedCategory, searchQuery);
+        // Jika terjadi Timeout atau Position Unavailable pada mode hardware GNSS,
+        // lakukan fallback otomatis ke mode jaringan/IP (enableHighAccuracy: false)
+        // yang sangat andal dan cepat untuk laptop/PC tanpa chip GPS hardware
+        if (error.code === error.TIMEOUT || error.code === error.POSITION_UNAVAILABLE) {
+          navigator.geolocation.getCurrentPosition(
+            (fallbackPos) => {
+              isRequestingGpsRef.current = false;
+              handleGpsSuccess(fallbackPos);
+            },
+            (finalError) => {
+              isRequestingGpsRef.current = false;
+              handleGpsFailure(finalError);
+            },
+            {
+              enableHighAccuracy: false,
+              timeout: 10000,
+              maximumAge: 600000, // 10 menit
+            }
+          );
+        } else {
+          isRequestingGpsRef.current = false;
+          handleGpsFailure(error);
+        }
       },
       {
         enableHighAccuracy: true,
-        timeout: 9000,
-        maximumAge: 300000,
+        timeout: 5000, // 5 detik sebelum mencoba fallback jaringan
+        maximumAge: 300000, // 5 menit
       }
     );
-  }, [fetchDestinationsData, isInJawaBarat, radius, searchQuery, selectedCategory]);
+  }, [fetchDestinationsData, handleGpsFailure, handleGpsSuccess, radius, searchQuery, selectedCategory]);
 
   // Inisialisasi awal saat load
   useEffect(() => {
@@ -284,6 +346,7 @@ export default function MapScreen({
 
   // Handler memilih opsi "Gunakan Lokasi Saat Ini (GPS)" dari Modal
   const handleUseCurrentGps = () => {
+    isRequestingGpsRef.current = false;
     requestDeviceGpsLocation();
   };
 
@@ -435,11 +498,28 @@ export default function MapScreen({
     );
   };
 
-  // Handler Simpan Destinasi ke Wishlist
+  // Handler Simpan Destinasi ke Rencana / Wishlist (Tanpa langsung commit ke database)
   const handleSaveDestinations = (savedItems: NearbyDestination[]) => {
-    const newCount = (localFavoritCount || 0) + (savedItems.length > 0 ? savedItems.length : 1);
+    const itemsToSave =
+      savedItems.length > 0
+        ? savedItems
+        : activeDestinationId
+        ? destinations.filter((d) => d.id === activeDestinationId)
+        : [];
+
+    if (itemsToSave.length === 0) return;
+
+    const newCount = (localFavoritCount || 0) + itemsToSave.length;
     setLocalFavoritCount(newCount);
     onSaveToWishlist?.(newCount);
+
+    // Kirim destinasi terpilih dan titik acuan keberangkatan ke ringkasan rencana
+    onNavigateToRencana?.(undefined, itemsToSave, {
+      name: activeLocationName || 'Lokasi Terkini',
+      address: `Titik keberangkatan di ${activeLocationName || 'Jawa Barat'}`,
+      lat: userLocation?.lat || DEFAULT_CENTER[0],
+      lng: userLocation?.lng || DEFAULT_CENTER[1],
+    });
   };
 
   // Handle BottomNav Tab Switching
@@ -463,6 +543,57 @@ export default function MapScreen({
     coordinates: d.coordinates,
   }));
 
+  // Menghitung rute perjalanan spasial jalan raya (OSRM Polyline) dari titik user ke destinasi tujuan
+  useEffect(() => {
+    const originLat = userLocation?.lat || mapCenter[0];
+    const originLng = userLocation?.lng || mapCenter[1];
+    let waypoints: [number, number][] = [];
+
+    if (selectedDestIds.length > 0) {
+      const selected = destinations.filter((d) => selectedDestIds.includes(d.id));
+      if (selected.length > 0) {
+        waypoints = [
+          [originLat, originLng],
+          ...selected.map((d) => d.coordinates),
+        ];
+      }
+    } else if (activeDestinationId) {
+      const active = destinations.find((d) => d.id === activeDestinationId);
+      if (active) {
+        waypoints = [
+          [originLat, originLng],
+          active.coordinates,
+        ];
+      }
+    }
+
+    if (waypoints.length >= 2) {
+      let isCancelled = false;
+      fetchRoadRoute(waypoints)
+        .then((result) => {
+          if (!isCancelled) {
+            setRoadRouteCoords(result.coordinates);
+            setRoadGeoJson(result.geojson);
+            setRoadDistanceKm(result.distanceKm);
+          }
+        })
+        .catch((err) => {
+          console.warn('Road routing error:', err);
+          if (!isCancelled) {
+            setRoadRouteCoords(waypoints);
+          }
+        });
+
+      return () => {
+        isCancelled = true;
+      };
+    } else {
+      setRoadRouteCoords(undefined);
+      setRoadGeoJson(null);
+      setRoadDistanceKm(0);
+    }
+  }, [userLocation, mapCenter, selectedDestIds, activeDestinationId, destinations]);
+
   // Badge count filter aktif
   const activeFiltersCount =
     (selectedCategory !== 'Semua' ? 1 : 0) + (radius !== 10 ? 1 : 0);
@@ -480,7 +611,7 @@ export default function MapScreen({
         className="shrink-0 z-30"
       />
 
-      {/* 2. Floating Search Bar & Location Controls */}
+      {/* 2. Floating Top Row Controls: Search Bar, Tombol Pengaturan GPS, Tombol Filter */}
       <div className="absolute top-[68px] left-0 right-0 z-20">
         <SearchBar
           value={searchQuery}
@@ -492,41 +623,12 @@ export default function MapScreen({
             fetchDestinationsData(activeLat, activeLng, radius, selectedCategory, '');
           }}
           onSubmit={handleSearchSubmit}
+          onGpsClick={() => setIsLocationModalOpen(true)}
+          isGpsActive={locationMode === 'gps'}
           onFilterClick={() => setIsFilterOpen((prev) => !prev)}
           filterBadgeCount={activeFiltersCount}
           placeholder="Cari destinasi wisata di Jawa Barat..."
         />
-
-        {/* Dedicated Location Setting Bar */}
-        <div className="px-5 mt-2 flex items-center justify-between">
-          <button
-            type="button"
-            onClick={() => setIsLocationModalOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-white/95 backdrop-blur-xs hover:bg-white border border-gray-200/90 rounded-full shadow-[0_2px_8px_rgba(0,0,0,0.06)] text-xs font-semibold text-gray-800 transition-all active:scale-95 cursor-pointer group"
-          >
-            <div
-              className={`w-2 h-2 rounded-full shrink-0 ${
-                locationMode === 'gps'
-                  ? 'bg-[#10B981] animate-pulse'
-                  : 'bg-[#4941EC]'
-              }`}
-            />
-            <MapPin className="w-3.5 h-3.5 text-[#4941EC] shrink-0" />
-            <span className="truncate max-w-[190px]">
-              {locationMode === 'gps'
-                ? 'Lokasi GPS Anda'
-                : activeLocationName}
-            </span>
-            <span className="text-[10px] text-[#4941EC] font-bold group-hover:underline ml-1">
-              Atur Titik
-            </span>
-          </button>
-
-          {/* Quick Radius Indicator */}
-          <span className="text-[11px] font-bold text-gray-600 bg-white/90 backdrop-blur-xs px-2.5 py-1 rounded-full border border-gray-200/80 shadow-2xs">
-            Radius {radius} km
-          </span>
-        </div>
 
         {/* 3. Floating Filter Eksplorasi Card */}
         {isFilterOpen && (
@@ -601,6 +703,7 @@ export default function MapScreen({
           radiusKm={radius}
           markers={mapMarkers}
           selectedMarkerId={activeDestinationId}
+          routeCoordinates={roadRouteCoords}
           onMarkerClick={handleMarkerClick}
           onRecenter={handleRecenter}
         />

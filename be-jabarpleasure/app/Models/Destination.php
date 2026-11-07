@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\DB;
 
 class Destination extends Model
@@ -57,6 +58,11 @@ class Destination extends Model
     public function regency(): BelongsTo
     {
         return $this->belongsTo(RegencyCity::class, 'regency_id');
+    }
+
+    public function checkIns(): HasMany
+    {
+        return $this->hasMany(CheckIn::class, 'destination_id');
     }
 
     /**

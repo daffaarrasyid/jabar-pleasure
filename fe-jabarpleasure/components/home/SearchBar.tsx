@@ -1,13 +1,15 @@
 'use client';
 
 import React from 'react';
-import { Search, X, SlidersHorizontal } from 'lucide-react';
+import { Search, X, SlidersHorizontal, Locate } from 'lucide-react';
 
 interface SearchBarProps {
   value?: string;
   onChange?: (value: string) => void;
   onClear?: () => void;
   onFilterClick?: () => void;
+  onGpsClick?: () => void;
+  isGpsActive?: boolean;
   onSubmit?: () => void;
   filterBadgeCount?: number;
   placeholder?: string;
@@ -19,6 +21,8 @@ export default function SearchBar({
   onChange,
   onClear,
   onFilterClick,
+  onGpsClick,
+  isGpsActive = false,
   onSubmit,
   filterBadgeCount,
   placeholder = 'Cari destinasi, kuliner, hiburan',
@@ -31,8 +35,8 @@ export default function SearchBar({
   };
 
   return (
-    <div className={`w-full flex items-center gap-3 px-5 py-2 ${className}`}>
-      {/* Search Input Box */}
+    <div className={`w-full flex items-center gap-2.5 px-5 py-2 ${className}`}>
+      {/* 1. Search Input Box */}
       <div className="relative flex-1 flex items-center bg-white rounded-2xl border border-gray-200/90 shadow-[0_2px_8px_rgba(0,0,0,0.03)] focus-within:border-[#4941EC] focus-within:ring-2 focus-within:ring-[#4941EC]/15 transition-all">
         {/* Search Icon */}
         <div className="pl-4 pr-2 text-gray-400 shrink-0 pointer-events-none">
@@ -66,23 +70,40 @@ export default function SearchBar({
         )}
       </div>
 
-      {/* Filter Button with optional badge */}
-      <button
-        type="button"
-        onClick={onFilterClick}
-        aria-label="Filter destinasi"
-        className="relative w-12 h-12 shrink-0 bg-[#4941EC] hover:bg-[#3C35C7] text-white rounded-2xl flex items-center justify-center shadow-[0_4px_12px_rgba(73,65,236,0.25)] active:scale-95 transition-all cursor-pointer"
-      >
-        <SlidersHorizontal className="w-5 h-5 stroke-[2.3]" />
-        {filterBadgeCount !== undefined && filterBadgeCount > 0 && (
-          <span
-            className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 bg-[#EF4444] text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white shadow-xs leading-none z-10 animate-in fade-in zoom-in-75 duration-200"
-            aria-label={`${filterBadgeCount} filter aktif`}
-          >
-            {filterBadgeCount}
-          </span>
-        )}
-      </button>
+      {/* 2. GPS Location Button */}
+      {onGpsClick && (
+        <button
+          type="button"
+          onClick={onGpsClick}
+          aria-label="Atur titik GPS"
+          className="relative w-12 h-12 shrink-0 bg-white hover:bg-gray-50 border border-gray-200/90 text-[#4941EC] rounded-2xl flex items-center justify-center shadow-[0_2px_8px_rgba(0,0,0,0.04)] active:scale-95 transition-all cursor-pointer"
+        >
+          <Locate className="w-5 h-5 stroke-[2.2]" />
+          {isGpsActive && (
+            <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#10B981] animate-pulse" />
+          )}
+        </button>
+      )}
+
+      {/* 3. Filter Button with optional badge */}
+      {onFilterClick && (
+        <button
+          type="button"
+          onClick={onFilterClick}
+          aria-label="Filter destinasi"
+          className="relative w-12 h-12 shrink-0 bg-[#4941EC] hover:bg-[#3C35C7] text-white rounded-2xl flex items-center justify-center shadow-[0_4px_12px_rgba(73,65,236,0.25)] active:scale-95 transition-all cursor-pointer"
+        >
+          <SlidersHorizontal className="w-5 h-5 stroke-[2.3]" />
+          {filterBadgeCount !== undefined && filterBadgeCount > 0 && (
+            <span
+              className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 bg-[#EF4444] text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white shadow-xs leading-none z-10 animate-in fade-in zoom-in-75 duration-200"
+              aria-label={`${filterBadgeCount} filter aktif`}
+            >
+              {filterBadgeCount}
+            </span>
+          )}
+        </button>
+      )}
     </div>
   );
 }

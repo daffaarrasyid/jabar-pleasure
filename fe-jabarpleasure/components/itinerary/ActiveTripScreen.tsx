@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import {
   ArrowLeft,
   ArrowUp,
@@ -9,15 +10,30 @@ import {
   CheckCircle2,
   Check,
   PartyPopper,
+  AlertTriangle,
 } from 'lucide-react';
 import AppHeader from '@/components/layout/AppHeader';
 import BottomNav, { NavTabId } from '@/components/layout/BottomNav';
-import RouteMapIllustration from '@/components/itinerary/RouteMapIllustration';
 import { RouteWaypoint } from '@/components/itinerary/ItinerarySummaryScreen';
+import { fetchRoadRoute } from '@/lib/routing';
+
+const ItineraryRouteMap = dynamic(
+  () => import('@/components/itinerary/ItineraryRouteMap'),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="w-full aspect-[16/10] sm:aspect-[16/9] rounded-2xl bg-gray-100 flex items-center justify-center text-xs text-gray-400 animate-pulse border border-gray-200">
+        Memuat peta navigasi rute jalan...
+      </div>
+    ),
+  }
+);
 
 interface ActiveTripScreenProps {
   planTitle?: string;
   originName?: string;
+  originLat?: number;
+  originLng?: number;
   startTime?: string;
   waypoints?: RouteWaypoint[];
   onBack?: () => void;
@@ -39,6 +55,8 @@ const DEFAULT_WAYPOINTS: RouteWaypoint[] = [
     address: 'Jl. Raya Pajajaran',
     role: 'Destinasi pertama',
     orderNumber: 1,
+    lat: -6.6009,
+    lng: 106.8058,
   },
   {
     id: 'botani-square',
@@ -46,6 +64,8 @@ const DEFAULT_WAYPOINTS: RouteWaypoint[] = [
     address: 'Jl. Raya Pajajaran',
     role: 'Destinasi kedua',
     orderNumber: 2,
+    lat: -6.6022,
+    lng: 106.8065,
   },
   {
     id: 'kebun-raya',
@@ -53,13 +73,17 @@ const DEFAULT_WAYPOINTS: RouteWaypoint[] = [
     address: 'Jl. Ir. H. Juanda No.13',
     role: 'Destinasi ketiga',
     orderNumber: 3,
+    lat: -6.5976,
+    lng: 106.7996,
   },
 ];
 
 export default function ActiveTripScreen({
   planTitle = 'Sehari di Bogor',
   originName = 'Stasiun Bogor',
-  startTime = '11.30',
+  originLat = -6.595,
+  originLng = 106.7972,
+  startTime,
   waypoints = DEFAULT_WAYPOINTS,
   onBack,
   onFinishTrip,
@@ -76,6 +100,54 @@ export default function ActiveTripScreen({
   const [currentStopIndex, setCurrentStopIndex] = useState(0);
   const [showEarlyFinishDialog, setShowEarlyFinishDialog] = useState(false);
 
+  // Waktu mulai riil berbasis jam aktual jika tidak dispesifikasikan
+  const [realStartTime] = useState<string>(() => {
+    if (startTime && startTime !== '11.30') return startTime;
+    const now = new Date();
+    return `${now.getHours().toString().padStart(2, '0')}.${now.getMinutes().toString().padStart(2, '0')} WIB`;
+  });
+
+  // Jarak dan estimasi waktu riil untuk leg yang sedang dituju
+  const [legDistanceKm, setLegDistanceKm] = useState<number>(2.7);
+  const [legDurationMinutes, setLegDurationMinutes] = useState<number>(10);
+
+  const currentStop = waypoints[currentStopIndex] || waypoints[waypoints.length - 1];
+  const isAllCompleted = currentStopIndex >= waypoints.length;
+
+  // Hitung rute dan durasi riil untuk segmen yang sedang aktif
+  useEffect(() => {
+    if (currentStopIndex >= waypoints.length || !currentStop) return;
+
+    let isCancelled = false;
+
+    const startCoords: [number, number] =
+      currentStopIndex === 0
+        ? [originLat, originLng]
+        : [
+            waypoints[currentStopIndex - 1]?.lat || -6.595,
+            waypoints[currentStopIndex - 1]?.lng || 106.7972,
+          ];
+
+    const endCoords: [number, number] = [
+      currentStop.lat || -6.6009,
+      currentStop.lng || 106.8058,
+    ];
+
+    fetchRoadRoute([startCoords, endCoords])
+      .then((res) => {
+        if (isCancelled) return;
+        if (res.distanceKm > 0) setLegDistanceKm(res.distanceKm);
+        if (res.durationMinutes > 0) setLegDurationMinutes(res.durationMinutes);
+      })
+      .catch((err) => {
+        console.warn('Failed to calculate leg ETA from road route:', err);
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [currentStopIndex, originLat, originLng, waypoints, currentStop]);
+
   const handleTabChange = (tab: NavTabId) => {
     if (tab === 'beranda') {
       onNavigateToHome?.();
@@ -89,9 +161,6 @@ export default function ActiveTripScreen({
       onBack?.();
     }
   };
-
-  const currentStop = waypoints[currentStopIndex] || waypoints[waypoints.length - 1];
-  const isAllCompleted = currentStopIndex >= waypoints.length;
 
   const handleArriveAtStop = () => {
     if (currentStopIndex < waypoints.length) {
@@ -138,7 +207,7 @@ export default function ActiveTripScreen({
               Perjalanan aktif
             </h1>
             <p className="text-xs text-gray-500 mt-0.5">
-              {planTitle} · Dimulai pukul {startTime}
+              {planTitle} · Dimulai pukul {realStartTime}
             </p>
           </div>
         </div>
@@ -172,10 +241,15 @@ export default function ActiveTripScreen({
           ))}
         </div>
 
-        {/* Schematic Route Map Illustration */}
+        {/* Real Leaflet WebGIS Map Component with Gray Visited Segments */}
         <div className="mb-3.5">
-          <RouteMapIllustration
-            originName={originName}
+          <ItineraryRouteMap
+            origin={{
+              name: originName,
+              lat: originLat,
+              lng: originLng,
+            }}
+            waypoints={waypoints}
             activeStopIndex={currentStopIndex}
           />
         </div>
@@ -184,7 +258,6 @@ export default function ActiveTripScreen({
         {!isAllCompleted ? (
           <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-[0_2px_8px_rgba(0,0,0,0.02)] mb-3.5 flex flex-col gap-2.5 animate-in fade-in duration-200">
             <div className="flex items-start gap-3">
-              {/* Purple Navigation Direction Square Icon */}
               <div className="w-12 h-12 rounded-2xl bg-[#4941EC] text-white flex items-center justify-center shrink-0 shadow-xs">
                 <ArrowUp className="w-6 h-6 stroke-[2.8]" />
               </div>
@@ -193,17 +266,15 @@ export default function ActiveTripScreen({
                   Menuju {currentStop.name}
                 </h2>
                 <p className="text-xs text-gray-500 mt-0.5 truncate">
-                  {currentStopIndex === 0
-                    ? 'Ikuti arah ke Jl. Kapten Muslihat'
-                    : 'Ikuti arah ke Jl. Raya Pajajaran'}
+                  {currentStop.address || `Menuju destinasi ke-${currentStopIndex + 1}`}
                 </p>
               </div>
             </div>
 
-            {/* Time, Distance, and Travel Mode */}
+            {/* Live Time, Distance, and Travel Mode from Real Road Route */}
             <div className="flex items-center justify-between pt-1">
               <span className="text-sm font-bold text-[#4941EC]">
-                {currentStopIndex === 0 ? '±10 menit · 2,7 km' : '±4 menit · 400 m'}
+                ±{legDurationMinutes} menit · {legDistanceKm} km
               </span>
               <span className="text-xs font-semibold text-gray-600">
                 Berkendara
@@ -212,8 +283,8 @@ export default function ActiveTripScreen({
 
             <p className="text-[11px] text-gray-500 pt-1 border-t border-gray-100">
               {currentStopIndex === 0
-                ? `Dari ${originName} · Ikuti rambu lalu lintas setempat.`
-                : `Dari ${waypoints[0]?.name || 'titik sebelumnya'} · Ikuti rambu lalu lintas setempat.`}
+                ? `Dari ${originName} · Ikuti rute jalan raya setempat.`
+                : `Dari ${waypoints[currentStopIndex - 1]?.name || 'titik sebelumnya'} · Ikuti rute jalan raya setempat.`}
             </p>
           </div>
         ) : (
@@ -226,7 +297,7 @@ export default function ActiveTripScreen({
               Perjalanan Selesai!
             </h2>
             <p className="text-xs text-gray-600 max-w-[280px]">
-              Kamu telah mengunjungi semua destinasi dalam rencana {planTitle}. Semoga harimu menyenangkan!
+              Kamu telah mengunjungi semua destinasi dalam rencana {planTitle}. Perjalanan ini siap disimpan ke riwayatmu!
             </p>
           </div>
         )}
@@ -243,7 +314,6 @@ export default function ActiveTripScreen({
                 className="flex items-center justify-between gap-3"
               >
                 <div className="flex items-center gap-3 min-w-0">
-                  {/* Square Badge (Blue for stop 1, Green for stop 2, Checkmark if visited) */}
                   <div
                     className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 transition-all ${
                       isVisited
@@ -274,15 +344,14 @@ export default function ActiveTripScreen({
                       }`}
                     >
                       {isVisited
-                        ? 'Sudah dikunjungi'
+                        ? 'Sudah dikunjungi (rute abu-abu)'
                         : isCurrent
                         ? `${stop.role} · Sedang dituju`
-                        : `${stop.role} · 400 m dari Tugu Kujang`}
+                        : `${stop.role}`}
                     </p>
                   </div>
                 </div>
 
-                {/* Right Action: Paper airplane icon if current, Check icon if completed */}
                 {isCurrent && (
                   <div className="p-1 text-[#4941EC] shrink-0 animate-pulse">
                     <Navigation className="w-4 h-4 fill-[#4941EC] stroke-[1.5]" />
@@ -334,8 +403,8 @@ export default function ActiveTripScreen({
 
               <p className="text-[11px] text-gray-500 text-center font-medium leading-relaxed">
                 {currentStopIndex > 0
-                  ? `${currentStopIndex} dari ${waypoints.length} destinasi telah dikunjungi. Klik "Selesai Perjalanan" jika ingin berhenti lebih awal.`
-                  : 'Tandai tiba saat sampai di lokasi, atau selesaikan perjalanan lebih awal kapan saja jika ada kendala.'}
+                  ? `${currentStopIndex} dari ${waypoints.length} destinasi telah dikunjungi. Klik "Selesai Perjalanan" jika ingin menyimpan riwayat.`
+                  : 'Tandai tiba saat sampai di lokasi, atau selesaikan perjalanan kapan saja untuk menyimpannya ke Riwayat.'}
               </p>
             </>
           ) : (
@@ -351,64 +420,37 @@ export default function ActiveTripScreen({
         </div>
       </main>
 
-      {/* Dialog Konfirmasi Selesaikan Perjalanan Lebih Awal */}
+      {/* Confirmation Dialog: Selesai Lebih Awal */}
       {showEarlyFinishDialog && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-5 border border-gray-100 max-w-[380px] w-full shadow-2xl animate-in zoom-in-95 duration-150">
-            {/* Header Icon & Title */}
-            <div className="flex items-start gap-3.5 mb-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-[#10B981] flex items-center justify-center shrink-0">
-                <CheckCircle2 className="w-5 h-5 stroke-[2.4]" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="text-base font-bold text-gray-900 tracking-tight">
-                  Selesaikan Perjalanan Lebih Awal?
-                </h3>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Simpan pencapaian kunjungan Anda ke Riwayat
-                </p>
-              </div>
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-2xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-5 max-w-xs w-full shadow-xl flex flex-col gap-3 animate-in zoom-in-95 duration-150">
+            <div className="w-10 h-10 rounded-full bg-emerald-100 text-[#059669] flex items-center justify-center mx-auto">
+              <AlertTriangle className="w-5 h-5 stroke-[2.2]" />
             </div>
-
-            {/* Content summary */}
-            <div className="bg-gray-50 rounded-xl p-3 border border-gray-100 mb-4 text-xs text-gray-600 space-y-1.5">
-              <p className="font-semibold text-gray-800">
-                Ringkasan Kunjungan:
+            <div className="text-center">
+              <h3 className="text-sm font-bold text-gray-900">
+                Selesaikan Perjalanan Sekarang?
+              </h3>
+              <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+                {currentStopIndex > 0
+                  ? `Kamu telah mengunjungi ${currentStopIndex} dari ${waypoints.length} destinasi. Trip ini akan ditutup dan disimpan ke Riwayat.`
+                  : `Kamu belum tiba di destinasi mana pun. Tetap selesaikan perjalanan dan simpan ke Riwayat?`}
               </p>
-              <div className="flex items-center justify-between text-gray-700">
-                <span>Destinasi dikunjungi:</span>
-                <span className="font-bold text-[#10B981]">
-                  {currentStopIndex} dari {waypoints.length} destinasi
-                </span>
-              </div>
-              <div className="text-[11px] text-gray-500 pt-1 border-t border-gray-200">
-                {currentStopIndex > 0 ? (
-                  <>
-                    Destinasi yang sudah Anda kunjungi ({waypoints.slice(0, currentStopIndex).map((w) => w.name).join(', ')}) akan tercatat rapi di <strong>Riwayat Perjalanan</strong>.
-                  </>
-                ) : (
-                  <>
-                    Belum ada destinasi yang Anda kunjungi. Perjalanan tetap akan diakhiri dan disimpan ke riwayat.
-                  </>
-                )}
-              </div>
             </div>
-
-            {/* Action buttons */}
-            <div className="flex flex-col gap-2">
-              <button
-                type="button"
-                onClick={handleConfirmEarlyFinish}
-                className="w-full py-3 px-4 rounded-xl bg-[#10B981] hover:bg-[#059669] active:scale-[0.98] text-white text-xs font-bold shadow-md shadow-emerald-500/20 transition-all cursor-pointer"
-              >
-                Ya, Selesaikan & Simpan Riwayat
-              </button>
+            <div className="grid grid-cols-2 gap-2 mt-2">
               <button
                 type="button"
                 onClick={() => setShowEarlyFinishDialog(false)}
-                className="w-full py-3 px-4 rounded-xl bg-gray-100 hover:bg-gray-200 active:scale-[0.98] text-gray-700 text-xs font-semibold transition-all cursor-pointer"
+                className="py-2 px-3 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs transition-colors cursor-pointer"
               >
-                Lanjutkan Perjalanan
+                Lanjut Jalan
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmEarlyFinish}
+                className="py-2 px-3 rounded-xl bg-[#10B981] hover:bg-[#059669] text-white font-bold text-xs transition-colors cursor-pointer"
+              >
+                Ya, Selesai
               </button>
             </div>
           </div>

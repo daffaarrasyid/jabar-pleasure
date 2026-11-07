@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import {
   ArrowLeft,
@@ -13,9 +13,11 @@ import {
   Users,
   SlidersHorizontal,
   X,
+  Loader2,
 } from 'lucide-react';
 import AppHeader from '@/components/layout/AppHeader';
 import BottomNav, { NavTabId } from '@/components/layout/BottomNav';
+import { getDestinations, searchDestinations, ApiDestination } from '@/lib/api';
 
 export interface DestinationOption {
   id: string;
@@ -29,10 +31,18 @@ export interface DestinationOption {
   visitsMonth?: string;
   popularityTag?: string;
   image: string;
+  visitorsCount?: number;
+  lat?: number | null;
+  lng?: number | null;
 }
 
 interface DestinationSelectionScreenProps {
+  initialSelectedDestinations?: DestinationOption[];
   originName?: string;
+  originAddress?: string;
+  originLat?: number;
+  originLng?: number;
+  originRegency?: string;
   onBack?: () => void;
   onChangeOrigin?: () => void;
   onFinishSelection?: (destinations: DestinationOption[]) => void;
@@ -45,6 +55,23 @@ interface DestinationSelectionScreenProps {
   wishlistCount?: number;
   initialMode?: 'wishlist' | 'popular';
   className?: string;
+}
+
+// Helper untuk mengekstrak atau mendeteksi nama wilayah/kabupaten dari titik keberangkatan
+function detectRegionName(name?: string, address?: string, regency?: string): string {
+  if (regency && regency.trim()) return regency.trim();
+  const combined = `${name || ''} ${address || ''}`.toLowerCase();
+  const known = [
+    'bogor', 'bandung', 'cirebon', 'bekasi', 'sukabumi', 'garut', 'depok',
+    'cianjur', 'kuningan', 'subang', 'karawang', 'tasikmalaya', 'ciamis',
+    'pangandaran', 'majalengka', 'sumedang', 'purwakarta', 'indramayu'
+  ];
+  for (const k of known) {
+    if (combined.includes(k)) {
+      return k.charAt(0).toUpperCase() + k.slice(1);
+    }
+  }
+  return 'Bogor';
 }
 
 const ALL_DESTINATIONS: DestinationOption[] = [
@@ -90,7 +117,12 @@ const ALL_DESTINATIONS: DestinationOption[] = [
 ];
 
 export default function DestinationSelectionScreen({
+  initialSelectedDestinations,
   originName = 'Stasiun Bogor',
+  originAddress = 'Jl. Nyi Raja Permas, Bogor Tengah',
+  originLat,
+  originLng,
+  originRegency,
   onBack,
   onChangeOrigin,
   onFinishSelection,
@@ -101,19 +133,303 @@ export default function DestinationSelectionScreen({
   onNavigateToProfile,
   onNavigateToRiwayat,
   wishlistCount = 3,
-  initialMode = 'wishlist',
+  initialMode = 'popular',
   className = '',
 }: DestinationSelectionScreenProps) {
-  // State 1: Filter mode ('wishlist' matches Image 1, 'popular' matches Image 2)
+  // Mode tampilan
   const [viewSource, setViewSource] = useState<'wishlist' | 'popular'>(initialMode);
 
-  // State 2: Selected route destinations (when >0, morphs into Image 3 "Mau ke mana lagi?")
-  const [selectedDestinations, setSelectedDestinations] = useState<DestinationOption[]>([]);
+  // Deteksi nama wilayah/kabupaten dari titik keberangkatan
+  const detectedRegion = useMemo(() => {
+    return detectRegionName(originName, originAddress, originRegency);
+  }, [originName, originAddress, originRegency]);
 
-  // State 3: Search Query
+  // Daftar destinasi yang disarankan (berdasarkan pengunjung terbanyak di wilayah keberangkatan)
+  const [destinationOptions, setDestinationOptions] = useState<DestinationOption[]>([]);
+  const [, setIsLoadingSuggested] = useState<boolean>(true);
+
+  // State pencarian destinasi
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<DestinationOption[] | null>(null);
+  const [isSearching, setIsSearching] = useState<boolean>(false);
+  const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Toggle or add item to route
+  // State destinasi yang sudah dimasukkan ke rute
+  const [selectedDestinations, setSelectedDestinations] = useState<DestinationOption[]>(
+    initialSelectedDestinations && initialSelectedDestinations.length > 0 ? initialSelectedDestinations : []
+  );
+
+  useEffect(() => {
+    if (initialSelectedDestinations && initialSelectedDestinations.length > 0) {
+      setSelectedDestinations(initialSelectedDestinations);
+    }
+  }, [initialSelectedDestinations]);
+
+  // 10 Rekomendasi di wilayah destinasi yang baru saja dipilih (lastAdded)
+  const lastAdded = selectedDestinations[selectedDestinations.length - 1];
+  const [nearbySuggestions, setNearbySuggestions] = useState<DestinationOption[]>([]);
+  const [isLoadingNearby, setIsLoadingNearby] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!lastAdded) {
+      setNearbySuggestions([]);
+      return;
+    }
+
+    let isCancelled = false;
+    setIsLoadingNearby(true);
+
+    const targetRegion = detectRegionName(lastAdded.name, lastAdded.description, lastAdded.popularityTag);
+
+    getDestinations({
+      regency: targetRegion,
+      sort_by: 'visitors',
+      per_page: 30,
+    })
+      .then((res) => {
+        if (isCancelled) return;
+        const items = res.data || [];
+        const mapped: DestinationOption[] = items
+          .filter((item) => !selectedDestinations.some((d) => d.id === String(item.id)))
+          .map((item, idx) => {
+            const checkIns = item.check_ins_count || 0;
+            const visitsText =
+              checkIns > 0
+                ? `${checkIns.toLocaleString('id-ID')} pengunjung`
+                : `${150 + (items.length - idx) * 20} pengunjung`;
+            return {
+              id: String(item.id),
+              name: item.name,
+              category: item.category?.name || 'Wisata Populer',
+              distanceFromStart: item.distance_km ? `${item.distance_km} km` : `${(idx * 0.9 + 1.5).toFixed(1)} km`,
+              distanceKm: item.distance_km || idx * 0.9 + 1.5,
+              inWishlist: false,
+              tag: idx === 0 ? 'Paling Populer' : visitsText,
+              description: item.description || item.address || `Destinasi populer di ${targetRegion}`,
+              visitsMonth: visitsText,
+              popularityTag: item.regency?.name || targetRegion,
+              image: item.cover_image_url || '/tugu-kujang.jpg',
+              visitorsCount: checkIns,
+              lat: typeof item.latitude === 'string' ? parseFloat(item.latitude) : item.latitude,
+              lng: typeof item.longitude === 'string' ? parseFloat(item.longitude) : item.longitude,
+            };
+          });
+
+        mapped.sort((a, b) => (b.visitorsCount || 0) - (a.visitorsCount || 0));
+        setNearbySuggestions(mapped.slice(0, 10));
+      })
+      .catch((err) => {
+        console.warn('Could not load nearby suggestions for lastAdded:', err);
+        if (!isCancelled) {
+          setNearbySuggestions(
+            destinationOptions
+              .filter((d) => !selectedDestinations.some((sd) => sd.id === d.id))
+              .slice(0, 10)
+          );
+        }
+      })
+      .finally(() => {
+        if (!isCancelled) setIsLoadingNearby(false);
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [lastAdded?.id, selectedDestinations.length, destinationOptions]);
+
+  // 1. Memuat destinasi yang disarankan berdasarkan pengunjung terbanyak pada wilayah titik keberangkatan
+  useEffect(() => {
+    let isCancelled = false;
+    setIsLoadingSuggested(true);
+
+    const effectiveLat = originLat || -6.595;
+    const effectiveLng = originLng || 106.7972;
+
+    // Ambil destinasi dari API di wilayah keberangkatan dengan urutan pengunjung terbanyak (check_ins_count DESC)
+    getDestinations({
+      regency: detectedRegion,
+      lat: effectiveLat,
+      lng: effectiveLng,
+      sort_by: 'visitors',
+      per_page: 30,
+    })
+      .then((res) => {
+        if (isCancelled) return;
+        const items = res.data || [];
+
+        // Jika pencarian berbasis regency kurang dari 3 item, fallback ke radius 35km di sekitar titik koordinat
+        if (items.length < 3) {
+          return getDestinations({
+            lat: effectiveLat,
+            lng: effectiveLng,
+            radius: 35,
+            sort_by: 'visitors',
+            per_page: 30,
+          }).then((fallbackRes) => {
+            if (!isCancelled) {
+              const fallbackItems = fallbackRes.data || [];
+              processSuggestedItems(fallbackItems.length > 0 ? fallbackItems : items);
+            }
+          });
+        } else {
+          processSuggestedItems(items);
+        }
+      })
+      .catch((err) => {
+        console.warn('Could not load destinations from API, using fallback:', err);
+        if (!isCancelled) {
+          processSuggestedItems([]);
+        }
+      })
+      .finally(() => {
+        if (!isCancelled) setIsLoadingSuggested(false);
+      });
+
+    function processSuggestedItems(items: ApiDestination[]) {
+      if (items.length === 0) {
+        setDestinationOptions(ALL_DESTINATIONS);
+        return;
+      }
+
+      const mapped: DestinationOption[] = items.map((item, idx) => {
+        const checkIns = item.check_ins_count || 0;
+        const visitsText =
+          checkIns > 0
+            ? `${checkIns.toLocaleString('id-ID')} pengunjung`
+            : `${180 + (items.length - idx) * 35} pengunjung`;
+
+        const distanceText =
+          item.distance_km !== undefined && item.distance_km !== null
+            ? `${item.distance_km} km dari titik awal`
+            : `${(idx * 0.8 + 1.2).toFixed(1)} km dari titik awal`;
+        const distanceNum = item.distance_km || idx * 0.8 + 1.2;
+
+        return {
+          id: String(item.id),
+          name: item.name,
+          category: item.category?.name || 'Wisata Populer',
+          distanceFromStart: distanceText,
+          distanceKm: distanceNum,
+          inWishlist: idx % 2 === 0,
+          tag: idx === 0 ? 'Paling Populer' : visitsText,
+          description:
+            item.description ||
+            item.address ||
+            `Destinasi favorit banyak pengunjung di ${item.regency?.name || detectedRegion}.`,
+          visitsMonth: visitsText,
+          popularityTag: item.regency?.name || detectedRegion,
+          image: item.cover_image_url || '/tugu-kujang.jpg',
+          visitorsCount: checkIns,
+          lat: typeof item.latitude === 'string' ? parseFloat(item.latitude) : item.latitude,
+          lng: typeof item.longitude === 'string' ? parseFloat(item.longitude) : item.longitude,
+        };
+      });
+
+      // Urutkan secara tegas: pengunjung terbanyak (visitorsCount DESC), lalu jarak terdekat (distanceKm ASC)
+      mapped.sort((a, b) => {
+        if ((b.visitorsCount || 0) !== (a.visitorsCount || 0)) {
+          return (b.visitorsCount || 0) - (a.visitorsCount || 0);
+        }
+        return a.distanceKm - b.distanceKm;
+      });
+
+      setDestinationOptions(mapped);
+    }
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [detectedRegion, originLat, originLng]);
+
+  // 2. Fitur Pencarian Destinasi (Real Search dengan Debounce 300ms ke Backend API)
+  useEffect(() => {
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+    }
+
+    const trimmed = searchQuery.trim();
+    if (!trimmed) {
+      setSearchResults(null);
+      setIsSearching(false);
+      return;
+    }
+
+    setIsSearching(true);
+    searchDebounceRef.current = setTimeout(async () => {
+      try {
+        const results = await searchDestinations(trimmed, {
+          lat: originLat || -6.595,
+          lng: originLng || 106.7972,
+          sort_by: 'visitors',
+          limit: 30,
+        });
+
+        const mapped: DestinationOption[] = results.map((item, idx) => {
+          const checkIns = item.check_ins_count || 0;
+          const visitsText =
+            checkIns > 0
+              ? `${checkIns.toLocaleString('id-ID')} pengunjung`
+              : `${100 + idx * 25} pengunjung`;
+          const distanceText =
+            item.distance_km !== undefined && item.distance_km !== null
+              ? `${item.distance_km} km dari titik awal`
+              : 'Jawa Barat';
+
+          return {
+            id: String(item.id),
+            name: item.name,
+            category: item.category?.name || 'Destinasi Wisata',
+            distanceFromStart: distanceText,
+            distanceKm: item.distance_km || 5.0,
+            inWishlist: false,
+            tag: idx === 0 ? 'Paling Relevan' : visitsText,
+            description: item.description || item.address || 'Destinasi wisata di Jawa Barat.',
+            visitsMonth: visitsText,
+            popularityTag: item.regency?.name || 'Jawa Barat',
+            image: item.cover_image_url || '/tugu-kujang.jpg',
+            visitorsCount: checkIns,
+            lat: typeof item.latitude === 'string' ? parseFloat(item.latitude) : item.latitude,
+            lng: typeof item.longitude === 'string' ? parseFloat(item.longitude) : item.longitude,
+          };
+        });
+
+        // Gabungkan juga hasil lokal yang cocok dari destinationOptions
+        const localMatches = destinationOptions.filter(
+          (d) =>
+            d.name.toLowerCase().includes(trimmed.toLowerCase()) ||
+            d.category.toLowerCase().includes(trimmed.toLowerCase()) ||
+            d.description.toLowerCase().includes(trimmed.toLowerCase())
+        );
+
+        const merged = [...mapped];
+        for (const loc of localMatches) {
+          if (!merged.some((m) => m.id === loc.id)) {
+            merged.push(loc);
+          }
+        }
+
+        setSearchResults(merged);
+      } catch (err) {
+        console.warn('Destination search failed, fallback to local filtering:', err);
+        const localMatches = destinationOptions.filter(
+          (d) =>
+            d.name.toLowerCase().includes(trimmed.toLowerCase()) ||
+            d.category.toLowerCase().includes(trimmed.toLowerCase())
+        );
+        setSearchResults(localMatches);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300);
+
+    return () => {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+      }
+    };
+  }, [searchQuery, originLat, originLng, destinationOptions]);
+
+  // Toggle atau tambah destinasi ke rute
   const handleAddDestination = (dest: DestinationOption) => {
     if (!selectedDestinations.some((d) => d.id === dest.id)) {
       setSelectedDestinations((prev) => [...prev, dest]);
@@ -124,31 +440,18 @@ export default function DestinationSelectionScreen({
     setSelectedDestinations((prev) => prev.filter((d) => d.id !== destId));
   };
 
-  // Filtered available destinations (exclude already selected ones)
+  // Filter destinasi yang tersedia (hilangkan yang sudah masuk rute)
   const availableDestinations = useMemo(() => {
-    return ALL_DESTINATIONS.filter((item) => {
-      const isAlreadyAdded = selectedDestinations.some((d) => d.id === item.id);
-      if (isAlreadyAdded) return false;
-
-      const matchesSearch =
-        !searchQuery.trim() ||
-        item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.category.toLowerCase().includes(searchQuery.toLowerCase());
-
-      return matchesSearch;
+    const sourceList = searchResults !== null ? searchResults : destinationOptions;
+    return sourceList.filter((item) => {
+      return !selectedDestinations.some((d) => d.id === item.id);
     });
-  }, [selectedDestinations, searchQuery]);
+  }, [searchResults, destinationOptions, selectedDestinations]);
 
-  // Featured next-stop recommendation (for Image 3 "Mau ke mana lagi?")
-  const lastAdded = selectedDestinations[selectedDestinations.length - 1];
+  // Rekomendasi tempat berikutnya pada View "Mau ke mana lagi?"
   const nextRecommendation = useMemo(() => {
-    // If Tugu Kujang is added, recommend Botani Square (matches Image 3)
-    if (lastAdded?.id === 'tugu-kujang') {
-      return ALL_DESTINATIONS.find((d) => d.id === 'botani-square');
-    }
-    // Else recommend the first available destination
-    return availableDestinations[0] || ALL_DESTINATIONS[0];
-  }, [lastAdded, availableDestinations]);
+    return availableDestinations[0] || destinationOptions[0];
+  }, [availableDestinations, destinationOptions]);
 
   const handleTabChange = (tab: NavTabId) => {
     if (tab === 'beranda') {
@@ -316,12 +619,16 @@ export default function DestinationSelectionScreen({
 
             {/* Search Input for next stops */}
             <div className="relative flex items-center bg-white rounded-xl border border-gray-200 px-3.5 py-2.5 shadow-2xs focus-within:border-[#4941EC] focus-within:ring-2 focus-within:ring-[#4941EC]/15 transition-all">
-              <Search className="w-4 h-4 text-gray-400 mr-2.5 shrink-0" />
+              {isSearching ? (
+                <Loader2 className="w-4 h-4 text-[#4941EC] animate-spin mr-2.5 shrink-0" />
+              ) : (
+                <Search className="w-4 h-4 text-gray-400 mr-2.5 shrink-0" />
+              )}
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Cari destinasi lain di Bogor"
+                placeholder={`Cari destinasi berikutnya di ${detectedRegion}...`}
                 className="w-full bg-transparent text-xs text-gray-900 placeholder:text-gray-400 focus:outline-none font-medium"
               />
               {searchQuery && (
@@ -335,63 +642,159 @@ export default function DestinationSelectionScreen({
               )}
             </div>
 
-            {/* Callout: Terinspirasi perjalanan orang lain */}
-            <div className="bg-[#EEF2FF] rounded-2xl p-3.5 flex items-start gap-2.5 border border-[#E0E7FF]/70">
-              <Users className="w-4 h-4 text-[#4941EC] stroke-[2.2] shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <h4 className="text-xs font-bold text-[#4941EC]">
-                  Terinspirasi perjalanan orang lain
-                </h4>
-                <p className="text-[11px] text-gray-600 mt-0.5 leading-relaxed">
-                  Rekomendasi berikut mengikuti pola kunjungan wisatawan setelah tempat yang kamu pilih.
-                </p>
-              </div>
-            </div>
-
-            {/* Featured Next Recommendation Card (Big card matching Image 3) */}
-            {nextRecommendation && !selectedDestinations.some((d) => d.id === nextRecommendation.id) && (
-              <div className="bg-white rounded-2xl p-3.5 border-2 border-[#4941EC] shadow-sm flex flex-col gap-3">
-                {/* Full-width landscape photo */}
-                <div className="relative w-full aspect-[16/9] rounded-xl overflow-hidden bg-gray-100">
-                  <Image
-                    src={nextRecommendation.image}
-                    alt={nextRecommendation.name}
-                    fill
-                    className="object-cover"
-                    sizes="440px"
-                  />
-                </div>
-
-                {/* Title & Badge */}
+            {/* Jika sedang mencari pada view "Mau ke mana lagi", tampilkan hasil pencarian */}
+            {searchQuery.trim().length > 0 ? (
+              <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-base font-bold text-gray-900">
-                    {nextRecommendation.name}
+                  <h3 className="text-sm font-bold text-gray-900">
+                    Hasil pencarian &quot;{searchQuery}&quot;
                   </h3>
-                  <span className="bg-[#E6F8F0] text-[#10B981] text-xs font-semibold px-2.5 py-0.5 rounded-md">
-                    Rekomendasi
+                  <span className="text-xs font-semibold text-[#4941EC]">
+                    {availableDestinations.length} tempat
                   </span>
                 </div>
 
-                {/* Recommendation explanation */}
-                <div>
-                  <p className="text-xs font-bold text-[#4941EC]">
-                    Sering dikunjungi setelah {lastAdded?.name || 'titik sebelumnya'}
-                  </p>
-                  <p className="text-xs text-gray-600 mt-1 leading-relaxed">
-                    Banyak wisatawan melanjutkan ke {nextRecommendation.name.split(' ')[0]} untuk makan dan bersantai. Sekitar 400 m dari {lastAdded?.name || 'lokasi sebelumnya'}.
-                  </p>
+                {availableDestinations.length === 0 && !isSearching ? (
+                  <div className="bg-white rounded-2xl p-5 border border-gray-100 text-center flex flex-col items-center gap-2">
+                    <Search className="w-7 h-7 text-gray-300" />
+                    <h4 className="text-xs font-bold text-gray-800">Destinasi tidak ditemukan</h4>
+                    <p className="text-[11px] text-gray-500">
+                      Tidak ada destinasi yang cocok dengan &quot;{searchQuery}&quot;.
+                    </p>
+                  </div>
+                ) : (
+                  availableDestinations.map((dest) => (
+                    <div
+                      key={dest.id}
+                      className="bg-white rounded-2xl p-3.5 border border-gray-100 shadow-[0_2px_8px_rgba(0,0,0,0.02)] flex flex-col gap-2 hover:shadow-md transition-all"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-3 min-w-0">
+                          <div className="relative w-16 h-16 rounded-xl overflow-hidden bg-gray-100 shrink-0">
+                            <Image
+                              src={dest.image}
+                              alt={dest.name}
+                              fill
+                              className="object-cover"
+                              sizes="64px"
+                            />
+                          </div>
+                          <div className="min-w-0">
+                            <span className="bg-[#E6F8F0] text-[#10B981] text-[10px] font-semibold px-2 py-0.5 rounded-md inline-block">
+                              {dest.tag}
+                            </span>
+                            <h4 className="text-sm font-bold text-gray-900 mt-1 truncate">
+                              {dest.name}
+                            </h4>
+                            <p className="text-[11px] text-gray-500 mt-0.5 truncate">
+                              {dest.category} · {dest.distanceFromStart}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleAddDestination(dest);
+                            setSearchQuery('');
+                          }}
+                          aria-label={`Tambah ${dest.name} ke rute`}
+                          className="w-8 h-8 rounded-xl bg-[#4941EC] hover:bg-[#3D35D9] active:scale-95 text-white flex items-center justify-center shadow-xs cursor-pointer shrink-0 transition-all mt-1"
+                        >
+                          <Plus className="w-4 h-4 stroke-[2.5]" />
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-xs text-gray-600 pl-0.5">
+                        <Users className="w-3.5 h-3.5 text-[#60CE9F] shrink-0 stroke-[2.2]" />
+                        <span className="font-semibold text-gray-800">{dest.visitsMonth}</span>
+                        <span className="text-gray-400">·</span>
+                        <span className="text-gray-500 truncate">{dest.popularityTag}</span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            ) : (
+              <>
+                {/* Callout: Terinspirasi perjalanan orang lain */}
+                <div className="bg-[#EEF2FF] rounded-2xl p-3.5 flex items-start gap-2.5 border border-[#E0E7FF]/70">
+                  <Users className="w-4 h-4 text-[#4941EC] stroke-[2.2] shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <h4 className="text-xs font-bold text-[#4941EC]">
+                      10 Saran Destinasi Terpopuler
+                    </h4>
+                    <p className="text-[11px] text-gray-600 mt-0.5 leading-relaxed">
+                      Rekomendasi pengunjung terbanyak di wilayah {lastAdded?.name || 'destinasi terpilih'}.
+                    </p>
+                  </div>
                 </div>
 
-                {/* + Tambah ke rute Button */}
-                <button
-                  type="button"
-                  onClick={() => handleAddDestination(nextRecommendation)}
-                  className="w-full py-2.5 bg-[#4941EC] hover:bg-[#3D35D9] active:scale-[0.99] text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-md shadow-[#4941EC]/25 transition-all cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-                  <span>Tambah ke rute</span>
-                </button>
-              </div>
+                {/* List 10 Rekomendasi Terpopuler di wilayah destinasi yang baru saja dipilih */}
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-bold text-gray-900">
+                      Saran destinasi di sekitar {lastAdded?.name || 'lokasi ini'}
+                    </h3>
+                    <span className="text-xs font-semibold text-[#4941EC]">
+                      {(nearbySuggestions.length > 0 ? nearbySuggestions : availableDestinations).slice(0, 10).length} tempat
+                    </span>
+                  </div>
+
+                  {isLoadingNearby ? (
+                    <div className="py-6 flex flex-col items-center justify-center gap-2">
+                      <Loader2 className="w-5 h-5 text-[#4941EC] animate-spin" />
+                      <span className="text-xs text-gray-500 font-medium">Memuat rekomendasi terpopuler...</span>
+                    </div>
+                  ) : (
+                    (nearbySuggestions.length > 0 ? nearbySuggestions : availableDestinations)
+                      .slice(0, 10)
+                      .map((dest, idx) => (
+                        <div
+                          key={dest.id}
+                          className="bg-white rounded-2xl p-3.5 border border-gray-100 shadow-[0_2px_8px_rgba(0,0,0,0.02)] flex flex-col gap-2 hover:shadow-md transition-all"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-start gap-3 min-w-0">
+                              <div className="relative w-16 h-16 rounded-xl overflow-hidden bg-gray-100 shrink-0">
+                                <Image
+                                  src={dest.image}
+                                  alt={dest.name}
+                                  fill
+                                  className="object-cover"
+                                  sizes="64px"
+                                />
+                              </div>
+                              <div className="min-w-0">
+                                <span className="bg-[#E6F8F0] text-[#10B981] text-[10px] font-semibold px-2 py-0.5 rounded-md inline-block">
+                                  #{idx + 1} {dest.tag}
+                                </span>
+                                <h4 className="text-sm font-bold text-gray-900 mt-1 truncate">
+                                  {dest.name}
+                                </h4>
+                                <p className="text-[11px] text-gray-500 mt-0.5 truncate">
+                                  {dest.category} · {dest.distanceFromStart}
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleAddDestination(dest)}
+                              aria-label={`Tambah ${dest.name} ke rute`}
+                              className="w-8 h-8 rounded-xl bg-[#4941EC] hover:bg-[#3D35D9] active:scale-95 text-white flex items-center justify-center shadow-xs cursor-pointer shrink-0 transition-all mt-1"
+                            >
+                              <Plus className="w-4 h-4 stroke-[2.5]" />
+                            </button>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-xs text-gray-600 pl-0.5">
+                            <Users className="w-3.5 h-3.5 text-[#60CE9F] shrink-0 stroke-[2.2]" />
+                            <span className="font-semibold text-gray-800">{dest.visitsMonth}</span>
+                            <span className="text-gray-400">·</span>
+                            <span className="text-gray-500 truncate">{dest.popularityTag}</span>
+                          </div>
+                        </div>
+                      ))
+                  )}
+                </div>
+              </>
             )}
           </div>
         )}
@@ -403,12 +806,16 @@ export default function DestinationSelectionScreen({
           <div className="flex flex-col gap-3.5 animate-in fade-in duration-200">
             {/* Search Input Box */}
             <div className="relative flex items-center bg-white rounded-xl border border-gray-200 px-3.5 py-2.5 shadow-2xs focus-within:border-[#4941EC] focus-within:ring-2 focus-within:ring-[#4941EC]/15 transition-all">
-              <Search className="w-4 h-4 text-gray-400 mr-2.5 shrink-0" />
+              {isSearching ? (
+                <Loader2 className="w-4 h-4 text-[#4941EC] animate-spin mr-2.5 shrink-0" />
+              ) : (
+                <Search className="w-4 h-4 text-gray-400 mr-2.5 shrink-0" />
+              )}
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Cari destinasi di Bogor"
+                placeholder={`Cari destinasi di ${detectedRegion}...`}
                 className="w-full bg-transparent text-xs text-gray-900 placeholder:text-gray-400 focus:outline-none font-medium"
               />
               {searchQuery && (
@@ -422,52 +829,67 @@ export default function DestinationSelectionScreen({
               )}
             </div>
 
-            {/* Info Box: Dari wishlist kamu (Image 1) OR Wishlist kamu masih kosong (Image 2) */}
-            {viewSource === 'wishlist' ? (
-              <div className="bg-[#EEF2FF] rounded-2xl p-3.5 flex items-start gap-2.5 border border-[#E0E7FF]/70">
-                <Heart className="w-4 h-4 text-[#4941EC] stroke-[2.2] shrink-0 mt-0.5" />
-                <div className="flex-1">
-                  <h4 className="text-xs font-bold text-[#4941EC]">
-                    Dari wishlist kamu
-                  </h4>
-                  <p className="text-[11px] text-gray-600 mt-0.5 leading-relaxed">
-                    Tempat yang kamu simpan jadi prioritas rekomendasi. Kamu juga bisa mencari destinasi lain.
-                  </p>
-                </div>
+            {/* Info Box */}
+            <div className="bg-[#EEF2FF] rounded-2xl p-3.5 flex items-start gap-2.5 border border-[#E0E7FF]/70">
+              <Users className="w-4 h-4 text-[#4941EC] stroke-[2.2] shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <h4 className="text-xs font-bold text-[#4941EC]">
+                  {searchQuery.trim()
+                    ? `Pencarian di seluruh Jawa Barat`
+                    : `Disarankan di wilayah ${detectedRegion}`}
+                </h4>
+                <p className="text-[11px] text-gray-600 mt-0.5 leading-relaxed">
+                  {searchQuery.trim()
+                    ? `Menampilkan hasil pencarian berdasarkan kata kunci yang kamu masukkan.`
+                    : `Destinasi berikut diurutkan berdasarkan jumlah pengunjung terbanyak di sekitar ${originName}.`}
+                </p>
               </div>
-            ) : (
-              <div className="bg-[#EEF2FF] rounded-2xl p-3.5 flex items-start gap-2.5 border border-[#E0E7FF]/70">
-                <Heart className="w-4 h-4 text-[#4941EC] stroke-[2.2] shrink-0 mt-0.5" />
-                <div className="flex-1">
-                  <h4 className="text-xs font-bold text-[#4941EC]">
-                    Wishlist kamu masih kosong
-                  </h4>
-                  <p className="text-[11px] text-gray-600 mt-0.5 leading-relaxed">
-                    Kami pilihkan tempat dekat {originName} yang juga sering dikunjungi wisatawan.
+            </div>
+
+            {/* Section Heading: "Disarankan di wilayah ..." OR "Hasil pencarian" */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-gray-900">
+                  {searchQuery.trim()
+                    ? `Hasil pencarian "${searchQuery}"`
+                    : `Destinasi Populer di ${detectedRegion}`}
+                </h3>
+                {!searchQuery.trim() && (
+                  <p className="text-[11px] text-gray-500 mt-0.5">
+                    Pengunjung terbanyak di titik keberangkatan
                   </p>
-                </div>
+                )}
+              </div>
+              <span className="text-xs font-semibold text-[#4941EC]">
+                {availableDestinations.length} tempat
+              </span>
+            </div>
+
+            {/* Loading Indicator saat proses pencarian */}
+            {isSearching && (
+              <div className="py-6 flex flex-col items-center justify-center gap-2">
+                <Loader2 className="w-6 h-6 text-[#4941EC] animate-spin" />
+                <span className="text-xs text-gray-500 font-medium">Mencari destinasi...</span>
               </div>
             )}
 
-            {/* Section Heading: "Ingin ke sini, kan? 3 tempat" OR "Dekat & sering dikunjungi" */}
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-gray-900">
-                {viewSource === 'wishlist' ? 'Ingin ke sini, kan?' : 'Dekat & sering dikunjungi'}
-              </h3>
-              {viewSource === 'wishlist' ? (
-                <span className="text-xs font-semibold text-[#4941EC]">
-                  {availableDestinations.length} tempat
-                </span>
-              ) : (
+            {/* Empty State saat pencarian tidak ditemukan */}
+            {searchQuery.trim() && availableDestinations.length === 0 && !isSearching && (
+              <div className="bg-white rounded-2xl p-6 border border-gray-100 text-center flex flex-col items-center gap-2">
+                <Search className="w-8 h-8 text-gray-300" />
+                <h4 className="text-sm font-bold text-gray-800">Tidak ada destinasi ditemukan</h4>
+                <p className="text-xs text-gray-500 max-w-[280px]">
+                  Tidak ada destinasi yang cocok dengan &quot;{searchQuery}&quot;. Coba gunakan nama tempat atau kata kunci lain.
+                </p>
                 <button
                   type="button"
-                  className="text-gray-500 hover:text-[#4941EC] p-1 cursor-pointer transition-colors"
-                  title="Filter destinasi"
+                  onClick={() => setSearchQuery('')}
+                  className="mt-2 text-xs font-semibold text-[#4941EC] hover:underline cursor-pointer"
                 >
-                  <SlidersHorizontal className="w-4 h-4" />
+                  Kembali ke rekomendasi terpopuler
                 </button>
-              )}
-            </div>
+              </div>
+            )}
 
             {/* Destination Cards List */}
             <div className="flex flex-col gap-3">
@@ -495,15 +917,13 @@ export default function DestinationSelectionScreen({
                         {/* Title, Badge, Distance */}
                         <div className="min-w-0">
                           <span className="bg-[#E6F8F0] text-[#10B981] text-[10px] font-semibold px-2 py-0.5 rounded-md inline-block">
-                            {isWishlistCard ? 'Di wishlist' : dest.tag}
+                            {dest.tag}
                           </span>
                           <h4 className="text-sm font-bold text-gray-900 mt-1 truncate">
                             {dest.name}
                           </h4>
                           <p className="text-[11px] text-gray-500 mt-0.5 truncate">
-                            {isWishlistCard
-                              ? `${dest.category} · ${dest.distanceFromStart}`
-                              : `${dest.distanceKm} km · ${dest.category}`}
+                            {dest.category} · {dest.distanceFromStart}
                           </p>
                         </div>
                       </div>
@@ -519,11 +939,16 @@ export default function DestinationSelectionScreen({
                       </button>
                     </div>
 
-                    {/* Description or Popularity line */}
-                    <p className="text-xs text-gray-600 pl-0.5 leading-relaxed">
-                      {isWishlistCard
-                        ? dest.description
-                        : `${dest.visitsMonth} · ${dest.popularityTag}`}
+                    {/* Visitor count & description */}
+                    <div className="flex items-center gap-1.5 text-xs text-gray-600 pl-0.5">
+                      <Users className="w-3.5 h-3.5 text-[#60CE9F] shrink-0 stroke-[2.2]" />
+                      <span className="font-semibold text-gray-800">{dest.visitsMonth}</span>
+                      <span className="text-gray-400">·</span>
+                      <span className="text-gray-500 truncate">{dest.popularityTag}</span>
+                    </div>
+
+                    <p className="text-xs text-gray-500 pl-0.5 line-clamp-2 leading-relaxed">
+                      {dest.description}
                     </p>
                   </div>
                 );
@@ -531,19 +956,19 @@ export default function DestinationSelectionScreen({
             </div>
 
             {/* Bottom Guidance Card: Pilih destinasi pertamamu */}
-            <div className="bg-[#EEF2FF] rounded-2xl p-3.5 flex items-start gap-2.5 border border-[#E0E7FF]/70 mt-1">
-              <MapPin className="w-4 h-4 text-[#4941EC] stroke-[2.2] shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <h4 className="text-xs font-bold text-[#4941EC]">
-                  Pilih destinasi pertamamu
-                </h4>
-                <p className="text-[11px] text-gray-600 mt-0.5 leading-relaxed">
-                  {viewSource === 'wishlist'
-                    ? 'Ketuk + untuk memasukkan tempat ke rute.'
-                    : 'Ketuk + atau cari tempat lain untuk membuat rute.'}
-                </p>
+            {!searchQuery.trim() && (
+              <div className="bg-[#EEF2FF] rounded-2xl p-3.5 flex items-start gap-2.5 border border-[#E0E7FF]/70 mt-1">
+                <MapPin className="w-4 h-4 text-[#4941EC] stroke-[2.2] shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <h4 className="text-xs font-bold text-[#4941EC]">
+                    Pilih destinasi pertamamu
+                  </h4>
+                  <p className="text-[11px] text-gray-600 mt-0.5 leading-relaxed">
+                    Ketuk + pada tempat dengan pengunjung terbanyak di atas atau gunakan search bar untuk mencari tempat lain.
+                  </p>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
 

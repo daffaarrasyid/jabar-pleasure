@@ -20,8 +20,11 @@ class DestinationController extends Controller
         $search = $request->input('search');
         $lat = $request->input('lat');
         $lng = $request->input('lng');
+        $radius = $request->input('radius');
+        $sortBy = $request->input('sort_by'); // 'visitors' | 'popular' | 'distance' | 'default'
 
         $query = Destination::with(['category:id,name,slug', 'regency:id,name'])
+            ->withCount('checkIns')
             ->withCoordinates();
 
         if ($category) {
@@ -40,12 +43,31 @@ class DestinationController extends Controller
         }
 
         if (is_numeric($lat) && is_numeric($lng)) {
+            if (is_numeric($radius)) {
+                $query->whereRaw(
+                    "ST_DWithin(location::geography, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography, ?)",
+                    [(float) $lng, (float) $lat, (float) $radius * 1000]
+                );
+            }
+
             $query->selectRaw(
-                "ST_Distance(location::geography, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography) / 1000.0 as distance_km",
+                "ROUND((ST_Distance(location::geography, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography) / 1000.0)::numeric, 1) as distance_km",
                 [(float) $lng, (float) $lat]
-            )->orderBy('distance_km', 'asc');
+            );
+
+            if ($sortBy === 'visitors' || $sortBy === 'popular') {
+                $query->orderBy('check_ins_count', 'desc')
+                      ->orderBy('distance_km', 'asc');
+            } else {
+                $query->orderBy('distance_km', 'asc');
+            }
         } else {
-            $query->orderBy('id', 'asc');
+            if ($sortBy === 'visitors' || $sortBy === 'popular') {
+                $query->orderBy('check_ins_count', 'desc')
+                      ->orderBy('id', 'asc');
+            } else {
+                $query->orderBy('id', 'asc');
+            }
         }
 
         $destinations = $query->paginate($perPage);
@@ -73,6 +95,7 @@ class DestinationController extends Controller
         $lng = $request->input('lng', 107.6191);
 
         $query = Destination::with(['category:id,name,slug', 'regency:id,name'])
+            ->withCount('checkIns')
             ->withCoordinates();
 
         if ($category) {
@@ -110,6 +133,7 @@ class DestinationController extends Controller
         $category = $request->input('category');
 
         $query = Destination::with(['category:id,name,slug', 'regency:id,name'])
+            ->withCount('checkIns')
             ->withCoordinates()
             ->nearby($lat, $lng, $radiusKm);
 
@@ -122,6 +146,7 @@ class DestinationController extends Controller
         // Only expand search to 25km fallback if caller did NOT specify an explicit radius (e.g. general home screen overview)
         if (!$hasExplicitRadius && $items->count() < 3) {
             $fallbackQuery = Destination::with(['category:id,name,slug', 'regency:id,name'])
+                ->withCount('checkIns')
                 ->withCoordinates()
                 ->nearby($lat, $lng, 25.0);
 
@@ -151,6 +176,7 @@ class DestinationController extends Controller
     public function show(string $slugOrId): JsonResponse
     {
         $query = Destination::with(['category', 'regency'])
+            ->withCount('checkIns')
             ->withCoordinates();
 
         if (is_numeric($slugOrId)) {
@@ -191,6 +217,7 @@ class DestinationController extends Controller
         }
 
         $query = Destination::with(['category:id,name,slug', 'regency:id,name'])
+            ->withCount('checkIns')
             ->withCoordinates();
 
         if (!empty($queryText)) {
@@ -201,13 +228,27 @@ class DestinationController extends Controller
             $query->filterCategory($category);
         }
 
+        $sortBy = $request->input('sort_by');
+
         if (is_numeric($lat) && is_numeric($lng)) {
             $query->selectRaw(
                 "ROUND((ST_Distance(location::geography, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography) / 1000.0)::numeric, 1) as distance_km",
                 [(float) $lng, (float) $lat]
-            )->orderBy('distance_km', 'asc');
+            );
+
+            if ($sortBy === 'visitors' || $sortBy === 'popular') {
+                $query->orderBy('check_ins_count', 'desc')
+                      ->orderBy('distance_km', 'asc');
+            } else {
+                $query->orderBy('distance_km', 'asc');
+            }
         } else {
-            $query->orderBy('id', 'asc');
+            if ($sortBy === 'visitors' || $sortBy === 'popular') {
+                $query->orderBy('check_ins_count', 'desc')
+                      ->orderBy('id', 'asc');
+            } else {
+                $query->orderBy('id', 'asc');
+            }
         }
 
         $results = $query->limit($limit)->get();

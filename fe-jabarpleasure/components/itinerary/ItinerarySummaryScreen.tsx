@@ -1,19 +1,31 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import {
   ArrowLeft,
   Pencil,
-  Plus,
-  SlidersHorizontal,
+  Trash2,
   Bookmark,
   Navigation,
   GripVertical,
   Check,
+  AlertTriangle,
 } from 'lucide-react';
 import AppHeader from '@/components/layout/AppHeader';
 import BottomNav, { NavTabId } from '@/components/layout/BottomNav';
-import RouteMapIllustration from '@/components/itinerary/RouteMapIllustration';
+
+const ItineraryRouteMap = dynamic(
+  () => import('@/components/itinerary/ItineraryRouteMap'),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="w-full aspect-[16/10] sm:aspect-[16/9] rounded-2xl bg-gray-100 flex items-center justify-center text-xs text-gray-400 animate-pulse border border-gray-200">
+        Memuat peta rute Leaflet...
+      </div>
+    ),
+  }
+);
 
 export interface RouteWaypoint {
   id: string;
@@ -21,15 +33,20 @@ export interface RouteWaypoint {
   address: string;
   role: string;
   orderNumber?: number;
+  lat?: number;
+  lng?: number;
 }
 
 interface ItinerarySummaryScreenProps {
   planTitle?: string;
   originName?: string;
+  originLat?: number;
+  originLng?: number;
   waypoints?: RouteWaypoint[];
   onBack?: () => void;
-  onAddMoreDestinations?: () => void;
-  onSaveTrip?: () => void;
+  onEditDestinations?: () => void;
+  onDeleteTrip?: () => void;
+  onSaveTrip?: (title: string, waypoints: RouteWaypoint[]) => void;
   onStartTrip?: () => void;
   onNotificationClick?: () => void;
   onWishlistClick?: () => void;
@@ -48,6 +65,8 @@ const DEFAULT_WAYPOINTS: RouteWaypoint[] = [
     address: 'Jl. Raya Pajajaran',
     role: 'Destinasi pertama',
     orderNumber: 1,
+    lat: -6.6009,
+    lng: 106.8058,
   },
   {
     id: 'botani-square',
@@ -55,6 +74,8 @@ const DEFAULT_WAYPOINTS: RouteWaypoint[] = [
     address: 'Jl. Raya Pajajaran',
     role: 'Destinasi kedua',
     orderNumber: 2,
+    lat: -6.6022,
+    lng: 106.8065,
   },
   {
     id: 'kebun-raya',
@@ -62,15 +83,20 @@ const DEFAULT_WAYPOINTS: RouteWaypoint[] = [
     address: 'Jl. Ir. H. Juanda No.13',
     role: 'Destinasi ketiga',
     orderNumber: 3,
+    lat: -6.5976,
+    lng: 106.7996,
   },
 ];
 
 export default function ItinerarySummaryScreen({
   planTitle = 'Sehari di Bogor',
   originName = 'Stasiun Bogor',
+  originLat = -6.595,
+  originLng = 106.7972,
   waypoints = DEFAULT_WAYPOINTS,
   onBack,
-  onAddMoreDestinations,
+  onEditDestinations,
+  onDeleteTrip,
   onSaveTrip,
   onStartTrip,
   onNotificationClick,
@@ -85,6 +111,19 @@ export default function ItinerarySummaryScreen({
   const [title, setTitle] = useState(planTitle);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [routeList, setRouteList] = useState<RouteWaypoint[]>(waypoints);
+  const [totalKm, setTotalKm] = useState<number>(3.1);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (planTitle) setTitle(planTitle);
+  }, [planTitle]);
+
+  useEffect(() => {
+    if (waypoints && waypoints.length > 0) {
+      setRouteList(waypoints);
+    }
+  }, [waypoints]);
 
   const handleTabChange = (tab: NavTabId) => {
     if (tab === 'beranda') {
@@ -100,20 +139,58 @@ export default function ItinerarySummaryScreen({
     }
   };
 
-  const handleSwapOrder = () => {
-    if (routeList.length >= 2) {
-      setRouteList((prev) => {
-        const copy = [...prev];
-        const temp = copy[0];
-        copy[0] = copy[1];
-        copy[1] = temp;
-        return copy.map((item, idx) => ({
-          ...item,
-          orderNumber: idx + 1,
-          role: idx === 0 ? 'Destinasi pertama' : idx === 1 ? 'Destinasi kedua' : `Destinasi ke-${idx + 1}`,
-        }));
-      });
-    }
+  // Drag and Drop reordering handlers
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedIndex(index);
+    e.dataTransfer.setData('text/plain', String(index));
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === targetIndex) return;
+
+    setRouteList((prev) => {
+      const copy = [...prev];
+      const [draggedItem] = copy.splice(draggedIndex, 1);
+      copy.splice(targetIndex, 0, draggedItem);
+      return copy.map((item, idx) => ({
+        ...item,
+        orderNumber: idx + 1,
+        role:
+          idx === 0
+            ? 'Destinasi pertama'
+            : idx === 1
+            ? 'Destinasi kedua'
+            : `Destinasi ke-${idx + 1}`,
+      }));
+    });
+    setDraggedIndex(null);
+  };
+
+  const handleMoveUp = (index: number) => {
+    if (index === 0) return;
+    setRouteList((prev) => {
+      const copy = [...prev];
+      const temp = copy[index - 1];
+      copy[index - 1] = copy[index];
+      copy[index] = temp;
+      return copy.map((item, idx) => ({
+        ...item,
+        orderNumber: idx + 1,
+        role:
+          idx === 0
+            ? 'Destinasi pertama'
+            : idx === 1
+            ? 'Destinasi kedua'
+            : `Destinasi ke-${idx + 1}`,
+      }));
+    });
   };
 
   return (
@@ -197,8 +274,8 @@ export default function ItinerarySummaryScreen({
                 {title}
               </h2>
             )}
-            <p className="text-xs text-gray-500 mt-0.5">
-              {routeList.length} destinasi · Total rute ±3,1 km
+            <p className="text-xs text-gray-500 mt-0.5 font-medium">
+              {routeList.length} destinasi · Total rute ±{totalKm} km
             </p>
           </div>
           {!isEditingTitle && (
@@ -213,9 +290,19 @@ export default function ItinerarySummaryScreen({
           )}
         </div>
 
-        {/* Schematic Route Map Illustration Card */}
+        {/* Real Leaflet WebGIS Map Component with OSRM Road Polyline */}
         <div className="mb-4">
-          <RouteMapIllustration originName={originName} />
+          <ItineraryRouteMap
+            origin={{
+              name: originName,
+              lat: originLat,
+              lng: originLng,
+            }}
+            waypoints={routeList}
+            onRouteCalculated={(dist) => {
+              if (dist > 0) setTotalKm(dist);
+            }}
+          />
         </div>
 
         {/* Rute Perjalanan Card */}
@@ -224,13 +311,9 @@ export default function ItinerarySummaryScreen({
             <h3 className="text-sm font-bold text-gray-900">
               Rute perjalanan
             </h3>
-            <button
-              type="button"
-              onClick={handleSwapOrder}
-              className="text-xs font-semibold text-[#4941EC] hover:underline cursor-pointer"
-            >
-              Ubah urutan
-            </button>
+            <span className="text-[11px] text-gray-400 font-medium">
+              Tarik atau drag tombol grip untuk urutan
+            </span>
           </div>
 
           {/* Connected Waypoints Timeline */}
@@ -241,32 +324,39 @@ export default function ItinerarySummaryScreen({
             {/* Titik Keberangkatan */}
             <div className="relative flex items-center justify-between gap-3 z-10">
               <div className="flex items-center gap-3 min-w-0">
-                {/* Dot Icon badge */}
-                <div className="w-7 h-7 rounded-full bg-[#EEF2FF] border border-[#E0E7FF] flex items-center justify-center shrink-0">
-                  <div className="w-2 h-2 rounded-full bg-[#4941EC]" />
+                <div className="w-7 h-7 rounded-full bg-[#E6F8F0] border border-[#60CE9F] flex items-center justify-center shrink-0">
+                  <div className="w-2 h-2 rounded-full bg-[#10B981]" />
                 </div>
                 <div className="min-w-0">
                   <h4 className="text-xs sm:text-sm font-bold text-gray-900 truncate">
                     {originName}
                   </h4>
                   <p className="text-[11px] text-gray-500 truncate">
-                    Titik keberangkatan · Bogor Tengah
+                    Titik keberangkatan awal
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* Destinations */}
+            {/* Reorderable Destinations */}
             {routeList.map((stop, index) => {
               const isFirstStop = index === 0;
 
               return (
                 <div
                   key={stop.id}
-                  className="relative flex items-center justify-between gap-3 z-10"
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, index)}
+                  onDragOver={handleDragOver}
+                  onDrop={(e) => handleDrop(e, index)}
+                  className={`relative flex items-center justify-between gap-3 z-10 p-1.5 -mx-1.5 rounded-xl transition-all ${
+                    draggedIndex === index
+                      ? 'bg-[#EEF2FF] border-2 border-dashed border-[#4941EC] opacity-60'
+                      : 'hover:bg-gray-50'
+                  }`}
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    {/* Badge 1 or 2 */}
+                    {/* Badge 1, 2, 3... */}
                     <div
                       className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
                         isFirstStop
@@ -286,33 +376,42 @@ export default function ItinerarySummaryScreen({
                     </div>
                   </div>
 
-                  {/* Grip / Drag icon handle */}
-                  <div className="text-gray-400 hover:text-gray-600 cursor-grab p-1 shrink-0">
-                    <GripVertical className="w-4 h-4" />
-                  </div>
+                  {/* Grip Vertical Drag Button */}
+                  <button
+                    type="button"
+                    onClick={() => handleMoveUp(index)}
+                    className="text-gray-400 hover:text-[#4941EC] active:text-[#4941EC] cursor-grab active:cursor-grabbing p-1.5 shrink-0 rounded-lg hover:bg-gray-100 transition-colors"
+                    title="Drag atau klik untuk mengubah urutan"
+                    aria-label={`Ubah urutan ${stop.name}`}
+                  >
+                    <GripVertical className="w-4 h-4 stroke-[2.2]" />
+                  </button>
                 </div>
               );
             })}
           </div>
         </div>
 
-        {/* Secondary Buttons Grid (Tambah destinasi & Revisi daftar) */}
+        {/* Secondary Buttons Grid: "Edit destinasi" & "Hapus perjalanan" */}
         <div className="grid grid-cols-2 gap-2.5 mb-3.5">
+          {/* Edit Destinasi (kembali ke seleksi destinasi tanpa mereset yang sudah dipilih) */}
           <button
             type="button"
-            onClick={onAddMoreDestinations || onBack}
+            onClick={onEditDestinations || onBack}
             className="py-2.5 px-3 bg-white hover:bg-gray-50 border border-[#4941EC] text-[#4941EC] font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
           >
-            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-            <span>Tambah destinasi</span>
+            <Pencil className="w-3.5 h-3.5 stroke-[2.2]" />
+            <span>Edit destinasi</span>
           </button>
+
+          {/* Hapus Perjalanan (bg putih, border merah, teks merah) */}
           <button
             type="button"
-            onClick={handleSwapOrder}
-            className="py-2.5 px-3 bg-white hover:bg-gray-50 border border-[#4941EC] text-[#4941EC] font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+            onClick={() => setShowDeleteModal(true)}
+            className="py-2.5 px-3 bg-white hover:bg-red-50 border-2 border-red-500 text-red-600 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
           >
-            <SlidersHorizontal className="w-3.5 h-3.5 stroke-[2.5]" />
-            <span>Revisi daftar</span>
+            <Trash2 className="w-3.5 h-3.5 stroke-[2.2]" />
+            <span>Hapus perjalanan</span>
           </button>
         </div>
 
@@ -321,7 +420,7 @@ export default function ItinerarySummaryScreen({
           {/* Simpan Perjalanan Button */}
           <button
             type="button"
-            onClick={onSaveTrip}
+            onClick={() => onSaveTrip?.(title, routeList)}
             className="w-full py-3 bg-white hover:bg-gray-50 border-2 border-[#4941EC] text-[#4941EC] font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs active:scale-[0.99]"
           >
             <Bookmark className="w-4 h-4 stroke-[2.2]" />
@@ -343,6 +442,44 @@ export default function ItinerarySummaryScreen({
           </p>
         </div>
       </main>
+
+      {/* Confirmation Modal: Hapus Perjalanan */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-2xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-5 max-w-xs w-full shadow-xl flex flex-col gap-3 animate-in zoom-in-95 duration-150">
+            <div className="w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto">
+              <AlertTriangle className="w-5 h-5 stroke-[2.2]" />
+            </div>
+            <div className="text-center">
+              <h3 className="text-sm font-bold text-gray-900">
+                Hapus Rencana Perjalanan?
+              </h3>
+              <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+                Rencana ini akan dihapus dan destinasi yang telah kamu susun tidak akan disimpan.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(false)}
+                className="py-2 px-3 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs transition-colors cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  onDeleteTrip?.();
+                }}
+                className="py-2 px-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs transition-colors cursor-pointer"
+              >
+                Ya, Hapus
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 3. Bottom Navigation Bar */}
       <div className="absolute bottom-0 left-0 right-0 w-full z-30">

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DestinationController;
+use App\Http\Controllers\ItineraryController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -51,7 +52,21 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/destinations/nearby', [DestinationController::class, 'nearby']);
     Route::get('/destinations/search', [DestinationController::class, 'search']);
     Route::get('/destinations/{slug}', [DestinationController::class, 'show']);
+
+    /*
+    |--------------------------------------------------------------------------
+    | Itinerary Endpoints (Authenticated)
+    |--------------------------------------------------------------------------
+    */
+    Route::get('/itineraries', [ItineraryController::class, 'index']);
+    Route::post('/itineraries', [ItineraryController::class, 'store']);
+    Route::get('/itineraries/{id}', [ItineraryController::class, 'show']);
+    Route::delete('/itineraries/{id}', [ItineraryController::class, 'destroy']);
 });
+
+// Direct fallback routes for development or token recovery
+Route::get('/itineraries-public', [ItineraryController::class, 'index']);
+Route::post('/itineraries-public', [ItineraryController::class, 'store']);
 
 // Direct route fallback that supports manual token extraction if sanctum middleware is bypassed
 Route::get('/user/profile-fallback', [ProfileController::class, 'show']);

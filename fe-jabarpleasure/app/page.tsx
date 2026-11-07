@@ -459,7 +459,11 @@ export default function Home() {
           originName={selectedOrigin}
           planTitle="Sehari di Bogor"
           onBack={() => setCurrentScreen('destination-selection')}
-          onAddMoreDestinations={() => setCurrentScreen('destination-selection')}
+          onEditDestinations={() => setCurrentScreen('destination-selection')}
+          onDeleteTrip={() => {
+            showToast('Rencana perjalanan berhasil dihapus', 'info');
+            setCurrentScreen('itinerary');
+          }}
           onSaveTrip={() => {
             showToast('Rencana perjalanan berhasil disimpan!', 'success');
             setPreviousScreen('itinerary-summary');
@@ -492,6 +496,11 @@ export default function Home() {
           originName={selectedOrigin}
           planTitle="Sehari di Bogor"
           onBackToRencana={() => setCurrentScreen('itinerary')}
+          onStartTrip={() => {
+            showToast('Memulai perjalanan! Membuka panduan rute...', 'info');
+            setPreviousScreen('saved-plan');
+            setCurrentScreen('active-trip');
+          }}
           onNavigateToHome={() => setCurrentScreen('home')}
           onNavigateToMap={() => setCurrentScreen('map')}
           onNavigateToProfile={() => {

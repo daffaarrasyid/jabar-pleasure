@@ -141,11 +141,11 @@ export default function ProfilePage() {
         wishlistCount={user?.statistics?.wishlist_count ?? 4}
         onNavigateToHome={() => router.push('/home')}
         onNavigateToMap={() => router.push('/map')}
-        onNavigateToWishlist={() => router.push('/home?tab=wishlist')}
-        onNavigateToRencana={() => router.push('/home?tab=rencana')}
-        onNavigateToRiwayat={() => router.push('/home?tab=riwayat')}
+        onNavigateToWishlist={() => router.push('/wishlist')}
+        onNavigateToRencana={() => router.push('/rencana')}
+        onNavigateToRiwayat={() => router.push('/riwayat')}
         onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
-        onWishlistClick={() => router.push('/home?tab=wishlist')}
+        onWishlistClick={() => router.push('/wishlist')}
         onEditProfile={() => showToast('Fitur edit profil sedang disiapkan', 'info')}
         onItemClick={(title) => showToast(`Membuka menu ${title}`, 'info')}
         onLogout={handleLogout}

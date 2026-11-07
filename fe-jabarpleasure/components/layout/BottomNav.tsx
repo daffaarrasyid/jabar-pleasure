@@ -120,6 +120,22 @@ export default function BottomNav({
   className = '',
 }: BottomNavProps) {
   const router = useRouter();
+
+  const handleTabClick = (tab: NavTabId) => {
+    onTabChange?.(tab);
+    if (tab === 'beranda') {
+      router.push('/home');
+    } else if (tab === 'rencana') {
+      router.push('/rencana');
+    } else if (tab === 'peta') {
+      router.push('/map');
+    } else if (tab === 'riwayat') {
+      router.push('/riwayat');
+    } else if (tab === 'profil') {
+      router.push('/profile');
+    }
+  };
+
   return (
     <nav
       aria-label="Navigasi Utama"
@@ -129,7 +145,7 @@ export default function BottomNav({
         {/* Item 1: Beranda */}
         <button
           type="button"
-          onClick={() => onTabChange?.('beranda')}
+          onClick={() => handleTabClick('beranda')}
           className="flex flex-col items-center justify-end h-full w-full py-1 text-center transition-colors group cursor-pointer focus:outline-none"
         >
           <div className="relative inline-flex items-center justify-center">
@@ -160,7 +176,7 @@ export default function BottomNav({
         {/* Item 2: Rencana (Per explicit user rule) */}
         <button
           type="button"
-          onClick={() => onTabChange?.('rencana')}
+          onClick={() => handleTabClick('rencana')}
           className="flex flex-col items-center justify-end h-full w-full py-1 text-center transition-colors group cursor-pointer focus:outline-none"
         >
           <div className="relative inline-flex items-center justify-center">
@@ -192,7 +208,7 @@ export default function BottomNav({
         <div className="relative flex flex-col items-center justify-end h-full w-full py-1 text-center">
           <button
             type="button"
-            onClick={() => onTabChange?.('peta')}
+            onClick={() => handleTabClick('peta')}
             aria-label="Peta Eksplorasi"
             className={`-top-5 absolute flex items-center justify-center w-14 h-14 rounded-[22px] bg-[#4941EC] hover:bg-[#3D35D9] text-white shadow-lg shadow-[#4941EC]/35 hover:shadow-xl transition-all active:scale-95 cursor-pointer z-40 ${
               activeTab === 'peta' ? 'ring-4 ring-[#4941EC]/20 scale-105' : 'hover:scale-105'
@@ -219,7 +235,7 @@ export default function BottomNav({
         {/* Item 4: Riwayat (Per explicit user rule) */}
         <button
           type="button"
-          onClick={() => onTabChange?.('riwayat')}
+          onClick={() => handleTabClick('riwayat')}
           className="flex flex-col items-center justify-end h-full w-full py-1 text-center transition-colors group cursor-pointer focus:outline-none"
         >
           <div className="relative inline-flex items-center justify-center">
@@ -250,10 +266,7 @@ export default function BottomNav({
         {/* Item 5: Profile */}
         <button
           type="button"
-          onClick={() => {
-            onTabChange?.('profil');
-            router.push('/profile');
-          }}
+          onClick={() => handleTabClick('profil')}
           className="flex flex-col items-center justify-end h-full w-full py-1 text-center transition-colors group cursor-pointer focus:outline-none"
         >
           <div className="relative inline-flex items-center justify-center">

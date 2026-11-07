@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Star, ChevronDown, MapPin, Navigation, Compass } from 'lucide-react';
+import { ChevronDown, MapPin, Compass, Users } from 'lucide-react';
 import { ApiDestination } from '@/lib/api';
 
 export interface NearbyDestination {
@@ -10,8 +10,7 @@ export interface NearbyDestination {
   category: string;
   distance: string;
   regency: string;
-  rating: number;
-  ratingCountText: string;
+  visitorsCount?: number;
   image: string;
   coordinates: [number, number];
   raw?: ApiDestination;
@@ -65,7 +64,8 @@ export default function NearbyResultsSheet({
 
   const handleSave = () => {
     const toSave = destinations.filter((d) => activeSelected.includes(d.id));
-    onSaveDestinations?.(toSave.length > 0 ? toSave : destinations.slice(0, 1));
+    if (toSave.length === 0) return;
+    onSaveDestinations?.(toSave);
   };
 
   // Touch Swipe Gesture for dragging handle to minimize/expand
@@ -220,24 +220,13 @@ export default function NearbyResultsSheet({
                         <span>{dest.distance} &ndash; {dest.regency}</span>
                       </p>
 
-                      <div className="flex items-center gap-2 mt-1">
-                        <div className="flex items-center gap-1">
-                          <Star className="w-3 h-3 fill-[#EDAD40] text-[#EDAD40]" />
-                          <span className="text-[11px] font-semibold text-gray-700">
-                            {dest.rating}
-                          </span>
-                        </div>
-                        <span className="text-[11px] text-gray-400">&ndash;</span>
-                        <a
-                          href={`https://www.google.com/maps/dir/?api=1&destination=${dest.coordinates[0]},${dest.coordinates[1]}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="text-[10px] text-[#4941EC] hover:underline flex items-center gap-0.5 font-medium ml-auto"
-                        >
-                          <Navigation className="w-2.5 h-2.5" />
-                          Rute
-                        </a>
+                      <div className="flex items-center gap-1.5 mt-1 text-gray-600">
+                        <Users className="w-3.5 h-3.5 text-[#4941EC] shrink-0" />
+                        <span className="text-[11px] font-semibold text-gray-700">
+                          {dest.visitorsCount !== undefined && dest.visitorsCount > 0
+                            ? `${dest.visitorsCount.toLocaleString('id-ID')} pengunjung`
+                            : 'Belum ada kunjungan'}
+                        </span>
                       </div>
                     </div>
 
@@ -265,8 +254,13 @@ export default function NearbyResultsSheet({
             {/* Primary CTA: Simpan Destinasi */}
             <button
               type="button"
+              disabled={activeSelected.length === 0}
               onClick={handleSave}
-              className="w-full py-3.5 bg-[#4941EC] hover:bg-[#3C35C7] text-white font-semibold text-sm rounded-xl shadow-[0_4px_12px_rgba(73,65,236,0.3)] active:scale-98 transition-all cursor-pointer flex items-center justify-center"
+              className={`w-full py-3.5 bg-[#4941EC] hover:bg-[#3C35C7] text-white font-semibold text-sm rounded-xl shadow-[0_4px_12px_rgba(73,65,236,0.3)] active:scale-98 transition-all flex items-center justify-center ${
+                activeSelected.length === 0
+                  ? 'opacity-50 cursor-not-allowed shadow-none pointer-events-none'
+                  : 'cursor-pointer'
+              }`}
             >
               Simpan Destinasi Ke Rencana
             </button>

@@ -20,6 +20,7 @@ import { TRIP_HISTORY_DATA, TripItem, DestinationItem } from '@/components/histo
 import Toast from '@/components/ui/Toast';
 import DestinationDetailModal, { DestinationDetailData } from '@/components/ui/DestinationDetailModal';
 import { getAuthToken, removeAuthToken } from '@/lib/auth';
+import { createItinerary, deleteItinerary } from '@/lib/api';
 
 type HomeScreenState =
   | 'home'
@@ -65,6 +66,33 @@ function HomeContent() {
   const [savedWishlistCount, setSavedWishlistCount] = useState<number>(4);
   const [globalDetailDestination, setGlobalDetailDestination] = useState<DestinationDetailData | null>(null);
   const [selectedOrigin, setSelectedOrigin] = useState<string>('Stasiun Bogor');
+  const [selectedDepartureLoc, setSelectedDepartureLoc] = useState<{
+    name: string;
+    address: string;
+    lat?: number;
+    lng?: number;
+    regency?: string;
+  }>({
+    name: 'Stasiun Bogor',
+    address: 'Jl. Nyi Raja Permas, Bogor Tengah',
+    lat: -6.595,
+    lng: 106.7972,
+    regency: 'Bogor',
+  });
+  const [activeItinerary, setActiveItinerary] = useState<any>(null);
+  const [formDestinations, setFormDestinations] = useState<any[]>([]);
+  const [historyTrips, setHistoryTrips] = useState<TripItem[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('jabarpleasure_trip_history');
+        if (stored) return JSON.parse(stored);
+      } catch (e) {
+        console.warn('Error reading trip history from storage:', e);
+      }
+    }
+    return TRIP_HISTORY_DATA;
+  });
+  const [tripStartTime, setTripStartTime] = useState<string>('');
   const [selectedTrip, setSelectedTrip] = useState<TripItem>(TRIP_HISTORY_DATA[0]);
   const [selectedDestination, setSelectedDestination] = useState<DestinationItem>(
     TRIP_HISTORY_DATA[0].destinations[0]
@@ -73,6 +101,68 @@ function HomeContent() {
     message: string;
     type: 'success' | 'info' | 'error';
   } | null>(null);
+
+  const homeWaypoints =
+    activeItinerary?.items?.map((item: any, idx: number) => ({
+      id: String(item.destination?.id || item.destination_id || idx),
+      name: item.destination?.name || `Destinasi ${idx + 1}`,
+      address: item.destination?.address || 'Jawa Barat',
+      role:
+        idx === 0
+          ? 'Destinasi pertama'
+          : idx === 1
+          ? 'Destinasi kedua'
+          : `Destinasi ke-${idx + 1}`,
+      orderNumber: idx + 1,
+      lat:
+        typeof item.destination?.latitude === 'number'
+          ? item.destination.latitude
+          : parseFloat(item.destination?.latitude) || -6.595 - (idx + 1) * 0.015,
+      lng:
+        typeof item.destination?.longitude === 'number'
+          ? item.destination.longitude
+          : parseFloat(item.destination?.longitude) || 106.7972 + (idx + 1) * 0.015,
+    })) ||
+    (formDestinations.length > 0
+      ? formDestinations.map((d: any, idx: number) => ({
+          id: String(d.id),
+          name: d.name,
+          address: d.category || 'Jawa Barat',
+          role:
+            idx === 0
+              ? 'Destinasi pertama'
+              : idx === 1
+              ? 'Destinasi kedua'
+              : `Destinasi ke-${idx + 1}`,
+          orderNumber: idx + 1,
+          lat: d.lat || -6.595 - (idx + 1) * 0.015,
+          lng: d.lng || 106.7972 + (idx + 1) * 0.015,
+        }))
+      : undefined);
+
+  const homeOriginLat =
+    activeItinerary?.departure_lat ||
+    activeItinerary?.route_geojson?.properties?.departure_lat ||
+    selectedDepartureLoc.lat ||
+    -6.595;
+
+  const homeOriginLng =
+    activeItinerary?.departure_lng ||
+    activeItinerary?.route_geojson?.properties?.departure_lng ||
+    selectedDepartureLoc.lng ||
+    106.7972;
+
+  const homeOriginName =
+    activeItinerary?.route_geojson?.properties?.departure_name ||
+    activeItinerary?.departure_name ||
+    selectedOrigin ||
+    'Stasiun Bogor';
+
+  const homePlanTitle =
+    activeItinerary?.title ||
+    (formDestinations.length > 0
+      ? `Trip Seru di ${selectedOrigin}`
+      : 'Sehari di Bogor');
 
   // Synchronously load logged-in user profile from localStorage
   const [userProfile] = useState<UserProfileData | null>(() => {
@@ -144,15 +234,9 @@ function HomeContent() {
             setPreviousScreen('home');
             setCurrentScreen('wishlist');
           }}
-          onProfileClick={() => {
-            setPreviousScreen('home');
-            setCurrentScreen('profile');
-          }}
-          onNavigateToRencana={() => {
-            setPreviousScreen('home');
-            setCurrentScreen('itinerary');
-          }}
-          onNavigateToRiwayat={navigateToRiwayat}
+          onProfileClick={() => router.push('/profile')}
+          onNavigateToRencana={() => router.push('/rencana')}
+          onNavigateToRiwayat={() => router.push('/riwayat')}
           onItemClick={(item) => setGlobalDetailDestination(item)}
           favoritBadgeCount={savedWishlistCount}
         />
@@ -168,15 +252,9 @@ function HomeContent() {
             setPreviousScreen('top-destinations');
             setCurrentScreen('wishlist');
           }}
-          onProfileClick={() => {
-            setPreviousScreen('top-destinations');
-            setCurrentScreen('profile');
-          }}
-          onNavigateToRencana={() => {
-            setPreviousScreen('top-destinations');
-            setCurrentScreen('itinerary');
-          }}
-          onNavigateToRiwayat={navigateToRiwayat}
+          onProfileClick={() => router.push('/profile')}
+          onNavigateToRencana={() => router.push('/rencana')}
+          onNavigateToRiwayat={() => router.push('/riwayat')}
           onItemClick={(item) => setGlobalDetailDestination(item)}
           favoritBadgeCount={savedWishlistCount}
         />
@@ -263,10 +341,15 @@ function HomeContent() {
           }}
           onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
           onCreatePlan={() => {
+            setActiveItinerary(null);
             setPreviousScreen('itinerary');
             setCurrentScreen('departure-location');
           }}
-          onViewPlan={(plan: SavedItinerary) => showToast(`Membuka rencana: ${plan.title}`, 'info')}
+          onViewPlan={(plan: SavedItinerary) => {
+            setActiveItinerary(plan.rawItinerary || plan);
+            setPreviousScreen('itinerary');
+            setCurrentScreen('itinerary-summary');
+          }}
           wishlistCount={savedWishlistCount}
         />
       )}
@@ -289,6 +372,7 @@ function HomeContent() {
           onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
           onNext={(loc) => {
             setSelectedOrigin(loc.name);
+            setSelectedDepartureLoc(loc);
             setPreviousScreen('departure-location');
             setCurrentScreen('destination-selection');
           }}
@@ -299,7 +383,12 @@ function HomeContent() {
       {/* 7. Pilih Destinasi */}
       {currentScreen === 'destination-selection' && (
         <DestinationSelectionScreen
+          initialSelectedDestinations={formDestinations}
           originName={selectedOrigin}
+          originAddress={selectedDepartureLoc.address}
+          originLat={selectedDepartureLoc.lat}
+          originLng={selectedDepartureLoc.lng}
+          originRegency={selectedDepartureLoc.regency}
           onBack={() => setCurrentScreen('departure-location')}
           onChangeOrigin={() => setCurrentScreen('departure-location')}
           onNavigateToHome={() => setCurrentScreen('home')}
@@ -314,7 +403,9 @@ function HomeContent() {
             setCurrentScreen('wishlist');
           }}
           onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
-          onFinishSelection={() => {
+          onFinishSelection={(selected) => {
+            setFormDestinations(selected);
+            setActiveItinerary(null);
             setPreviousScreen('destination-selection');
             setCurrentScreen('itinerary-summary');
           }}
@@ -325,17 +416,54 @@ function HomeContent() {
       {/* 8. Ringkasan Rencana */}
       {currentScreen === 'itinerary-summary' && (
         <ItinerarySummaryScreen
-          originName={selectedOrigin}
-          planTitle="Sehari di Bogor"
-          onBack={() => setCurrentScreen('destination-selection')}
-          onAddMoreDestinations={() => setCurrentScreen('destination-selection')}
-          onSaveTrip={() => {
+          originName={homeOriginName}
+          originLat={homeOriginLat}
+          originLng={homeOriginLng}
+          planTitle={homePlanTitle}
+          waypoints={homeWaypoints}
+          onBack={() => setCurrentScreen(activeItinerary ? 'itinerary' : 'destination-selection')}
+          onEditDestinations={() => setCurrentScreen('destination-selection')}
+          onDeleteTrip={async () => {
+            if (activeItinerary?.id) {
+              try {
+                await deleteItinerary(activeItinerary.id);
+              } catch (e) {
+                console.warn('Failed to delete itinerary:', e);
+              }
+            }
+            setActiveItinerary(null);
+            setFormDestinations([]);
+            showToast('Rencana perjalanan berhasil dihapus', 'info');
+            setCurrentScreen('itinerary');
+          }}
+          onSaveTrip={async (customTitle) => {
+            if (!activeItinerary && formDestinations.length > 0) {
+              try {
+                const destIds = formDestinations
+                  .map((d: any) => parseInt(d.id, 10))
+                  .filter((id: number) => !isNaN(id));
+
+                const created = await createItinerary({
+                  title: customTitle || homePlanTitle,
+                  departure_lat: homeOriginLat,
+                  departure_lng: homeOriginLng,
+                  departure_name: homeOriginName,
+                  destinations: destIds.length > 0 ? destIds : [1],
+                });
+                setActiveItinerary(created);
+              } catch (e) {
+                console.warn('Save trip error:', e);
+              }
+            }
             showToast('Rencana perjalanan berhasil disimpan!', 'success');
             setPreviousScreen('itinerary-summary');
             setCurrentScreen('saved-plan');
           }}
           onStartTrip={() => {
-            showToast('Memulai perjalanan! Buka navigasi arah...', 'info');
+            const now = new Date();
+            const timeStr = `${now.getHours().toString().padStart(2, '0')}.${now.getMinutes().toString().padStart(2, '0')} WIB`;
+            setTripStartTime(timeStr);
+            showToast('Memulai perjalanan! Membuka panduan rute...', 'info');
             setPreviousScreen('itinerary-summary');
             setCurrentScreen('active-trip');
           }}
@@ -358,9 +486,21 @@ function HomeContent() {
       {/* 9. Rencana Tersimpan */}
       {currentScreen === 'saved-plan' && (
         <SavedPlanScreen
-          originName={selectedOrigin}
-          planTitle="Sehari di Bogor"
+          originName={homeOriginName}
+          originAddress={selectedDepartureLoc.address}
+          originLat={homeOriginLat}
+          originLng={homeOriginLng}
+          planTitle={homePlanTitle}
+          waypoints={homeWaypoints}
           onBackToRencana={() => setCurrentScreen('itinerary')}
+          onStartTrip={() => {
+            const now = new Date();
+            const timeStr = `${now.getHours().toString().padStart(2, '0')}.${now.getMinutes().toString().padStart(2, '0')} WIB`;
+            setTripStartTime(timeStr);
+            showToast('Memulai perjalanan! Membuka panduan rute...', 'info');
+            setPreviousScreen('saved-plan');
+            setCurrentScreen('active-trip');
+          }}
           onNavigateToHome={() => setCurrentScreen('home')}
           onNavigateToMap={() => router.push('/map')}
           onNavigateToProfile={() => {
@@ -380,13 +520,62 @@ function HomeContent() {
       {/* 10. Perjalanan Aktif */}
       {currentScreen === 'active-trip' && (
         <ActiveTripScreen
-          originName={selectedOrigin}
-          planTitle="Sehari di Bogor"
-          startTime="11.30"
+          originName={homeOriginName}
+          originLat={homeOriginLat}
+          originLng={homeOriginLng}
+          planTitle={homePlanTitle}
+          startTime={tripStartTime}
+          waypoints={homeWaypoints}
           onBack={() => setCurrentScreen('itinerary-summary')}
           onFinishTrip={(visitedCount) => {
-            const countStr = typeof visitedCount === 'number' && visitedCount > 0 ? ` (${visitedCount} destinasi tercapai)` : '';
-            showToast(`Perjalanan selesai${countStr} dan berhasil disimpan ke Riwayat!`, 'success');
+            const count = typeof visitedCount === 'number' ? visitedCount : (homeWaypoints?.length || 1);
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+
+            const newHistoryItem: TripItem = {
+              id: `trip-${Date.now()}`,
+              title: homePlanTitle,
+              category: 'Rencana Perjalanan',
+              status: 'Selesai',
+              duration: '1 hari',
+              dateRange: dateStr,
+              location: `${homeOriginName}, Jawa Barat`,
+              completedDate: dateStr,
+              stats: {
+                destinations: count,
+                photos: 0,
+                video: 0,
+              },
+              initials: ['JP'],
+              image: (homeWaypoints && homeWaypoints[0] && (homeWaypoints[0] as any).image) || '/tugu-kujang.jpg',
+              destinations: (homeWaypoints || []).slice(0, count).map((w: any, idx: number) => ({
+                id: w.id,
+                name: w.name,
+                time: `${dateStr} • Selesai`,
+                status: 'Sudah dikunjungi',
+                photoCount: 0,
+                image: (w as any).image || '/tugu-kujang.jpg',
+                location: w.address || homeOriginName,
+                visitDate: dateStr,
+                visitTime: 'Selesai',
+                notes: `Kunjungan ke-${idx + 1} rencana perjalanan ${homePlanTitle}`,
+                photos: [],
+              })),
+            };
+
+            setHistoryTrips((prev) => {
+              const updated = [newHistoryItem, ...prev];
+              if (typeof window !== 'undefined') {
+                try {
+                  localStorage.setItem('jabarpleasure_trip_history', JSON.stringify(updated));
+                } catch (e) {
+                  console.warn('Error saving trip history to storage:', e);
+                }
+              }
+              return updated;
+            });
+
+            showToast(`Perjalanan selesai (${count} destinasi) dan berhasil disimpan ke Riwayat!`, 'success');
             setCurrentScreen('trip-history');
           }}
           onNavigateToHome={() => setCurrentScreen('home')}
@@ -408,6 +597,7 @@ function HomeContent() {
       {/* 11. Riwayat Perjalanan */}
       {currentScreen === 'trip-history' && (
         <TripHistoryScreen
+          trips={historyTrips}
           onSelectTrip={(trip) => {
             setSelectedTrip(trip);
             setPreviousScreen('trip-history');

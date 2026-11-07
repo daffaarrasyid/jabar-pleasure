@@ -1,19 +1,38 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
+import dynamic from 'next/dynamic';
 import {
   Calendar,
   BookmarkCheck,
+  Navigation,
 } from 'lucide-react';
 import AppHeader from '@/components/layout/AppHeader';
 import BottomNav, { NavTabId } from '@/components/layout/BottomNav';
 import { RouteWaypoint } from '@/components/itinerary/ItinerarySummaryScreen';
 
+const ItineraryRouteMap = dynamic(
+  () => import('@/components/itinerary/ItineraryRouteMap'),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="w-full aspect-[16/10] sm:aspect-[16/9] rounded-2xl bg-gray-100 flex items-center justify-center text-xs text-gray-400 animate-pulse border border-gray-200">
+        Memuat peta rute tersimpan...
+      </div>
+    ),
+  }
+);
+
 interface SavedPlanScreenProps {
   planTitle?: string;
   originName?: string;
+  originAddress?: string;
+  originLat?: number;
+  originLng?: number;
   waypoints?: RouteWaypoint[];
+  totalDistanceKm?: number;
   savedTimestamp?: string;
+  onStartTrip?: () => void;
   onBackToRencana?: () => void;
   onNotificationClick?: () => void;
   onWishlistClick?: () => void;
@@ -32,6 +51,8 @@ const DEFAULT_WAYPOINTS: RouteWaypoint[] = [
     address: 'Jl. Raya Pajajaran',
     role: 'Destinasi pertama',
     orderNumber: 1,
+    lat: -6.6009,
+    lng: 106.8058,
   },
   {
     id: 'botani-square',
@@ -39,14 +60,21 @@ const DEFAULT_WAYPOINTS: RouteWaypoint[] = [
     address: 'Jl. Raya Pajajaran',
     role: 'Destinasi kedua',
     orderNumber: 2,
+    lat: -6.6022,
+    lng: 106.8065,
   },
 ];
 
 export default function SavedPlanScreen({
   planTitle = 'Sehari di Bogor',
   originName = 'Stasiun Bogor',
+  originAddress = 'Kota Bogor',
+  originLat = -6.595,
+  originLng = 106.7972,
   waypoints = DEFAULT_WAYPOINTS,
-  savedTimestamp = 'Disimpan 27 Okt 2026 · 11.30',
+  totalDistanceKm,
+  savedTimestamp,
+  onStartTrip,
   onBackToRencana,
   onNotificationClick,
   onWishlistClick,
@@ -57,6 +85,26 @@ export default function SavedPlanScreen({
   wishlistCount = 3,
   className = '',
 }: SavedPlanScreenProps) {
+  const [calculatedKm, setCalculatedKm] = useState<number>(totalDistanceKm || 3.1);
+
+  // Generate real default timestamp jika tidak disediakan
+  const [realTimestamp] = useState<string>(() => {
+    if (savedTimestamp && !savedTimestamp.includes('27 Okt 2026')) {
+      return savedTimestamp;
+    }
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('id-ID', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
+    const timeStr = `${now.getHours().toString().padStart(2, '0')}.${now
+      .getMinutes()
+      .toString()
+      .padStart(2, '0')}`;
+    return `Disimpan ${dateStr} · ${timeStr} WIB`;
+  });
+
   const handleTabChange = (tab: NavTabId) => {
     if (tab === 'beranda') {
       onNavigateToHome?.();
@@ -70,6 +118,8 @@ export default function SavedPlanScreen({
       onBackToRencana?.();
     }
   };
+
+  const safeWaypoints = waypoints && waypoints.length > 0 ? waypoints : DEFAULT_WAYPOINTS;
 
   return (
     <div
@@ -108,7 +158,7 @@ export default function SavedPlanScreen({
           </h2>
 
           <p className="text-xs text-gray-600 mt-1 max-w-[280px] leading-relaxed">
-            {planTitle} sudah disimpan. <br />
+            {planTitle} sudah disimpan ke daftar rencanamu. <br />
             Perjalanan belum dimulai.
           </p>
 
@@ -123,14 +173,29 @@ export default function SavedPlanScreen({
           </div>
         </div>
 
-        {/* Plan Header Info */}
+        {/* Plan Header Info with Real Distance and Destinations Count */}
         <div className="flex items-center justify-between mt-4 mb-2">
-          <h3 className="text-sm font-bold text-gray-900">
+          <h3 className="text-sm font-bold text-gray-900 truncate pr-2">
             {planTitle}
           </h3>
-          <span className="text-xs text-gray-500 font-medium">
-            {waypoints.length} destinasi · ±3,1 km
+          <span className="text-xs text-gray-500 font-medium shrink-0">
+            {safeWaypoints.length} destinasi · ±{calculatedKm} km
           </span>
+        </div>
+
+        {/* Real Leaflet WebGIS Map of the Saved Itinerary */}
+        <div className="mb-4">
+          <ItineraryRouteMap
+            origin={{
+              name: originName,
+              lat: originLat,
+              lng: originLng,
+            }}
+            waypoints={safeWaypoints}
+            onRouteCalculated={(dist) => {
+              if (dist > 0) setCalculatedKm(dist);
+            }}
+          />
         </div>
 
         {/* Rute Perjalanan Card */}
@@ -144,30 +209,30 @@ export default function SavedPlanScreen({
             {/* Vertical connector line */}
             <div className="absolute left-3.5 top-5 bottom-4 w-0.5 bg-gray-200 -z-0" />
 
-            {/* Titik Keberangkatan */}
+            {/* Titik Keberangkatan Riil */}
             <div className="relative flex items-center justify-between gap-3 z-10">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-7 h-7 rounded-full bg-[#EEF2FF] border border-[#E0E7FF] flex items-center justify-center shrink-0">
-                  <div className="w-2 h-2 rounded-full bg-[#4941EC]" />
+                <div className="w-7 h-7 rounded-full bg-[#E6F8F0] border border-[#60CE9F] flex items-center justify-center shrink-0">
+                  <div className="w-2 h-2 rounded-full bg-[#10B981]" />
                 </div>
                 <div className="min-w-0">
                   <h5 className="text-xs sm:text-sm font-bold text-gray-900 truncate">
                     {originName}
                   </h5>
                   <p className="text-[11px] text-gray-500 truncate">
-                    Titik keberangkatan · Bogor Tengah
+                    Titik keberangkatan · {originAddress || 'Jawa Barat'}
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* Waypoints */}
-            {waypoints.map((stop, index) => {
+            {/* Waypoints Riil */}
+            {safeWaypoints.map((stop, index) => {
               const isFirstStop = index === 0;
 
               return (
                 <div
-                  key={stop.id}
+                  key={stop.id || index}
                   className="relative flex items-center justify-between gap-3 z-10"
                 >
                   <div className="flex items-center gap-3 min-w-0">
@@ -185,7 +250,7 @@ export default function SavedPlanScreen({
                         {stop.name}
                       </h5>
                       <p className="text-[11px] text-gray-500 truncate">
-                        {stop.address} · {stop.role}
+                        {stop.address} · {stop.role || `Destinasi ke-${index + 1}`}
                       </p>
                     </div>
                   </div>
@@ -203,25 +268,40 @@ export default function SavedPlanScreen({
               Tidak otomatis memulai perjalanan
             </h5>
             <p className="text-[11px] text-gray-600 mt-0.5 leading-relaxed">
-              Buka rencana ini dari tab Rencana, lalu pilih Lakukan perjalanan saat kamu siap berangkat.
+              Buka rencana ini dari tab Rencana, lalu pilih &ldquo;Lakukan perjalanan&rdquo; saat kamu siap berangkat.
             </p>
           </div>
         </div>
 
-        {/* Timestamp */}
+        {/* Timestamp Riil */}
         <p className="text-[11px] text-gray-400 text-center font-medium mb-3">
-          {savedTimestamp}
+          {realTimestamp}
         </p>
 
-        {/* Bottom Button: Kembali ke Rencana */}
-        <button
-          type="button"
-          onClick={onBackToRencana}
-          className="w-full py-3.5 bg-[#4941EC] hover:bg-[#3D35D9] active:scale-[0.99] text-white font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2 shadow-md shadow-[#4941EC]/25 transition-all cursor-pointer"
-        >
-          <Calendar className="w-4 h-4" />
-          <span>Kembali ke Rencana</span>
-        </button>
+        {/* Action Buttons */}
+        <div className="flex flex-col gap-2.5">
+          {/* Button: Kembali ke Rencana */}
+          <button
+            type="button"
+            onClick={onBackToRencana}
+            className="w-full py-3.5 bg-[#4941EC] hover:bg-[#3D35D9] active:scale-[0.99] text-white font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2 shadow-md shadow-[#4941EC]/25 transition-all cursor-pointer"
+          >
+            <Calendar className="w-4 h-4" />
+            <span>Kembali ke Rencana</span>
+          </button>
+
+          {/* Button: Lakukan Perjalanan Sekarang (opsional jika siap langsung berangkat) */}
+          {onStartTrip && (
+            <button
+              type="button"
+              onClick={onStartTrip}
+              className="w-full py-3 bg-white hover:bg-gray-50 border-2 border-[#4941EC] text-[#4941EC] font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs active:scale-[0.99]"
+            >
+              <Navigation className="w-4 h-4 fill-[#4941EC] stroke-[1.5]" />
+              <span>Lakukan perjalanan sekarang</span>
+            </button>
+          )}
+        </div>
       </main>
 
       {/* 3. Bottom Navigation Bar */}

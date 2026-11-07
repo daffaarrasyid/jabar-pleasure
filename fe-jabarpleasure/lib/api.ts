@@ -38,6 +38,7 @@ export interface ApiDestination {
   latitude: number | null;
   longitude: number | null;
   distance_km?: number | null;
+  check_ins_count?: number | null;
   category?: {
     id: number;
     name: string;
@@ -144,6 +145,8 @@ export async function getDestinations(params: {
   search?: string;
   lat?: number;
   lng?: number;
+  radius?: number;
+  sort_by?: 'visitors' | 'popular' | 'distance' | 'default';
 } = {}): Promise<ApiResponse<ApiDestination[]>> {
   const query = new URLSearchParams();
   if (params.page !== undefined) query.set('page', params.page.toString());
@@ -153,6 +156,8 @@ export async function getDestinations(params: {
   if (params.search) query.set('search', params.search);
   if (params.lat !== undefined) query.set('lat', params.lat.toString());
   if (params.lng !== undefined) query.set('lng', params.lng.toString());
+  if (params.radius !== undefined) query.set('radius', params.radius.toString());
+  if (params.sort_by) query.set('sort_by', params.sort_by);
 
   return await fetchApi<ApiDestination[]>(`/destinations?${query.toString()}`);
 }
@@ -175,6 +180,7 @@ export async function searchDestinations(
     lat?: number;
     lng?: number;
     limit?: number;
+    sort_by?: 'visitors' | 'popular' | 'distance';
   } = {}
 ): Promise<ApiDestination[]> {
   const params = new URLSearchParams();
@@ -183,8 +189,101 @@ export async function searchDestinations(
   if (options.lat !== undefined) params.set('lat', options.lat.toString());
   if (options.lng !== undefined) params.set('lng', options.lng.toString());
   if (options.limit !== undefined) params.set('limit', options.limit.toString());
+  if (options.sort_by) params.set('sort_by', options.sort_by);
 
   const res = await fetchApi<ApiDestination[]>(`/destinations/search?${params.toString()}`);
   return res.data || [];
+}
+
+export interface ApiItineraryItem {
+  id: number;
+  itinerary_id: number;
+  destination_id: number;
+  visit_order: number;
+  estimated_time_arrival?: string | null;
+  destination?: ApiDestination;
+}
+
+export interface ApiItinerary {
+  id: number;
+  user_id: number;
+  title: string;
+  start_date: string;
+  end_date: string;
+  departure_lat?: number | null;
+  departure_lng?: number | null;
+  route_geojson?: any;
+  status: string;
+  created_at: string;
+  updated_at?: string;
+  items?: ApiItineraryItem[];
+}
+
+export interface CreateItineraryPayload {
+  title: string;
+  start_date?: string;
+  end_date?: string;
+  departure_lat?: number;
+  departure_lng?: number;
+  departure_name?: string;
+  route_geojson?: any;
+  status?: string;
+  destinations: (number | { id: number; estimated_time_arrival?: string })[];
+}
+
+/**
+ * Fetch list of user's saved itineraries
+ */
+export async function getItineraries(): Promise<ApiItinerary[]> {
+  try {
+    const res = await fetchApi<ApiItinerary[]>('/itineraries');
+    return res.data || [];
+  } catch {
+    // Fallback to public route if unauthenticated
+    try {
+      const res = await fetchApi<ApiItinerary[]>('/itineraries-public');
+      return res.data || [];
+    } catch {
+      return [];
+    }
+  }
+}
+
+/**
+ * Fetch a single itinerary by ID
+ */
+export async function getItinerary(id: number): Promise<ApiItinerary | null> {
+  const res = await fetchApi<ApiItinerary>(`/itineraries/${id}`);
+  return res.data || null;
+}
+
+/**
+ * Save / Create a new itinerary in database
+ */
+export async function createItinerary(payload: CreateItineraryPayload): Promise<ApiItinerary> {
+  try {
+    const res = await fetchApi<ApiItinerary>('/itineraries', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return res.data;
+  } catch (err: any) {
+    // Try public fallback route if auth failed
+    const res = await fetchApi<ApiItinerary>('/itineraries-public', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return res.data;
+  }
+}
+
+/**
+ * Delete an itinerary by ID
+ */
+export async function deleteItinerary(id: number): Promise<boolean> {
+  const res = await fetchApi(`/itineraries/${id}`, {
+    method: 'DELETE',
+  });
+  return res.status === 'success';
 }
 
