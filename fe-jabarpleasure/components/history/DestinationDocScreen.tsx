@@ -13,7 +13,39 @@ import {
 } from 'lucide-react';
 import AppHeader from '@/components/layout/AppHeader';
 import BottomNav, { NavTabId } from '@/components/layout/BottomNav';
-import { TRIP_HISTORY_DATA, TripItem, DestinationItem } from '@/components/history/historyData';
+import { TripItem, DestinationItem } from '@/components/history/historyData';
+
+const DEFAULT_DESTINATION: DestinationItem = {
+  id: '',
+  name: 'Destinasi Perjalanan',
+  time: 'Selesai',
+  status: 'Sudah dikunjungi',
+  photoCount: 0,
+  image: '/tugu-kujang.jpg',
+  location: 'Jawa Barat',
+  visitDate: 'Hari ini',
+  visitTime: 'Selesai',
+  notes: 'Belum ada catatan perjalanan untuk destinasi ini.',
+  photos: [],
+};
+
+const DEFAULT_TRIP: TripItem = {
+  id: '',
+  title: 'Perjalanan',
+  status: 'Selesai',
+  duration: '1 hari',
+  dateRange: 'Hari ini',
+  location: 'Jawa Barat',
+  completedDate: 'Hari ini',
+  stats: {
+    destinations: 0,
+    photos: 0,
+    video: 0,
+  },
+  initials: ['JP'],
+  image: '/tugu-kujang.jpg',
+  destinations: [],
+};
 
 interface DestinationDocScreenProps {
   trip?: TripItem;
@@ -31,8 +63,8 @@ interface DestinationDocScreenProps {
 }
 
 export default function DestinationDocScreen({
-  trip = TRIP_HISTORY_DATA[0],
-  destination = TRIP_HISTORY_DATA[0].destinations[0],
+  trip = DEFAULT_TRIP,
+  destination = DEFAULT_DESTINATION,
   onBack,
   onViewShowcase,
   onNotificationClick,
@@ -148,15 +180,20 @@ export default function DestinationDocScreen({
             </div>
           </div>
 
-          {/* Waktu kunjungan */}
+          {/* Status kunjungan (menggantikan waktu kunjungan per requirement) */}
           <div>
             <label className="text-[11px] text-gray-500 font-medium block mb-1">
-              Waktu kunjungan
+              Status kunjungan
             </label>
-            <div className="bg-[#F8FAFC] border border-gray-100 rounded-xl px-3.5 py-2.5 flex items-center gap-2.5">
-              <Clock className="w-4 h-4 text-gray-500 shrink-0" />
-              <span className="text-xs font-semibold text-gray-800">
-                {destination.visitTime}
+            <div className="bg-[#F8FAFC] border border-gray-100 rounded-xl px-3.5 py-2.5 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-[#10B981] shrink-0" />
+                <span className="text-xs font-bold text-gray-800">
+                  {destination.status || 'Sudah dikunjungi'}
+                </span>
+              </div>
+              <span className="bg-[#D1FAE5] text-[#059669] text-[10px] font-bold px-2.5 py-0.5 rounded-md">
+                Terkonfirmasi
               </span>
             </div>
           </div>

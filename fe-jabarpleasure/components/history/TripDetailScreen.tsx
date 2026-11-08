@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import {
   ArrowLeft,
@@ -15,13 +15,32 @@ import {
 } from 'lucide-react';
 import AppHeader from '@/components/layout/AppHeader';
 import BottomNav, { NavTabId } from '@/components/layout/BottomNav';
-import { TRIP_HISTORY_DATA, TripItem, DestinationItem } from '@/components/history/historyData';
+import { TripItem, DestinationItem } from '@/components/history/historyData';
 import JournalMediaModal from '@/components/history/JournalMediaModal';
+
+const DEFAULT_TRIP: TripItem = {
+  id: '',
+  title: 'Perjalanan',
+  status: 'Selesai',
+  duration: '1 hari',
+  dateRange: 'Hari ini',
+  location: 'Jawa Barat',
+  completedDate: 'Hari ini',
+  stats: {
+    destinations: 0,
+    photos: 0,
+    video: 0,
+  },
+  initials: ['JP'],
+  image: '/tugu-kujang.jpg',
+  destinations: [],
+};
 
 interface TripDetailScreenProps {
   trip?: TripItem;
   onBack?: () => void;
   onSelectDestination?: (dest: DestinationItem) => void;
+  onUpdateTrip?: (updatedTrip: TripItem) => void;
   onViewTimelapse?: (trip: TripItem) => void;
   onViewShowcase?: (trip: TripItem) => void;
   onNotificationClick?: () => void;
@@ -34,10 +53,25 @@ interface TripDetailScreenProps {
   className?: string;
 }
 
+function cleanLocationText(loc: string): string {
+  if (!loc) return 'Bogor, Jawa Barat';
+  let cleaned = loc
+    .replace(/lokasi gps anda/gi, '')
+    .replace(/titik keberangkatan/gi, '')
+    .trim();
+  cleaned = cleaned.replace(/^[,\s-]+|[,\s-]+$/g, '');
+  if (!cleaned) return 'Bogor, Jawa Barat';
+  if (!cleaned.toLowerCase().includes('jawa barat')) {
+    cleaned += ', Jawa Barat';
+  }
+  return cleaned;
+}
+
 export default function TripDetailScreen({
-  trip = TRIP_HISTORY_DATA[0],
+  trip = DEFAULT_TRIP,
   onBack,
   onSelectDestination,
+  onUpdateTrip,
   onViewTimelapse,
   onViewShowcase,
   onNotificationClick,
@@ -52,6 +86,11 @@ export default function TripDetailScreen({
   const [currentTrip, setCurrentTrip] = useState<TripItem>(trip);
   const [isJournalModalOpen, setIsJournalModalOpen] = useState(false);
   const [downloadFeedback, setDownloadFeedback] = useState<string | null>(null);
+
+  // Keep state synced with trip prop if it changes
+  useEffect(() => {
+    setCurrentTrip(trip);
+  }, [trip]);
 
   const handleTabChange = (tab: NavTabId) => {
     if (tab === 'beranda') {
@@ -117,37 +156,55 @@ export default function TripDetailScreen({
   };
 
   const handleSaveJournal = (
-    destinationId: string,
-    newMedia: { url: string; caption: string; isVideo?: boolean }[]
+    updates: Record<string, { media: { url: string; caption: string; isVideo?: boolean }[]; notes?: string }>
   ) => {
-    setCurrentTrip((prev) => {
-      const updatedDestinations = prev.destinations.map((d) => {
-        if (d.id === destinationId) {
-          return {
-            ...d,
-            photos: newMedia.map((m) => ({
-              url: m.url,
-              caption: m.caption,
-              subCaption: d.name,
-              isVideo: m.isVideo,
-            })),
-            photoCount: newMedia.length,
-          };
-        }
-        return d;
-      });
-
-      const totalPhotos = updatedDestinations.reduce((acc, curr) => acc + (curr.photos?.length || 0), 0);
-
+    const updatedDestinations = currentTrip.destinations.map((d) => {
+      const update = updates[d.id];
+      if (!update) return d;
       return {
-        ...prev,
-        destinations: updatedDestinations,
-        stats: {
-          ...prev.stats,
-          photos: totalPhotos,
-        },
+        ...d,
+        notes: update.notes !== undefined && update.notes.trim() !== '' ? update.notes : d.notes,
+        photos: update.media.map((m) => ({
+          url: m.url,
+          caption: m.caption,
+          subCaption: d.name,
+          isVideo: m.isVideo,
+        })),
+        photoCount: update.media.length,
       };
     });
+
+    const totalPhotos = updatedDestinations.reduce((acc, curr) => acc + (curr.photos?.length || 0), 0);
+    const totalVideos = updatedDestinations.reduce(
+      (acc, curr) => acc + (curr.photos?.filter((p) => p.isVideo)?.length || 0),
+      0
+    );
+
+    const nextTrip: TripItem = {
+      ...currentTrip,
+      destinations: updatedDestinations,
+      stats: {
+        ...currentTrip.stats,
+        photos: totalPhotos,
+        video: totalVideos,
+      },
+    };
+
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('jabarpleasure_trip_history');
+        if (stored) {
+          const list: TripItem[] = JSON.parse(stored);
+          const nextList = list.map((item) => (item.id === nextTrip.id ? nextTrip : item));
+          localStorage.setItem('jabarpleasure_trip_history', JSON.stringify(nextList));
+        }
+      } catch (e) {
+        console.warn('Failed saving trip update to localStorage:', e);
+      }
+    }
+
+    setCurrentTrip(nextTrip);
+    onUpdateTrip?.(nextTrip);
   };
 
   return (
@@ -216,12 +273,16 @@ export default function TripDetailScreen({
               </h2>
 
               <p className="text-[11px] text-gray-500 font-medium truncate">
-                {currentTrip.dateRange} • {currentTrip.duration}
+                {currentTrip.duration.toLowerCase().includes('malam') ||
+                ((currentTrip.dateRange.includes('–') || currentTrip.dateRange.includes('-')) &&
+                  !currentTrip.duration.toLowerCase().includes('1 hari'))
+                  ? `Mulai ${currentTrip.dateRange.replace('–', ' s/d ').replace('-', ' s/d ')} • ${currentTrip.duration}`
+                  : `${currentTrip.dateRange} • ${currentTrip.duration}`}
               </p>
 
               <div className="flex items-center gap-1 text-[11px] text-gray-500 mt-0.5 truncate">
                 <MapPin className="w-3 h-3 text-emerald-600 shrink-0" />
-                <span className="truncate">{currentTrip.location}</span>
+                <span className="truncate">{cleanLocationText(currentTrip.location)}</span>
               </div>
             </div>
           </div>

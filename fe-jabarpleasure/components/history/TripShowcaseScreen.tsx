@@ -14,7 +14,25 @@ import {
 } from 'lucide-react';
 import AppHeader from '@/components/layout/AppHeader';
 import BottomNav, { NavTabId } from '@/components/layout/BottomNav';
-import { TRIP_HISTORY_DATA, TripItem } from '@/components/history/historyData';
+import { TripItem } from '@/components/history/historyData';
+
+const DEFAULT_TRIP: TripItem = {
+  id: '',
+  title: 'Perjalanan',
+  status: 'Selesai',
+  duration: '1 hari',
+  dateRange: 'Hari ini',
+  location: 'Jawa Barat',
+  completedDate: 'Hari ini',
+  stats: {
+    destinations: 0,
+    photos: 0,
+    video: 0,
+  },
+  initials: ['JP'],
+  image: '/tugu-kujang.jpg',
+  destinations: [],
+};
 
 interface TripShowcaseScreenProps {
   trip?: TripItem;
@@ -112,7 +130,7 @@ const GALLERY_ITEMS: PhotoGalleryItem[] = [
 ];
 
 export default function TripShowcaseScreen({
-  trip = TRIP_HISTORY_DATA[0],
+  trip = DEFAULT_TRIP,
   onBack,
   onNotificationClick,
   onWishlistClick,

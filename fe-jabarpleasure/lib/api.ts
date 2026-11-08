@@ -234,14 +234,15 @@ export interface CreateItineraryPayload {
 /**
  * Fetch list of user's saved itineraries
  */
-export async function getItineraries(): Promise<ApiItinerary[]> {
+export async function getItineraries(status?: string): Promise<ApiItinerary[]> {
+  const query = status ? `?status=${encodeURIComponent(status)}` : '';
   try {
-    const res = await fetchApi<ApiItinerary[]>('/itineraries');
+    const res = await fetchApi<ApiItinerary[]>(`/itineraries${query}`);
     return res.data || [];
   } catch {
     // Fallback to public route if unauthenticated
     try {
-      const res = await fetchApi<ApiItinerary[]>('/itineraries-public');
+      const res = await fetchApi<ApiItinerary[]>(`/itineraries-public${query}`);
       return res.data || [];
     } catch {
       return [];
@@ -285,6 +286,73 @@ export async function deleteItinerary(id: number): Promise<boolean> {
     method: 'DELETE',
   });
   return res.status === 'success';
+}
+
+/**
+ * Mark an itinerary as completed (moves from Rencana to Riwayat)
+ */
+export async function completeItinerary(id: number | string): Promise<ApiItinerary | null> {
+  try {
+    const res = await fetchApi<ApiItinerary>(`/itineraries/${id}/complete`, {
+      method: 'POST',
+    });
+    return res.data;
+  } catch {
+    try {
+      const res = await fetchApi<ApiItinerary>(`/itineraries-public/${id}/complete`, {
+        method: 'POST',
+      });
+      return res.data;
+    } catch {
+      return null;
+    }
+  }
+}
+
+export interface ApiJournalUploadResponse {
+  id: number;
+  check_in_id: number;
+  file_path: string;
+  public_url: string;
+  media_type: 'photo' | 'video';
+  file_size_kb: number;
+  caption?: string;
+  destination_id?: number | string;
+  itinerary_id?: number | string;
+  created_at: string;
+}
+
+/**
+ * Upload compressed media (WebP/WebM) to Supabase Storage via backend
+ */
+export async function uploadJournalMedia(formData: FormData): Promise<ApiJournalUploadResponse | null> {
+  try {
+    const res = await fetchApi<ApiJournalUploadResponse>('/journal/upload', {
+      method: 'POST',
+      body: formData,
+    });
+    return res.data;
+  } catch (err) {
+    console.error('Failed to upload journal media:', err);
+    return null;
+  }
+}
+
+/**
+ * Get media items attached to an itinerary
+ */
+export async function getItineraryJournal(itineraryId: number | string): Promise<any[]> {
+  try {
+    const res = await fetchApi<any[]>(`/itineraries/${itineraryId}/journal`);
+    return res.data || [];
+  } catch {
+    try {
+      const res = await fetchApi<any[]>(`/itineraries-public/${itineraryId}/journal`);
+      return res.data || [];
+    } catch {
+      return [];
+    }
+  }
 }
 
 /*

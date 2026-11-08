@@ -3,6 +3,7 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DestinationController;
 use App\Http\Controllers\ItineraryController;
+use App\Http\Controllers\JournalMediaController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\WishlistController;
 use Illuminate\Http\Request;
@@ -62,7 +63,17 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/itineraries', [ItineraryController::class, 'index']);
     Route::post('/itineraries', [ItineraryController::class, 'store']);
     Route::get('/itineraries/{id}', [ItineraryController::class, 'show']);
+    Route::post('/itineraries/{id}/complete', [ItineraryController::class, 'complete']);
+    Route::patch('/itineraries/{id}/complete', [ItineraryController::class, 'complete']);
     Route::delete('/itineraries/{id}', [ItineraryController::class, 'destroy']);
+
+    /*
+    |--------------------------------------------------------------------------
+    | Journal Media Endpoints (Authenticated)
+    |--------------------------------------------------------------------------
+    */
+    Route::post('/journal/upload', [JournalMediaController::class, 'upload']);
+    Route::get('/itineraries/{id}/journal', [JournalMediaController::class, 'getByItinerary']);
     /*
     |--------------------------------------------------------------------------
     | Wishlist Endpoints (Authenticated)
@@ -76,6 +87,9 @@ Route::middleware('auth:sanctum')->group(function () {
 // Direct fallback routes for development or token recovery
 Route::get('/itineraries-public', [ItineraryController::class, 'index']);
 Route::post('/itineraries-public', [ItineraryController::class, 'store']);
+Route::post('/itineraries-public/{id}/complete', [ItineraryController::class, 'complete']);
+Route::patch('/itineraries-public/{id}/complete', [ItineraryController::class, 'complete']);
+Route::get('/itineraries-public/{id}/journal', [JournalMediaController::class, 'getByItinerary']);
 Route::get('/wishlists-public', [WishlistController::class, 'index']);
 Route::post('/wishlists-public/toggle', [WishlistController::class, 'toggle']);
 Route::delete('/wishlists-public/{destinationId}', [WishlistController::class, 'destroy']);

@@ -82,11 +82,12 @@ export default function ItineraryScreen({
   useEffect(() => {
     let isCancelled = false;
     setIsLoading(true);
-    getItineraries()
+    getItineraries('planned')
       .then((data) => {
         if (isCancelled) return;
-        if (data && data.length > 0) {
-          const formatted: SavedItinerary[] = data.map((item) => {
+        const activeData = (data || []).filter((item) => item.status !== 'completed');
+        if (activeData && activeData.length > 0) {
+          const formatted: SavedItinerary[] = activeData.map((item) => {
             const stops = item.items?.map((it) => it.destination?.name || 'Destinasi').filter(Boolean) || [];
             const originName =
               item.route_geojson?.properties?.departure_name ||

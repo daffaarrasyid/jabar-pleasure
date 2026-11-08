@@ -23,7 +23,7 @@ import TripHistoryScreen from '@/components/history/TripHistoryScreen';
 import TripDetailScreen from '@/components/history/TripDetailScreen';
 import DestinationDocScreen from '@/components/history/DestinationDocScreen';
 import TripShowcaseScreen from '@/components/history/TripShowcaseScreen';
-import { TRIP_HISTORY_DATA, TripItem, DestinationItem } from '@/components/history/historyData';
+import { TripItem, DestinationItem } from '@/components/history/historyData';
 import Toast from '@/components/ui/Toast';
 import DestinationDetailModal, { DestinationDetailData } from '@/components/ui/DestinationDetailModal';
 import { getAuthToken, removeAuthToken } from '@/lib/auth';
@@ -60,10 +60,8 @@ export default function Home() {
   const [savedWishlistCount, setSavedWishlistCount] = useState<number>(4);
   const [globalDetailDestination, setGlobalDetailDestination] = useState<DestinationDetailData | null>(null);
   const [selectedOrigin, setSelectedOrigin] = useState<string>('Stasiun Bogor');
-  const [selectedTrip, setSelectedTrip] = useState<TripItem>(TRIP_HISTORY_DATA[0]);
-  const [selectedDestination, setSelectedDestination] = useState<DestinationItem>(
-    TRIP_HISTORY_DATA[0].destinations[0]
-  );
+  const [selectedTrip, setSelectedTrip] = useState<TripItem | undefined>(undefined);
+  const [selectedDestination, setSelectedDestination] = useState<DestinationItem | undefined>(undefined);
   const [toast, setToast] = useState<{
     message: string;
     type: 'success' | 'info' | 'error';

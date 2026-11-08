@@ -27,7 +27,9 @@ class ItineraryController extends Controller
             ]);
         }
 
-        $itineraries = Itinerary::where('user_id', $user->id)
+        $status = $request->query('status');
+
+        $query = Itinerary::where('user_id', $user->id)
             ->select([
                 'itineraries.*',
                 DB::raw('ST_Y(departure_location::geometry) as departure_lat'),
@@ -37,9 +39,13 @@ class ItineraryController extends Controller
                 'items.destination' => function ($q) {
                     $q->withCoordinates()->withCount('checkIns');
                 },
-            ])
-            ->latest()
-            ->get();
+            ]);
+
+        if ($status) {
+            $query->where('status', $status);
+        }
+
+        $itineraries = $query->latest()->get();
 
         return response()->json([
             'status' => 'success',
@@ -197,6 +203,36 @@ class ItineraryController extends Controller
 
         return response()->json([
             'status' => 'success',
+            'data' => $itinerary,
+        ]);
+    }
+
+    /**
+     * Mark an itinerary as completed.
+     */
+    public function complete(Request $request, $id): JsonResponse
+    {
+        $user = $request->user() ?? User::first();
+        $itinerary = Itinerary::where('id', $id)
+            ->when($user, function ($q) use ($user) {
+                $q->where('user_id', $user->id);
+            })
+            ->first();
+
+        if (!$itinerary) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Rencana perjalanan tidak ditemukan.',
+            ], 404);
+        }
+
+        $itinerary->status = 'completed';
+        $itinerary->end_date = now()->toDateString();
+        $itinerary->save();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Perjalanan berhasil diselesaikan dan dipindahkan ke Riwayat.',
             'data' => $itinerary,
         ]);
     }

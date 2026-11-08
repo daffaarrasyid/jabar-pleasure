@@ -16,7 +16,7 @@ import TripHistoryScreen from '@/components/history/TripHistoryScreen';
 import TripDetailScreen from '@/components/history/TripDetailScreen';
 import DestinationDocScreen from '@/components/history/DestinationDocScreen';
 import TripShowcaseScreen from '@/components/history/TripShowcaseScreen';
-import { TRIP_HISTORY_DATA, TripItem, DestinationItem } from '@/components/history/historyData';
+import { TripItem, DestinationItem } from '@/components/history/historyData';
 import Toast from '@/components/ui/Toast';
 import DestinationDetailModal, { DestinationDetailData } from '@/components/ui/DestinationDetailModal';
 import { getAuthToken, removeAuthToken } from '@/lib/auth';
@@ -85,18 +85,21 @@ function HomeContent() {
     if (typeof window !== 'undefined') {
       try {
         const stored = localStorage.getItem('jabarpleasure_trip_history');
-        if (stored) return JSON.parse(stored);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) {
+            return parsed.filter((item: TripItem) => item.id !== 'bandung-trip');
+          }
+        }
       } catch (e) {
         console.warn('Error reading trip history from storage:', e);
       }
     }
-    return TRIP_HISTORY_DATA;
+    return [];
   });
   const [tripStartTime, setTripStartTime] = useState<string>('');
-  const [selectedTrip, setSelectedTrip] = useState<TripItem>(TRIP_HISTORY_DATA[0]);
-  const [selectedDestination, setSelectedDestination] = useState<DestinationItem>(
-    TRIP_HISTORY_DATA[0].destinations[0]
-  );
+  const [selectedTrip, setSelectedTrip] = useState<TripItem | undefined>(undefined);
+  const [selectedDestination, setSelectedDestination] = useState<DestinationItem | undefined>(undefined);
   const [toast, setToast] = useState<{
     message: string;
     type: 'success' | 'info' | 'error';
