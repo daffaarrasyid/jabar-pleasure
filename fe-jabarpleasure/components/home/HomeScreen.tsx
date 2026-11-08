@@ -12,8 +12,10 @@ import NearbyRecommendations, { NearbyItem } from '@/components/home/NearbyRecom
 import TopDestinationsView from '@/components/home/TopDestinationsView';
 import CategoryFilterModal from '@/components/home/CategoryFilterModal';
 import DestinationDetailModal, { DestinationDetailData } from '@/components/ui/DestinationDetailModal';
+import LocationReferenceModal, { JABAR_PRESET_CITIES } from '@/components/common/LocationReferenceModal';
 import { searchDestinations, ApiDestination } from '@/lib/api';
-import { Star, Navigation, MapPin, SearchX } from 'lucide-react';
+import { Users, Navigation, MapPin, SearchX } from 'lucide-react';
+import { getCategoryMeta } from '@/lib/categoryMeta';
 
 interface HomeScreenProps {
   onNavigateToMap?: () => void;
@@ -49,11 +51,18 @@ export default function HomeScreen({
   initialViewMode = 'overview',
   className = '',
 }: HomeScreenProps) {
-  const [viewMode, setViewMode] = useState<'overview' | 'top-destinations'>(initialViewMode);
+  const [viewMode, setViewMode] = useState<
+    'overview' | 'top-destinations' | 'see-all-featured' | 'see-all-nearby'
+  >(initialViewMode);
   const [activeTab, setActiveTab] = useState<NavTabId>('beranda');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Semua');
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [isGpsActive, setIsGpsActive] = useState<boolean>(false);
+  const [isLocationModalOpen, setIsLocationModalOpen] = useState<boolean>(false);
+  const [locationMode, setLocationMode] = useState<'gps' | 'manual'>('gps');
+  const [activeLocationName, setActiveLocationName] = useState<string>('Kota Bandung');
+  const [isGeocoding, setIsGeocoding] = useState<boolean>(false);
 
   // Search state
   const [searchResults, setSearchResults] = useState<ApiDestination[]>([]);
@@ -63,23 +72,85 @@ export default function HomeScreen({
   const [selectedDestinationForDetail, setSelectedDestinationForDetail] = useState<DestinationDetailData | null>(null);
   const [, startTransition] = useTransition();
 
-  // Try to acquire device geolocation for real spatial proximity
-  useEffect(() => {
+  // 1. Handler deteksi GPS perangkat saat ini
+  const handleUseCurrentGps = () => {
     if (typeof window !== 'undefined' && 'geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
+          const { latitude, longitude } = position.coords;
           setUserCoords({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
+            lat: latitude,
+            lng: longitude,
           });
+          setLocationMode('gps');
+          setActiveLocationName('Lokasi GPS Anda');
+          setIsGpsActive(true);
+          setIsLocationModalOpen(false);
         },
         (error) => {
           console.warn('Geolocation unavailable, defaulting to Bandung:', error.message);
           setUserCoords({ lat: -6.9175, lng: 107.6191 });
+          setLocationMode('manual');
+          setActiveLocationName('Kota Bandung (Acuan Jabar)');
+          setIsGpsActive(false);
+          setIsLocationModalOpen(false);
         },
-        { timeout: 8000, maximumAge: 60000 }
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
       );
     }
+  };
+
+  // 2. Handler pilih preset kota manual di Jawa Barat
+  const handleSelectPresetCity = (city: { name: string; lat: number; lng: number }) => {
+    setUserCoords({ lat: city.lat, lng: city.lng });
+    setLocationMode('manual');
+    setActiveLocationName(city.name);
+    setIsGpsActive(false);
+    setIsLocationModalOpen(false);
+  };
+
+  // 3. Handler submit alamat manual dengan geocoding Nominatim
+  const handleManualAddressSubmit = async (query: string) => {
+    setIsGeocoding(true);
+    try {
+      const nominatimUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+        query + ', Jawa Barat'
+      )}&countrycodes=id&viewbox=106.36,-5.91,108.85,-7.82&bounded=1&limit=1`;
+
+      const res = await fetch(nominatimUrl);
+      const data = await res.json();
+
+      if (data && data.length > 0) {
+        const lat = parseFloat(data[0].lat);
+        const lng = parseFloat(data[0].lon);
+        setUserCoords({ lat, lng });
+        setLocationMode('manual');
+        setActiveLocationName(query);
+        setIsGpsActive(false);
+        setIsLocationModalOpen(false);
+      } else {
+        const matchedCity = JABAR_PRESET_CITIES.find((c) =>
+          query.toLowerCase().includes(c.name.toLowerCase().replace('kota ', ''))
+        );
+        if (matchedCity) {
+          handleSelectPresetCity(matchedCity);
+        } else {
+          setActiveLocationName(query);
+          setIsLocationModalOpen(false);
+        }
+      }
+    } catch (err) {
+      console.warn('Geocoding error:', err);
+      setActiveLocationName(query);
+      setIsLocationModalOpen(false);
+    } finally {
+      setIsGeocoding(false);
+    }
+  };
+
+  // Try to acquire device geolocation for real spatial proximity on mount
+  useEffect(() => {
+    handleUseCurrentGps();
   }, []);
 
   // Debounced search effect when typing or changing category
@@ -140,9 +211,19 @@ export default function HomeScreen({
 
   const isSearchActive = searchQuery.trim().length > 0;
 
-  if (viewMode === 'top-destinations') {
+  if (viewMode === 'top-destinations' || viewMode === 'see-all-featured' || viewMode === 'see-all-nearby') {
+    const seeAllMode =
+      viewMode === 'see-all-featured'
+        ? 'featured'
+        : viewMode === 'see-all-nearby'
+        ? 'nearby'
+        : 'all';
+
     return (
       <TopDestinationsView
+        mode={seeAllMode}
+        userCoords={userCoords}
+        activeLocationName={activeLocationName}
         onBack={() => setViewMode('overview')}
         onNavigateToMap={onNavigateToMap}
         onNotificationClick={onNotificationClick}
@@ -171,7 +252,7 @@ export default function HomeScreen({
 
       {/* Main Scrollable Content */}
       <main className="flex-1 w-full overflow-y-auto overflow-x-hidden no-scrollbar pb-24">
-        {/* Search Bar & Filter Button */}
+        {/* Search Bar & Filter Button & GPS Button */}
         <SearchBar
           value={searchQuery}
           onChange={setSearchQuery}
@@ -179,6 +260,8 @@ export default function HomeScreen({
           placeholder="Cari nama destinasi wisata..."
           filterBadgeCount={selectedCategory !== 'Semua' ? 1 : 0}
           onFilterClick={() => setIsFilterModalOpen(true)}
+          onGpsClick={() => setIsLocationModalOpen(true)}
+          isGpsActive={isGpsActive}
         />
 
         {/* Categories Horizontal Carousel */}
@@ -253,9 +336,11 @@ export default function HomeScreen({
               /* Search Results List */
               <div className="flex flex-col gap-3">
                 {searchResults.map((item, idx) => {
-                  const fallbackImg = FALLBACK_SEARCH_IMAGES[idx % FALLBACK_SEARCH_IMAGES.length];
+                  const meta = getCategoryMeta(item.category?.name, idx);
+                  const CategoryIcon = meta.icon;
                   const distStr = item.distance_km ? `${item.distance_km} km` : 'Dekat Anda';
                   const locStr = item.address || item.regency?.name || 'Jawa Barat';
+                  const visitCount = typeof item.check_ins_count === 'number' ? item.check_ins_count : 0;
 
                   return (
                     <div
@@ -268,8 +353,9 @@ export default function HomeScreen({
                           category: item.category?.name || 'Wisata',
                           distance: distStr,
                           radiusKm: item.distance_km,
-                          image: item.cover_image_url || fallbackImg,
+                          image: item.cover_image_url || meta.fallbackImage,
                           regency: locStr,
+                          visitCount: visitCount,
                         })
                       }
                       className="group flex items-center gap-3.5 p-2 bg-white rounded-2xl border border-gray-100 hover:border-gray-200 shadow-xs hover:shadow-sm transition-all cursor-pointer"
@@ -278,10 +364,10 @@ export default function HomeScreen({
                       <div className="relative w-[92px] h-[92px] rounded-xl overflow-hidden bg-gray-100 shrink-0">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
-                          src={item.cover_image_url || fallbackImg}
+                          src={item.cover_image_url || meta.fallbackImage}
                           alt={item.name}
                           onError={(e) => {
-                            (e.target as HTMLImageElement).src = '/gunung-malabar.jpg';
+                            (e.target as HTMLImageElement).src = meta.fallbackImage;
                           }}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         />
@@ -290,13 +376,14 @@ export default function HomeScreen({
                       {/* Content Column */}
                       <div className="flex-1 flex flex-col justify-between self-stretch py-0.5 min-w-0">
                         <div className="flex items-center justify-between">
-                          <span className="bg-[#EEF0FF] text-[#4941EC] text-[10px] font-semibold px-2 py-0.5 rounded-md truncate max-w-[130px]">
-                            {item.category?.name || 'Wisata'}
+                          <span className="inline-flex items-center gap-1 bg-[#EEF0FF] text-[#4941EC] text-[10px] font-semibold px-2 py-0.5 rounded-md truncate max-w-[130px]">
+                            <CategoryIcon className="w-3 h-3 shrink-0" />
+                            <span className="truncate">{item.category?.name || 'Wisata'}</span>
                           </span>
-                          <div className="flex items-center gap-1 shrink-0">
-                            <Star className="w-3.5 h-3.5 fill-[#EDAD40] text-[#EDAD40]" />
-                            <span className="text-xs font-bold text-gray-800">
-                              4.8
+                          <div className="flex items-center gap-1 shrink-0 text-gray-600">
+                            <Users className="w-3 h-3 text-[#4941EC]" />
+                            <span className="text-[11px] font-semibold text-gray-700">
+                              {visitCount > 0 ? visitCount.toLocaleString('id-ID') : '0'}
                             </span>
                           </div>
                         </div>
@@ -339,7 +426,7 @@ export default function HomeScreen({
             <FeaturedEntertainment
               selectedCategory={selectedCategory}
               userCoords={userCoords}
-              onViewAll={() => setViewMode('top-destinations')}
+              onViewAll={() => setViewMode('see-all-featured')}
               onItemClick={handleDestinationClick}
             />
 
@@ -352,12 +439,24 @@ export default function HomeScreen({
             <NearbyRecommendations
               selectedCategory={selectedCategory}
               userCoords={userCoords}
-              onViewAll={() => setViewMode('top-destinations')}
+              onViewAll={() => setViewMode('see-all-nearby')}
               onItemClick={(item: NearbyItem) => handleDestinationClick(item)}
             />
           </>
         )}
       </main>
+
+      {/* Modal Titikkan Lokasi: Pilihan GPS atau Masukkan Lokasi Manual (Sama persis dengan halaman Map) */}
+      <LocationReferenceModal
+        isOpen={isLocationModalOpen}
+        onClose={() => setIsLocationModalOpen(false)}
+        locationMode={locationMode}
+        activeLocationName={activeLocationName}
+        onSelectGps={handleUseCurrentGps}
+        onSelectPresetCity={handleSelectPresetCity}
+        onManualAddressSubmit={handleManualAddressSubmit}
+        isGeocoding={isGeocoding}
+      />
 
       {/* Category Filter Bottom Sheet / Modal */}
       <CategoryFilterModal

@@ -230,10 +230,7 @@ function HomeContent() {
         <HomeScreen
           onNavigateToMap={() => router.push('/map')}
           onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
-          onWishlistClick={() => {
-            setPreviousScreen('home');
-            setCurrentScreen('wishlist');
-          }}
+          onWishlistClick={() => router.push('/wishlist')}
           onProfileClick={() => router.push('/profile')}
           onNavigateToRencana={() => router.push('/rencana')}
           onNavigateToRiwayat={() => router.push('/riwayat')}
@@ -248,10 +245,7 @@ function HomeContent() {
           initialViewMode="top-destinations"
           onNavigateToMap={() => router.push('/map')}
           onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
-          onWishlistClick={() => {
-            setPreviousScreen('top-destinations');
-            setCurrentScreen('wishlist');
-          }}
+          onWishlistClick={() => router.push('/wishlist')}
           onProfileClick={() => router.push('/profile')}
           onNavigateToRencana={() => router.push('/rencana')}
           onNavigateToRiwayat={() => router.push('/riwayat')}

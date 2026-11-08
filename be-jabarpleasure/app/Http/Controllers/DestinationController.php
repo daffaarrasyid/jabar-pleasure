@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Destination;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -86,20 +87,31 @@ class DestinationController extends Controller
 
     /**
      * Get featured destinations for Home screen ("Tempat Hiburan untuk Anda").
+     * Displays destinations matching user's registered preferences from user_preferences,
+     * ordered by highest visitor count (check_ins_count DESC).
      */
     public function featured(Request $request): JsonResponse
     {
-        $limit = min((int) $request->input('limit', 4), 12);
+        $limit = min((int) $request->input('limit', 5), 20);
         $category = $request->input('category');
-        $lat = $request->input('lat', -6.9175);
-        $lng = $request->input('lng', 107.6191);
+        $lat = (float) $request->input('lat', -6.9175);
+        $lng = (float) $request->input('lng', 107.6191);
+
+        $user = $request->user() ?? User::first();
 
         $query = Destination::with(['category:id,name,slug', 'regency:id,name'])
             ->withCount('checkIns')
             ->withCoordinates();
 
-        if ($category) {
+        // 1. Filter by explicit category if selected on frontend
+        if ($category && $category !== 'Semua') {
             $query->filterCategory($category);
+        } elseif ($user) {
+            // 2. Otherwise filter by user's registered preferences from user_preferences
+            $preferredCategoryIds = $user->categories()->pluck('categories.id')->toArray();
+            if (!empty($preferredCategoryIds)) {
+                $query->whereIn('category_id', $preferredCategoryIds);
+            }
         }
 
         // Calculate distance from reference point
@@ -108,11 +120,31 @@ class DestinationController extends Controller
             [(float) $lng, (float) $lat]
         );
 
-        // Prefer destinations that have cover images or descriptions first
-        $items = $query->orderByRaw("CASE WHEN cover_image IS NOT NULL THEN 0 ELSE 1 END")
+        // Urutkan dari pengunjung terbanyak (check_ins_count DESC)
+        $items = $query->orderBy('check_ins_count', 'desc')
             ->orderBy('id', 'asc')
             ->limit($limit)
             ->get();
+
+        // Fallback jika belum ada destinasi pada kategori preferensi user
+        if ($items->isEmpty()) {
+            $fallbackQuery = Destination::with(['category:id,name,slug', 'regency:id,name'])
+                ->withCount('checkIns')
+                ->withCoordinates()
+                ->selectRaw(
+                    "ROUND((ST_Distance(location::geography, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography) / 1000.0)::numeric, 1) as distance_km",
+                    [(float) $lng, (float) $lat]
+                )
+                ->orderBy('check_ins_count', 'desc')
+                ->orderBy('id', 'asc')
+                ->limit($limit);
+
+            if ($category && $category !== 'Semua') {
+                $fallbackQuery->filterCategory($category);
+            }
+
+            $items = $fallbackQuery->get();
+        }
 
         return response()->json([
             'status' => 'success',
@@ -122,14 +154,14 @@ class DestinationController extends Controller
 
     /**
      * Get nearby recommendations based on user coordinates ("Rekomendasi Terdekat").
+     * Uses highest radius (25km) and ordered from closest to farthest (distance ASC).
      */
     public function nearby(Request $request): JsonResponse
     {
         $lat = (float) $request->input('lat', -6.9175);
         $lng = (float) $request->input('lng', 107.6191);
-        $hasExplicitRadius = $request->has('radius');
-        $radiusKm = (float) $request->input('radius', 5.0);
-        $limit = min((int) $request->input('limit', 20), 50);
+        $radiusKm = (float) $request->input('radius', 25.0); // Radius tertinggi 25km
+        $limit = min((int) $request->input('limit', 5), 20); // Default 5, bisa 10
         $category = $request->input('category');
 
         $query = Destination::with(['category:id,name,slug', 'regency:id,name'])
@@ -137,20 +169,29 @@ class DestinationController extends Controller
             ->withCoordinates()
             ->nearby($lat, $lng, $radiusKm);
 
-        if ($category) {
+        if ($category && $category !== 'Semua') {
             $query->filterCategory($category);
         }
 
+        // Ordered from closest to farthest (distance_meters ASC)
         $items = $query->limit($limit)->get();
 
-        // Only expand search to 25km fallback if caller did NOT specify an explicit radius (e.g. general home screen overview)
-        if (!$hasExplicitRadius && $items->count() < 3) {
+        // Fallback if no destinations within immediate radius
+        if ($items->isEmpty()) {
             $fallbackQuery = Destination::with(['category:id,name,slug', 'regency:id,name'])
                 ->withCount('checkIns')
                 ->withCoordinates()
-                ->nearby($lat, $lng, 25.0);
+                ->selectRaw(
+                    "ROUND((ST_Distance(location::geography, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography) / 1000.0)::numeric, 1) as distance_km",
+                    [(float) $lng, (float) $lat]
+                )
+                ->selectRaw(
+                    "ST_Distance(location::geography, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography) as distance_meters",
+                    [(float) $lng, (float) $lat]
+                )
+                ->orderBy('distance_meters', 'asc');
 
-            if ($category) {
+            if ($category && $category !== 'Semua') {
                 $fallbackQuery->filterCategory($category);
             }
 
@@ -159,7 +200,9 @@ class DestinationController extends Controller
 
         // Map distance to km string format
         $items->transform(function ($item) {
-            $distanceKm = isset($item->distance_meters) ? round($item->distance_meters / 1000, 1) : null;
+            $distanceKm = isset($item->distance_km)
+                ? $item->distance_km
+                : (isset($item->distance_meters) ? round($item->distance_meters / 1000, 1) : null);
             $item->distance_km = $distanceKm;
             return $item;
         });

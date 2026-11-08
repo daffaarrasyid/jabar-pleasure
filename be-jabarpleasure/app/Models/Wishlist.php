@@ -29,5 +29,10 @@ class Wishlist extends Model
     {
         return $this->belongsTo(User::class);
     }
+
+    public function destination(): BelongsTo
+    {
+        return $this->belongsTo(Destination::class);
+    }
 }
 

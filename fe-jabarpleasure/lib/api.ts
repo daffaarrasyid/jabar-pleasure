@@ -287,3 +287,82 @@ export async function deleteItinerary(id: number): Promise<boolean> {
   return res.status === 'success';
 }
 
+/*
+|--------------------------------------------------------------------------
+| Wishlist API Endpoints
+|--------------------------------------------------------------------------
+*/
+
+export interface ApiWishlist {
+  id: number;
+  user_id: number;
+  destination_id: number;
+  created_at?: string;
+  destination?: ApiDestination;
+}
+
+/**
+ * Fetch all wishlists of current user
+ */
+export async function getWishlists(): Promise<ApiWishlist[]> {
+  try {
+    const res = await fetchApi<ApiWishlist[]>('/wishlists');
+    return res.data || [];
+  } catch {
+    try {
+      const res = await fetchApi<ApiWishlist[]>('/wishlists-public');
+      return res.data || [];
+    } catch {
+      return [];
+    }
+  }
+}
+
+/**
+ * Toggle add / remove a destination in user's wishlist
+ */
+export async function toggleWishlist(
+  destinationId: number | string
+): Promise<{ is_wishlisted: boolean; destination_id: number; message?: string }> {
+  const id = typeof destinationId === 'string' ? parseInt(destinationId, 10) : destinationId;
+  try {
+    const res = await fetchApi<{ is_wishlisted: boolean; destination_id: number; message?: string }>(
+      '/wishlists/toggle',
+      {
+        method: 'POST',
+        body: JSON.stringify({ destination_id: id }),
+      }
+    );
+    return res.data;
+  } catch {
+    const res = await fetchApi<{ is_wishlisted: boolean; destination_id: number; message?: string }>(
+      '/wishlists-public/toggle',
+      {
+        method: 'POST',
+        body: JSON.stringify({ destination_id: id }),
+      }
+    );
+    return res.data;
+  }
+}
+
+/**
+ * Remove a destination from wishlist
+ */
+export async function deleteWishlist(
+  destinationId: number | string
+): Promise<boolean> {
+  const id = typeof destinationId === 'string' ? parseInt(destinationId, 10) : destinationId;
+  try {
+    const res = await fetchApi(`/wishlists/${id}`, {
+      method: 'DELETE',
+    });
+    return res.status === 'success';
+  } catch {
+    const res = await fetchApi(`/wishlists-public/${id}`, {
+      method: 'DELETE',
+    });
+    return res.status === 'success';
+  }
+}
+

@@ -6,7 +6,10 @@ import {
   Heart,
   MapPin,
   CheckCircle2,
+  Users,
 } from 'lucide-react';
+import { toggleWishlist } from '@/lib/api';
+import { getCategoryMeta } from '@/lib/categoryMeta';
 
 export interface DestinationDetailData {
   id: string | number;
@@ -91,31 +94,54 @@ export default function DestinationDetailModal({
       : 'Radius: 4.2 km';
 
   const categoryName = destination.category || 'Wisata Alam';
+  const meta = getCategoryMeta(categoryName, idNum);
+  const CategoryIcon = meta.icon;
   const imageUrl =
     destination.image ||
     destination.cover_image_url ||
-    FALLBACK_MODAL_IMAGES[idNum % FALLBACK_MODAL_IMAGES.length];
+    meta.fallbackImage;
 
-  const handleWishlistToggle = () => {
+  const handleWishlistToggle = async () => {
     const nextSaved = !isSaved;
     setInternalSaved(nextSaved);
 
     try {
+      // 1. Persist to database wishlists table via backend API
+      const res = await toggleWishlist(destination.id);
+      const isConfirmedSaved = res?.is_wishlisted ?? nextSaved;
+      setInternalSaved(isConfirmedSaved);
+
+      // 2. Sync localStorage cache
       const stored = localStorage.getItem('jabarpleasure_wishlist_ids');
       let ids: Array<string | number> = stored ? JSON.parse(stored) : [];
-      if (nextSaved) {
+      if (isConfirmedSaved) {
         if (!ids.includes(destination.id)) ids.push(destination.id);
-        setToastMessage(`"${destination.name}" ditambahkan ke Wishlist!`);
+        setToastMessage(`"${destination.name}" berhasil disimpan ke Wishlist!`);
       } else {
         ids = ids.filter((id) => id !== destination.id);
         setToastMessage(`"${destination.name}" dihapus dari Wishlist.`);
       }
       localStorage.setItem('jabarpleasure_wishlist_ids', JSON.stringify(ids));
-    } catch (err) {
-      console.warn('Could not update localStorage wishlist:', err);
-    }
 
-    onToggleWishlist?.(destination, nextSaved);
+      onToggleWishlist?.(destination, isConfirmedSaved);
+    } catch (err) {
+      console.warn('Could not update backend wishlist, falling back to local state:', err);
+      try {
+        const stored = localStorage.getItem('jabarpleasure_wishlist_ids');
+        let ids: Array<string | number> = stored ? JSON.parse(stored) : [];
+        if (nextSaved) {
+          if (!ids.includes(destination.id)) ids.push(destination.id);
+          setToastMessage(`"${destination.name}" ditambahkan ke Wishlist!`);
+        } else {
+          ids = ids.filter((id) => id !== destination.id);
+          setToastMessage(`"${destination.name}" dihapus dari Wishlist.`);
+        }
+        localStorage.setItem('jabarpleasure_wishlist_ids', JSON.stringify(ids));
+      } catch (storageErr) {
+        console.warn('LocalStorage error:', storageErr);
+      }
+      onToggleWishlist?.(destination, nextSaved);
+    }
 
     setTimeout(() => {
       setToastMessage(null);

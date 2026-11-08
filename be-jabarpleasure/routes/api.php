@@ -4,6 +4,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DestinationController;
 use App\Http\Controllers\ItineraryController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\WishlistController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -62,11 +63,22 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/itineraries', [ItineraryController::class, 'store']);
     Route::get('/itineraries/{id}', [ItineraryController::class, 'show']);
     Route::delete('/itineraries/{id}', [ItineraryController::class, 'destroy']);
+    /*
+    |--------------------------------------------------------------------------
+    | Wishlist Endpoints (Authenticated)
+    |--------------------------------------------------------------------------
+    */
+    Route::get('/wishlists', [WishlistController::class, 'index']);
+    Route::post('/wishlists/toggle', [WishlistController::class, 'toggle']);
+    Route::delete('/wishlists/{destinationId}', [WishlistController::class, 'destroy']);
 });
 
 // Direct fallback routes for development or token recovery
 Route::get('/itineraries-public', [ItineraryController::class, 'index']);
 Route::post('/itineraries-public', [ItineraryController::class, 'store']);
+Route::get('/wishlists-public', [WishlistController::class, 'index']);
+Route::post('/wishlists-public/toggle', [WishlistController::class, 'toggle']);
+Route::delete('/wishlists-public/{destinationId}', [WishlistController::class, 'destroy']);
 
 // Direct route fallback that supports manual token extraction if sanctum middleware is bypassed
 Route::get('/user/profile-fallback', [ProfileController::class, 'show']);
