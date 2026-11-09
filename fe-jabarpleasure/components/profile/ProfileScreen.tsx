@@ -32,6 +32,7 @@ export interface UserProfileData {
 
 interface ProfileScreenProps {
   user?: UserProfileData | null;
+  isLoading?: boolean;
   onNavigateToHome?: () => void;
   onNavigateToMap?: () => void;
   onNavigateToWishlist?: () => void;
@@ -48,6 +49,7 @@ interface ProfileScreenProps {
 
 export default function ProfileScreen({
   user,
+  isLoading = false,
   onNavigateToHome,
   onNavigateToMap,
   onNavigateToWishlist,
@@ -58,31 +60,16 @@ export default function ProfileScreen({
   onLogout,
   onEditProfile,
   onItemClick,
-  wishlistCount = 4,
+  wishlistCount = 0,
   className = '',
 }: ProfileScreenProps) {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
-  // Synchronously resolve logged-in user from localStorage on initial render to prevent flash of placeholder
-  const [cachedUser] = useState<UserProfileData | null>(() => {
-    if (user) return user;
-    if (typeof window !== 'undefined') {
-      try {
-        const raw = localStorage.getItem('user');
-        if (raw) return JSON.parse(raw);
-      } catch {
-        // ignore JSON parse error
-      }
-    }
-    return null;
-  });
-
-  const activeUser = user || cachedUser;
-  const displayName = activeUser?.name || 'Pengguna JabarPleasure';
-  const displayEmail = activeUser?.email || '';
-  const displayCity = activeUser?.city || 'Jawa Barat, Indonesia';
+  const displayName = user?.name || 'Pengguna JabarPleasure';
+  const displayEmail = user?.email || '';
+  const displayCity = user?.city || 'Jawa Barat, Indonesia';
   const displayInitials =
-    activeUser?.initials ||
+    user?.initials ||
     (displayName !== 'Pengguna JabarPleasure'
       ? displayName
           .split(' ')
@@ -92,9 +79,9 @@ export default function ProfileScreen({
           .slice(0, 2)
           .toUpperCase()
       : 'JP');
-  const tripsCount = activeUser?.statistics?.trips_count ?? 3;
-  const effectiveWishlistCount = activeUser?.statistics?.wishlist_count ?? wishlistCount;
-  const itineraryCount = activeUser?.statistics?.itinerary_count ?? 2;
+  const tripsCount = user?.statistics?.trips_count ?? 0;
+  const effectiveWishlistCount = user?.statistics?.wishlist_count ?? wishlistCount;
+  const itineraryCount = user?.statistics?.itinerary_count ?? 0;
   const handleTabChange = (tab: NavTabId) => {
     if (tab === 'beranda') {
       onNavigateToHome?.();
@@ -112,7 +99,7 @@ export default function ProfileScreen({
       {/* 1. App Header with Brand Logo, Bell Badge, and Wishlist Button with Red Badge */}
       <AppHeader
         unreadNotifications={2}
-        wishlistCount={wishlistCount}
+        wishlistCount={isLoading ? 0 : effectiveWishlistCount}
         onNotificationClick={onNotificationClick}
         onWishlistClick={onWishlistClick || onNavigateToWishlist}
         className="shrink-0"
@@ -130,7 +117,87 @@ export default function ProfileScreen({
           </p>
         </div>
 
-        {/* 2. User Profile Card */}
+        {isLoading ? (
+          /* SKELETON SCREEN SAAT DATA USER SEDANG DIMUAT */
+          <div className="mt-4 space-y-5">
+            {/* User Profile Card Skeleton */}
+            <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-[0_2px_12px_rgba(0,0,0,0.03)] animate-pulse">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3.5">
+                  {/* Initials Avatar Skeleton */}
+                  <div className="w-14 h-14 rounded-full bg-gray-200 shrink-0" />
+
+                  {/* User Details Skeleton */}
+                  <div className="space-y-2">
+                    <div className="h-4.5 bg-gray-200 rounded-md w-36" />
+                    <div className="h-3 bg-gray-200 rounded-md w-44" />
+                    <div className="h-3 bg-gray-200 rounded-md w-28" />
+                  </div>
+                </div>
+
+                {/* Edit Profile Button Placeholder */}
+                <div className="w-9 h-9 rounded-xl bg-gray-100 shrink-0" />
+              </div>
+
+              {/* Divider */}
+              <div className="border-t border-gray-100 my-4" />
+
+              {/* 3-Column Statistics Skeleton */}
+              <div className="grid grid-cols-3 text-center gap-2">
+                <div className="flex flex-col items-center gap-1.5">
+                  <div className="h-5 bg-gray-200 rounded w-8" />
+                  <div className="h-3 bg-gray-200 rounded w-14" />
+                </div>
+                <div className="flex flex-col items-center gap-1.5">
+                  <div className="h-5 bg-gray-200 rounded w-8" />
+                  <div className="h-3 bg-gray-200 rounded w-14" />
+                </div>
+                <div className="flex flex-col items-center gap-1.5">
+                  <div className="h-5 bg-gray-200 rounded w-8" />
+                  <div className="h-3 bg-gray-200 rounded w-14" />
+                </div>
+              </div>
+            </div>
+
+            {/* Section: Akun & Preferensi Skeleton */}
+            <section aria-label="Akun dan Preferensi">
+              <div className="h-4 bg-gray-200 rounded w-32 mb-2.5 animate-pulse" />
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-[0_2px_10px_rgba(0,0,0,0.03)] divide-y divide-gray-50 overflow-hidden">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="flex items-center justify-between p-3.5 animate-pulse">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-gray-200 shrink-0" />
+                      <div className="space-y-1.5">
+                        <div className="h-3.5 bg-gray-200 rounded w-28" />
+                        <div className="h-2.5 bg-gray-200 rounded w-44" />
+                      </div>
+                    </div>
+                    <div className="w-4 h-4 bg-gray-100 rounded-md" />
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {/* Section: Bantuan Skeleton */}
+            <section aria-label="Bantuan">
+              <div className="h-4 bg-gray-200 rounded w-20 mb-2.5 animate-pulse" />
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-[0_2px_10px_rgba(0,0,0,0.03)] overflow-hidden">
+                <div className="flex items-center justify-between p-3.5 animate-pulse">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-gray-200 shrink-0" />
+                    <div className="space-y-1.5">
+                      <div className="h-3.5 bg-gray-200 rounded w-24" />
+                      <div className="h-2.5 bg-gray-200 rounded w-40" />
+                    </div>
+                  </div>
+                  <div className="w-4 h-4 bg-gray-100 rounded-md" />
+                </div>
+              </div>
+            </section>
+          </div>
+        ) : (
+          <>
+            {/* 2. User Profile Card */}
         <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-[0_2px_12px_rgba(0,0,0,0.03)] mt-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3.5">
@@ -332,16 +399,20 @@ export default function ProfileScreen({
             </button>
           </div>
         </section>
+        </>
+      )}
 
         {/* 5. Logout Button */}
-        <button
-          type="button"
-          onClick={() => setShowLogoutConfirm(true)}
-          className="w-full bg-white border border-red-200/90 hover:bg-red-50/50 active:scale-[0.98] text-[#EF4444] rounded-xl py-3 px-4 flex items-center justify-center gap-2 font-semibold text-xs mt-5 shadow-xs transition-colors cursor-pointer"
-        >
-          <LogOut className="w-4 h-4 stroke-[2.2] text-[#EF4444]" />
-          <span>Keluar akun</span>
-        </button>
+        {!isLoading && (
+          <button
+            type="button"
+            onClick={() => setShowLogoutConfirm(true)}
+            className="w-full bg-white border border-red-200/90 hover:bg-red-50/50 active:scale-[0.98] text-[#EF4444] rounded-xl py-3 px-4 flex items-center justify-center gap-2 font-semibold text-xs mt-5 shadow-xs transition-colors cursor-pointer"
+          >
+            <LogOut className="w-4 h-4 stroke-[2.2] text-[#EF4444]" />
+            <span>Keluar akun</span>
+          </button>
+        )}
 
         {/* 6. Version Footer */}
         <p className="text-center text-[11px] text-gray-400 mt-4 mb-2">

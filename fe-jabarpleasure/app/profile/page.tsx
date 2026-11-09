@@ -9,18 +9,8 @@ import { getAuthToken, removeAuthToken } from '@/lib/auth';
 
 export default function ProfilePage() {
   const router = useRouter();
-  const [user, setUser] = useState<UserProfileData | null>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const stored = localStorage.getItem('user');
-        if (stored) return JSON.parse(stored);
-      } catch (e) {
-        console.warn('Failed to parse cached user:', e);
-      }
-    }
-    return null;
-  });
-  const [, setIsLoading] = useState<boolean>(true);
+  const [user, setUser] = useState<UserProfileData | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [toast, setToast] = useState<{
     message: string;
     type: 'success' | 'info' | 'error';
@@ -37,25 +27,34 @@ export default function ProfilePage() {
   };
 
   useEffect(() => {
-    const fetchUserProfile = async () => {
-      try {
-        const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+    let isMounted = true;
 
-        // If no token, check if user data was cached in localStorage
-        if (!token) {
+    const fetchUserProfile = async () => {
+      const token = getAuthToken();
+
+      // If no token, check if user session exists or redirect
+      if (!token) {
+        if (typeof window !== 'undefined') {
           const cachedUser = localStorage.getItem('user');
           if (cachedUser) {
             try {
               const parsed = JSON.parse(cachedUser);
-              setUser(parsed);
+              if (isMounted) setUser(parsed);
             } catch (e) {
               console.warn('Failed to parse cached user:', e);
             }
+          } else {
+            showToast('Silakan masuk terlebih dahulu untuk melihat profil Anda.', 'info');
+            setTimeout(() => {
+              if (isMounted) router.push('/login');
+            }, 800);
           }
-          setIsLoading(false);
-          return;
         }
+        if (isMounted) setIsLoading(false);
+        return;
+      }
 
+      try {
         const response = await fetch('/api/profile', {
           method: 'GET',
           headers: {
@@ -66,38 +65,50 @@ export default function ProfilePage() {
         });
 
         if (response.status === 401) {
-          // Token expired or invalid
-          localStorage.removeItem('auth_token');
-          showToast('Sesi Anda telah berakhir. Silakan masuk kembali.', 'error');
-          setTimeout(() => {
-            router.push('/login');
-          }, 1500);
+          removeAuthToken();
+          if (isMounted) {
+            showToast('Sesi Anda telah berakhir. Silakan masuk kembali.', 'error');
+            setTimeout(() => {
+              router.push('/login');
+            }, 1200);
+          }
           return;
         }
 
         const result = await response.json();
-        if (result.status === 'success' && result.data) {
+        if (result.status === 'success' && result.data && isMounted) {
           setUser(result.data);
-          // Keep localStorage updated with fresh data
-          localStorage.setItem('user', JSON.stringify(result.data));
+          try {
+            localStorage.setItem('user', JSON.stringify(result.data));
+          } catch (storageErr) {
+            console.warn('LocalStorage error:', storageErr);
+          }
         }
       } catch (err) {
         console.error('Error fetching profile from backend:', err);
         // Fallback to local storage user
-        const cachedUser = localStorage.getItem('user');
-        if (cachedUser) {
-          try {
-            setUser(JSON.parse(cachedUser));
-          } catch (e) {
-            console.warn(e);
+        if (typeof window !== 'undefined') {
+          const cachedUser = localStorage.getItem('user');
+          if (cachedUser && isMounted) {
+            try {
+              setUser(JSON.parse(cachedUser));
+            } catch (e) {
+              console.warn(e);
+            }
           }
         }
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
 
     fetchUserProfile();
+
+    return () => {
+      isMounted = false;
+    };
   }, [router]);
 
   const handleLogout = async () => {
@@ -138,7 +149,8 @@ export default function ProfilePage() {
       )}
       <ProfileScreen
         user={user}
-        wishlistCount={user?.statistics?.wishlist_count ?? 4}
+        isLoading={isLoading}
+        wishlistCount={user?.statistics?.wishlist_count ?? 0}
         onNavigateToHome={() => router.push('/home')}
         onNavigateToMap={() => router.push('/map')}
         onNavigateToWishlist={() => router.push('/wishlist')}
@@ -153,4 +165,3 @@ export default function ProfilePage() {
     </MobileShell>
   );
 }
-
