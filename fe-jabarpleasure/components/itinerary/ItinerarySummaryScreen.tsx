@@ -199,7 +199,6 @@ export default function ItinerarySummaryScreen({
     >
       {/* 1. App Header */}
       <AppHeader
-        unreadNotifications={2}
         wishlistCount={wishlistCount}
         onNotificationClick={onNotificationClick}
         onWishlistClick={onWishlistClick}

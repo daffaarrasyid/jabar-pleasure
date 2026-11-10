@@ -98,4 +98,20 @@ class User extends Authenticatable
     {
         return $this->hasMany(CheckIn::class);
     }
+
+    /**
+     * In-app notifications relation.
+     */
+    public function appNotifications(): HasMany
+    {
+        return $this->hasMany(Notification::class);
+    }
+
+    /**
+     * POI submissions proposed by the user.
+     */
+    public function poiSubmissions(): HasMany
+    {
+        return $this->hasMany(PoiSubmission::class);
+    }
 }

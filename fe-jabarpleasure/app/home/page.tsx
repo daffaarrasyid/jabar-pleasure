@@ -232,7 +232,6 @@ function HomeContent() {
       {currentScreen === 'home' && (
         <HomeScreen
           onNavigateToMap={() => router.push('/map')}
-          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
           onWishlistClick={() => router.push('/wishlist')}
           onProfileClick={() => router.push('/profile')}
           onNavigateToRencana={() => router.push('/rencana')}
@@ -247,7 +246,6 @@ function HomeContent() {
         <HomeScreen
           initialViewMode="top-destinations"
           onNavigateToMap={() => router.push('/map')}
-          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
           onWishlistClick={() => router.push('/wishlist')}
           onProfileClick={() => router.push('/profile')}
           onNavigateToRencana={() => router.push('/rencana')}
@@ -261,7 +259,6 @@ function HomeContent() {
       {currentScreen === 'wishlist' && (
         <WishlistScreen
           onBack={() => setCurrentScreen(previousScreen === 'wishlist' ? 'home' : previousScreen)}
-          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
           onWishlistClick={() => showToast('Anda sedang berada di halaman Wishlist', 'info')}
           onNavigateToHome={() => setCurrentScreen('home')}
           onNavigateToMap={() => router.push('/map')}
@@ -309,7 +306,6 @@ function HomeContent() {
             setPreviousScreen('profile');
             setCurrentScreen('wishlist');
           }}
-          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
           onNavigateToRencana={() => {
             setPreviousScreen('profile');
             setCurrentScreen('itinerary');
@@ -336,7 +332,6 @@ function HomeContent() {
             setPreviousScreen('itinerary');
             setCurrentScreen('wishlist');
           }}
-          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
           onCreatePlan={() => {
             setActiveItinerary(null);
             setPreviousScreen('itinerary');
@@ -366,7 +361,6 @@ function HomeContent() {
             setPreviousScreen('departure-location');
             setCurrentScreen('wishlist');
           }}
-          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
           onNext={(loc) => {
             setSelectedOrigin(loc.name);
             setSelectedDepartureLoc(loc);
@@ -399,7 +393,6 @@ function HomeContent() {
             setPreviousScreen('destination-selection');
             setCurrentScreen('wishlist');
           }}
-          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
           onFinishSelection={(selected) => {
             setFormDestinations(selected);
             setActiveItinerary(null);
@@ -475,7 +468,6 @@ function HomeContent() {
             setPreviousScreen('itinerary-summary');
             setCurrentScreen('wishlist');
           }}
-          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
           wishlistCount={savedWishlistCount}
         />
       )}
@@ -509,7 +501,6 @@ function HomeContent() {
             setPreviousScreen('saved-plan');
             setCurrentScreen('wishlist');
           }}
-          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
           wishlistCount={savedWishlistCount}
         />
       )}
@@ -586,7 +577,6 @@ function HomeContent() {
             setPreviousScreen('active-trip');
             setCurrentScreen('wishlist');
           }}
-          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
           wishlistCount={savedWishlistCount}
         />
       )}
@@ -619,7 +609,6 @@ function HomeContent() {
             setPreviousScreen('trip-history');
             setCurrentScreen('wishlist');
           }}
-          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
           wishlistCount={savedWishlistCount}
         />
       )}
@@ -653,7 +642,6 @@ function HomeContent() {
             setPreviousScreen('trip-detail');
             setCurrentScreen('wishlist');
           }}
-          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
           wishlistCount={savedWishlistCount}
         />
       )}
@@ -682,7 +670,6 @@ function HomeContent() {
             setPreviousScreen('destination-doc');
             setCurrentScreen('wishlist');
           }}
-          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
           wishlistCount={savedWishlistCount}
         />
       )}
@@ -708,7 +695,6 @@ function HomeContent() {
             setPreviousScreen('trip-showcase');
             setCurrentScreen('wishlist');
           }}
-          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
           wishlistCount={savedWishlistCount}
         />
       )}

@@ -98,7 +98,6 @@ export default function ProfileScreen({
     <div className={`relative w-full h-full flex flex-col bg-[#F9FAFB] overflow-hidden ${className}`}>
       {/* 1. App Header with Brand Logo, Bell Badge, and Wishlist Button with Red Badge */}
       <AppHeader
-        unreadNotifications={2}
         wishlistCount={isLoading ? 0 : effectiveWishlistCount}
         onNotificationClick={onNotificationClick}
         onWishlistClick={onWishlistClick || onNavigateToWishlist}

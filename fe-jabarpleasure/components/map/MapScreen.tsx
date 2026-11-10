@@ -604,7 +604,6 @@ export default function MapScreen({
     >
       {/* 1. Top Header with Brand Logo, Bell Badge, and Wishlist Button */}
       <AppHeader
-        unreadNotifications={2}
         wishlistCount={localFavoritCount}
         onNotificationClick={onNotificationClick}
         onWishlistClick={onWishlistClick || onProfileClick}

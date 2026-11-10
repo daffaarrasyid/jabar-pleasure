@@ -4,6 +4,8 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DestinationController;
 use App\Http\Controllers\ItineraryController;
 use App\Http\Controllers\JournalMediaController;
+use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\PoiSubmissionController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\WishlistController;
 use Illuminate\Http\Request;
@@ -82,6 +84,27 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/wishlists', [WishlistController::class, 'index']);
     Route::post('/wishlists/toggle', [WishlistController::class, 'toggle']);
     Route::delete('/wishlists/{destinationId}', [WishlistController::class, 'destroy']);
+
+    /*
+    |--------------------------------------------------------------------------
+    | Notification Endpoints (Authenticated)
+    |--------------------------------------------------------------------------
+    */
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
+    Route::patch('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
+    Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
+
+    /*
+    |--------------------------------------------------------------------------
+    | POI Submissions & Admin Moderation Endpoints (Authenticated)
+    |--------------------------------------------------------------------------
+    */
+    Route::post('/submissions', [PoiSubmissionController::class, 'store']);
+    Route::get('/admin/submissions', [PoiSubmissionController::class, 'index']);
+    Route::post('/admin/submissions/{id}/approve', [PoiSubmissionController::class, 'approve']);
+    Route::post('/admin/submissions/{id}/reject', [PoiSubmissionController::class, 'reject']);
+    Route::post('/admin/destinations', [DestinationController::class, 'store']);
 });
 
 // Direct fallback routes for development or token recovery
@@ -93,6 +116,15 @@ Route::get('/itineraries-public/{id}/journal', [JournalMediaController::class, '
 Route::get('/wishlists-public', [WishlistController::class, 'index']);
 Route::post('/wishlists-public/toggle', [WishlistController::class, 'toggle']);
 Route::delete('/wishlists-public/{destinationId}', [WishlistController::class, 'destroy']);
+
+Route::get('/notifications-public', [NotificationController::class, 'index']);
+Route::get('/notifications-public/unread-count', [NotificationController::class, 'unreadCount']);
+Route::patch('/notifications-public/{id}/read', [NotificationController::class, 'markAsRead']);
+Route::post('/notifications-public/read-all', [NotificationController::class, 'markAllAsRead']);
+Route::post('/submissions-public', [PoiSubmissionController::class, 'store']);
+Route::get('/admin/submissions-public', [PoiSubmissionController::class, 'index']);
+Route::post('/admin/submissions-public/{id}/approve', [PoiSubmissionController::class, 'approve']);
+Route::post('/admin/submissions-public/{id}/reject', [PoiSubmissionController::class, 'reject']);
 
 // Direct route fallback that supports manual token extraction if sanctum middleware is bypassed
 Route::get('/user/profile-fallback', [ProfileController::class, 'show']);

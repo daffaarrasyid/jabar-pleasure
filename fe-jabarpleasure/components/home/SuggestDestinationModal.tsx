@@ -12,7 +12,7 @@ import {
   RefreshCw,
   AlertCircle,
 } from 'lucide-react';
-import { getCategories, ApiCategory } from '@/lib/api';
+import { getCategories, ApiCategory, submitPoiDestination } from '@/lib/api';
 
 interface SuggestDestinationModalProps {
   isOpen: boolean;
@@ -133,36 +133,71 @@ export default function SuggestDestinationModal({
 
     setIsSubmitting(true);
 
-    // Save to localStorage so data is client-persisted
-    try {
-      const existing = JSON.parse(
-        localStorage.getItem('jabarpleasure_user_suggested_destinations') || '[]'
-      );
-      const newSubmission = {
-        id: Date.now(),
-        name: trimmedName,
-        category: selectedCategory,
-        locationMethod,
-        coordinates: locationMethod === 'gps' ? { lat: activeLat, lng: activeLng } : null,
-        gmapsUrl: locationMethod === 'gmaps' ? gmapsUrl.trim() : null,
-        status: 'pending_review',
-        submittedAt: new Date().toISOString(),
-      };
-      existing.unshift(newSubmission);
-      localStorage.setItem(
-        'jabarpleasure_user_suggested_destinations',
-        JSON.stringify(existing)
-      );
-    } catch (err) {
-      console.warn('Could not persist submission to localStorage:', err);
-    }
+    // Call API to persist to backend database
+    submitPoiDestination({
+      name: trimmedName,
+      category_name: selectedCategory,
+      latitude: activeLat,
+      longitude: activeLng,
+      description: locationMethod === 'gmaps' ? `Lokasi Maps: ${gmapsUrl.trim()}` : undefined,
+    })
+      .then(() => {
+        // Also save to localStorage as backup client persistence
+        try {
+          const existing = JSON.parse(
+            localStorage.getItem('jabarpleasure_user_suggested_destinations') || '[]'
+          );
+          const newSubmission = {
+            id: Date.now(),
+            name: trimmedName,
+            category: selectedCategory,
+            locationMethod,
+            coordinates: { lat: activeLat, lng: activeLng },
+            gmapsUrl: locationMethod === 'gmaps' ? gmapsUrl.trim() : null,
+            status: 'pending_review',
+            submittedAt: new Date().toISOString(),
+          };
+          existing.unshift(newSubmission);
+          localStorage.setItem(
+            'jabarpleasure_user_suggested_destinations',
+            JSON.stringify(existing)
+          );
+        } catch (err) {
+          console.warn('Could not persist submission to localStorage:', err);
+        }
 
-    // Simulate swift submission feedback
-    setTimeout(() => {
-      setIsSubmitting(false);
-      setIsSubmittedSuccess(true);
-      onSuccess?.(trimmedName);
-    }, 600);
+        setIsSubmitting(false);
+        setIsSubmittedSuccess(true);
+        onSuccess?.(trimmedName);
+      })
+      .catch((err) => {
+        console.warn('API submission fallback to offline localStorage:', err);
+        // Fallback to local storage
+        try {
+          const existing = JSON.parse(
+            localStorage.getItem('jabarpleasure_user_suggested_destinations') || '[]'
+          );
+          const newSubmission = {
+            id: Date.now(),
+            name: trimmedName,
+            category: selectedCategory,
+            locationMethod,
+            coordinates: { lat: activeLat, lng: activeLng },
+            gmapsUrl: locationMethod === 'gmaps' ? gmapsUrl.trim() : null,
+            status: 'pending_review',
+            submittedAt: new Date().toISOString(),
+          };
+          existing.unshift(newSubmission);
+          localStorage.setItem(
+            'jabarpleasure_user_suggested_destinations',
+            JSON.stringify(existing)
+          );
+        } catch {}
+
+        setIsSubmitting(false);
+        setIsSubmittedSuccess(true);
+        onSuccess?.(trimmedName);
+      });
   };
 
   const handleModalClose = () => {

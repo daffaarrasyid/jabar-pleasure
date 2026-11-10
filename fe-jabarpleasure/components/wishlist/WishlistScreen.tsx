@@ -115,7 +115,6 @@ export default function WishlistScreen({
     <div className={`relative w-full h-full flex flex-col bg-[#F9FAFB] overflow-hidden ${className}`}>
       {/* 1. App Header */}
       <AppHeader
-        unreadNotifications={2}
         wishlistCount={totalCount || initialWishlistCount || 0}
         onNotificationClick={onNotificationClick}
         onWishlistClick={onWishlistClick}

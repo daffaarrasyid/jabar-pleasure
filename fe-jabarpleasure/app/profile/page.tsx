@@ -156,7 +156,6 @@ export default function ProfilePage() {
         onNavigateToWishlist={() => router.push('/wishlist')}
         onNavigateToRencana={() => router.push('/rencana')}
         onNavigateToRiwayat={() => router.push('/riwayat')}
-        onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
         onWishlistClick={() => router.push('/wishlist')}
         onEditProfile={() => showToast('Fitur edit profil sedang disiapkan', 'info')}
         onItemClick={(title) => showToast(`Membuka menu ${title}`, 'info')}

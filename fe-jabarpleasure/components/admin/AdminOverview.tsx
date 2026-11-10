@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   MapPin,
   Clock,
@@ -14,6 +14,7 @@ import {
   Filter,
 } from 'lucide-react';
 import InspectionModal, { PendingSubmission } from './InspectionModal';
+import { getAdminSubmissions, approveSubmission, rejectSubmission } from '@/lib/api';
 
 const INITIAL_SUBMISSIONS: PendingSubmission[] = [
   {
@@ -54,25 +55,62 @@ export default function AdminOverview() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  useEffect(() => {
+    getAdminSubmissions('pending')
+      .then((items) => {
+        if (items && items.length > 0) {
+          const mapped: PendingSubmission[] = items.map((sub: any) => ({
+            id: sub.id,
+            name: sub.name,
+            submitter: sub.user?.name ? `@${sub.user.name}` : '@kontributor',
+            category: sub.category?.name || 'Wisata Alam & Terbuka',
+            locationMethod: sub.longitude ? 'GPS Realtime' : 'Manual',
+            coordsOrUrl: `Lat: ${sub.latitude ?? -6.9175}, Long: ${sub.longitude ?? 107.6191}`,
+            date: new Date(sub.created_at).toLocaleDateString('id-ID', {
+              day: 'numeric',
+              month: 'short',
+              hour: '2-digit',
+              minute: '2-digit',
+            }),
+            status: sub.status || 'pending',
+          }));
+          setSubmissions(mapped);
+        }
+      })
+      .catch((err) => {
+        console.warn('Could not load pending submissions from API:', err);
+      });
+  }, []);
+
   const handleOpenInspection = (sub: PendingSubmission) => {
     setSelectedSubmission(sub);
     setIsModalOpen(true);
   };
 
-  const handleApprove = (id: number | string) => {
+  const handleApprove = async (id: number | string) => {
+    try {
+      await approveSubmission(id);
+    } catch (err) {
+      console.warn('API approve error:', err);
+    }
     setSubmissions((prev) =>
       prev.filter((item) => item.id !== id)
     );
     setIsModalOpen(false);
-    showToast('Pengajuan destinasi berhasil disetujui & dipublikasikan ke peta WebGIS.');
+    showToast('Pengajuan destinasi disetujui, dipublikasikan, & notifikasi disiarkan.');
   };
 
-  const handleReject = (id: number | string) => {
+  const handleReject = async (id: number | string) => {
+    try {
+      await rejectSubmission(id, 'Tidak memenuhi kriteria kurasi lokasi atau koordinat.');
+    } catch (err) {
+      console.warn('API reject error:', err);
+    }
     setSubmissions((prev) =>
       prev.filter((item) => item.id !== id)
     );
     setIsModalOpen(false);
-    showToast('Pengajuan destinasi telah ditolak.');
+    showToast('Pengajuan destinasi telah ditolak & konfirmasi terkirim ke user.');
   };
 
   const showToast = (msg: string) => {

@@ -26,6 +26,7 @@ interface HomeScreenProps {
   onNavigateToRiwayat?: () => void;
   onItemClick?: (item: DestinationDetailData) => void;
   favoritBadgeCount?: number;
+  unreadNotificationCount?: number;
   initialViewMode?: 'overview' | 'top-destinations';
   className?: string;
 }
@@ -48,6 +49,7 @@ export default function HomeScreen({
   onNavigateToRiwayat,
   onItemClick,
   favoritBadgeCount = 0,
+  unreadNotificationCount,
   initialViewMode = 'overview',
   className = '',
 }: HomeScreenProps) {
@@ -244,7 +246,7 @@ export default function HomeScreen({
     >
       {/* Top Header with Brand Logo, Notifications, and Wishlist Button */}
       <AppHeader
-        unreadNotifications={2}
+        unreadNotifications={unreadNotificationCount}
         wishlistCount={favoritBadgeCount}
         onNotificationClick={onNotificationClick}
         onWishlistClick={onWishlistClick || onProfileClick}

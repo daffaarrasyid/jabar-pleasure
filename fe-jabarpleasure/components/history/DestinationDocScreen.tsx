@@ -96,7 +96,6 @@ export default function DestinationDocScreen({
     >
       {/* 1. App Header */}
       <AppHeader
-        unreadNotifications={2}
         wishlistCount={wishlistCount}
         onNotificationClick={onNotificationClick}
         onWishlistClick={onWishlistClick}

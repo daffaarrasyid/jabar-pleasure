@@ -434,3 +434,194 @@ export async function deleteWishlist(
   }
 }
 
+/**
+ * App In-App Notification Interfaces & Methods
+ */
+export interface AppNotification {
+  id: number;
+  user_id: number;
+  type: 'submission_approved' | 'submission_rejected' | 'new_destination';
+  title: string;
+  message: string;
+  data: {
+    submission_id?: number;
+    destination_id?: number;
+    destination_name?: string;
+    slug?: string;
+    name?: string;
+    status?: string;
+    admin_note?: string | null;
+    cover_image?: string | null;
+    category?: string | null;
+    regency?: string | null;
+  } | null;
+  read_at: string | null;
+  created_at: string;
+}
+
+/**
+ * Fetch notifications list for current user
+ */
+export async function getNotifications(unreadOnly = false): Promise<{
+  notifications: AppNotification[];
+  unreadCount: number;
+}> {
+  const qs = unreadOnly ? '?unread_only=1' : '';
+  try {
+    const res = await fetchApi<AppNotification[]>(`/notifications${qs}`);
+    return {
+      notifications: res.data || [],
+      unreadCount: (res as any).unread_count || 0,
+    };
+  } catch {
+    try {
+      const res = await fetchApi<AppNotification[]>(`/notifications-public${qs}`);
+      return {
+        notifications: res.data || [],
+        unreadCount: (res as any).unread_count || 0,
+      };
+    } catch {
+      return {
+        notifications: [],
+        unreadCount: 0,
+      };
+    }
+  }
+}
+
+/**
+ * Fetch unread notification count for badge
+ */
+export async function getUnreadNotificationCount(): Promise<number> {
+  try {
+    const res = await fetchApi<{ unread_count: number }>('/notifications/unread-count');
+    return res.data?.unread_count ?? (res as any).unread_count ?? 0;
+  } catch {
+    try {
+      const res = await fetchApi<{ unread_count: number }>('/notifications-public/unread-count');
+      return res.data?.unread_count ?? (res as any).unread_count ?? 0;
+    } catch {
+      return 0;
+    }
+  }
+}
+
+/**
+ * Mark a single notification as read
+ */
+export async function markNotificationAsRead(id: number | string): Promise<{ unreadCount: number }> {
+  try {
+    const res = await fetchApi(`/notifications/${id}/read`, {
+      method: 'PATCH',
+    });
+    return { unreadCount: (res as any).unread_count ?? 0 };
+  } catch {
+    const res = await fetchApi(`/notifications-public/${id}/read`, {
+      method: 'PATCH',
+    });
+    return { unreadCount: (res as any).unread_count ?? 0 };
+  }
+}
+
+/**
+ * Mark all notifications as read
+ */
+export async function markAllNotificationsAsRead(): Promise<boolean> {
+  try {
+    const res = await fetchApi('/notifications/read-all', {
+      method: 'POST',
+    });
+    return res.status === 'success';
+  } catch {
+    const res = await fetchApi('/notifications-public/read-all', {
+      method: 'POST',
+    });
+    return res.status === 'success';
+  }
+}
+
+/**
+ * Submit a POI destination suggestion (User action)
+ */
+export async function submitPoiDestination(payload: {
+  name: string;
+  category_name?: string;
+  category_id?: number;
+  latitude: number;
+  longitude: number;
+  description?: string;
+  price_range?: string;
+  opening_hours?: string;
+  evidence_image?: string;
+}): Promise<any> {
+  try {
+    const res = await fetchApi('/submissions', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return res.data;
+  } catch {
+    const res = await fetchApi('/submissions-public', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return res.data;
+  }
+}
+
+/**
+ * Get POI submissions for admin inspection
+ */
+export async function getAdminSubmissions(status?: string): Promise<any[]> {
+  const qs = status ? `?status=${status}` : '';
+  try {
+    const res = await fetchApi<any[]>(`/admin/submissions${qs}`);
+    return res.data || [];
+  } catch {
+    try {
+      const res = await fetchApi<any[]>(`/admin/submissions-public${qs}`);
+      return res.data || [];
+    } catch {
+      return [];
+    }
+  }
+}
+
+/**
+ * Approve submission (Admin action - triggers confirmation & broadcast notifications)
+ */
+export async function approveSubmission(id: number | string, adminNote?: string): Promise<any> {
+  try {
+    const res = await fetchApi(`/admin/submissions/${id}/approve`, {
+      method: 'POST',
+      body: JSON.stringify({ admin_note: adminNote }),
+    });
+    return res.data;
+  } catch {
+    const res = await fetchApi(`/admin/submissions-public/${id}/approve`, {
+      method: 'POST',
+      body: JSON.stringify({ admin_note: adminNote }),
+    });
+    return res.data;
+  }
+}
+
+/**
+ * Reject submission (Admin action - triggers confirmation notification to submitter)
+ */
+export async function rejectSubmission(id: number | string, adminNote?: string): Promise<any> {
+  try {
+    const res = await fetchApi(`/admin/submissions/${id}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ admin_note: adminNote }),
+    });
+    return res.data;
+  } catch {
+    const res = await fetchApi(`/admin/submissions-public/${id}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ admin_note: adminNote }),
+    });
+    return res.data;
+  }
+}
+

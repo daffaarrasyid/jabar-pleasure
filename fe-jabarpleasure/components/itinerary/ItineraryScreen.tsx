@@ -159,7 +159,6 @@ export default function ItineraryScreen({
     >
       {/* 1. App Header with Brand Logo, Bell Badge & Wishlist Button */}
       <AppHeader
-        unreadNotifications={2}
         wishlistCount={wishlistCount}
         onNotificationClick={onNotificationClick}
         onWishlistClick={onWishlistClick}

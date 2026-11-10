@@ -163,7 +163,6 @@ export default function MapPage() {
       {currentScreen === 'map' && (
         <MapScreen
           onNavigateToHome={() => router.push('/home')}
-          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
           onWishlistClick={() => setCurrentScreen('wishlist')}
           onProfileClick={() => router.push('/profile')}
           onNavigateToRencana={(createdItinerary, selectedDestinations, userDeparture) => {
@@ -221,7 +220,6 @@ export default function MapPage() {
       {currentScreen === 'wishlist' && (
         <WishlistScreen
           onBack={() => setCurrentScreen('map')}
-          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
           onWishlistClick={() => showToast('Anda sedang berada di halaman Wishlist', 'info')}
           onNavigateToHome={() => router.push('/home')}
           onNavigateToMap={() => setCurrentScreen('map')}
@@ -240,7 +238,6 @@ export default function MapPage() {
           onNavigateToMap={() => setCurrentScreen('map')}
           onNavigateToWishlist={() => setCurrentScreen('wishlist')}
           onWishlistClick={() => setCurrentScreen('wishlist')}
-          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
           onNavigateToRencana={() => setCurrentScreen('itinerary')}
           onNavigateToRiwayat={() => setCurrentScreen('trip-history')}
           onEditProfile={() => showToast('Fitur edit profil sedang disiapkan', 'info')}
@@ -259,7 +256,6 @@ export default function MapPage() {
           onNavigateToProfile={() => setCurrentScreen('profile')}
           onNavigateToRiwayat={() => setCurrentScreen('trip-history')}
           onWishlistClick={() => setCurrentScreen('wishlist')}
-          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
           onCreatePlan={() => {
             setActiveItinerary(null);
             setCurrentScreen('departure-location');
@@ -279,7 +275,6 @@ export default function MapPage() {
           onNavigateToProfile={() => setCurrentScreen('profile')}
           onNavigateToRiwayat={() => setCurrentScreen('trip-history')}
           onWishlistClick={() => setCurrentScreen('wishlist')}
-          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
           onNext={(location) => {
             setFormDeparture(location);
             setCurrentScreen('destination-selection');
@@ -302,7 +297,6 @@ export default function MapPage() {
           onNavigateToProfile={() => setCurrentScreen('profile')}
           onNavigateToRiwayat={() => setCurrentScreen('trip-history')}
           onWishlistClick={() => setCurrentScreen('wishlist')}
-          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
           onFinishSelection={(selected) => {
             setFormDestinations(selected);
             setActiveItinerary(null);
@@ -367,7 +361,6 @@ export default function MapPage() {
           onNavigateToProfile={() => setCurrentScreen('profile')}
           onNavigateToRiwayat={() => setCurrentScreen('trip-history')}
           onWishlistClick={() => setCurrentScreen('wishlist')}
-          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
           wishlistCount={favoritCount}
         />
       )}
@@ -392,7 +385,6 @@ export default function MapPage() {
           onNavigateToProfile={() => setCurrentScreen('profile')}
           onNavigateToRiwayat={() => setCurrentScreen('trip-history')}
           onWishlistClick={() => setCurrentScreen('wishlist')}
-          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
           wishlistCount={favoritCount}
         />
       )}
@@ -461,7 +453,6 @@ export default function MapPage() {
           onNavigateToProfile={() => setCurrentScreen('profile')}
           onNavigateToRiwayat={() => setCurrentScreen('trip-history')}
           onWishlistClick={() => setCurrentScreen('wishlist')}
-          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
           wishlistCount={favoritCount}
         />
       )}
@@ -481,7 +472,6 @@ export default function MapPage() {
           onNavigateToMap={() => setCurrentScreen('map')}
           onNavigateToProfile={() => setCurrentScreen('profile')}
           onWishlistClick={() => setCurrentScreen('wishlist')}
-          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
           wishlistCount={favoritCount}
         />
       )}
@@ -502,7 +492,6 @@ export default function MapPage() {
           onNavigateToMap={() => setCurrentScreen('map')}
           onNavigateToProfile={() => setCurrentScreen('profile')}
           onWishlistClick={() => setCurrentScreen('wishlist')}
-          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
           wishlistCount={favoritCount}
         />
       )}
@@ -517,7 +506,6 @@ export default function MapPage() {
           onNavigateToMap={() => setCurrentScreen('map')}
           onNavigateToProfile={() => setCurrentScreen('profile')}
           onWishlistClick={() => setCurrentScreen('wishlist')}
-          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
           wishlistCount={favoritCount}
         />
       )}
@@ -530,7 +518,6 @@ export default function MapPage() {
           onNavigateToMap={() => setCurrentScreen('map')}
           onNavigateToProfile={() => setCurrentScreen('profile')}
           onWishlistClick={() => setCurrentScreen('wishlist')}
-          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
           wishlistCount={favoritCount}
         />
       )}

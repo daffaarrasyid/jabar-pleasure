@@ -168,7 +168,6 @@ export default function RiwayatPage() {
           onNavigateToMap={() => router.push('/map')}
           onNavigateToProfile={() => router.push('/profile')}
           onWishlistClick={() => router.push('/home?tab=wishlist')}
-          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
           wishlistCount={favoritCount}
         />
       )}
@@ -188,7 +187,6 @@ export default function RiwayatPage() {
             setCurrentScreen('destination-doc');
           }}
           onViewShowcase={() => setCurrentScreen('trip-showcase')}
-          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
           onWishlistClick={() => router.push('/home?tab=wishlist')}
           onNavigateToHome={() => router.push('/home')}
           onNavigateToRencana={() => router.push('/rencana')}
@@ -209,7 +207,6 @@ export default function RiwayatPage() {
           onNavigateToMap={() => router.push('/map')}
           onNavigateToProfile={() => router.push('/profile')}
           onWishlistClick={() => router.push('/home?tab=wishlist')}
-          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
           wishlistCount={favoritCount}
         />
       )}
@@ -224,7 +221,6 @@ export default function RiwayatPage() {
           onNavigateToMap={() => router.push('/map')}
           onNavigateToProfile={() => router.push('/profile')}
           onWishlistClick={() => router.push('/home?tab=wishlist')}
-          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
           wishlistCount={favoritCount}
         />
       )}

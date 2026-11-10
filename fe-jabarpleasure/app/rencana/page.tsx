@@ -181,7 +181,6 @@ export default function RencanaPage() {
           onNavigateToProfile={() => router.push('/profile')}
           onNavigateToRiwayat={() => router.push('/riwayat')}
           onWishlistClick={() => router.push('/home?tab=wishlist')}
-          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
           onCreatePlan={() => {
             setActiveItinerary(null);
             setCurrentScreen('departure-location');
@@ -203,7 +202,6 @@ export default function RencanaPage() {
           onNavigateToProfile={() => router.push('/profile')}
           onNavigateToRiwayat={() => router.push('/riwayat')}
           onWishlistClick={() => router.push('/home?tab=wishlist')}
-          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
           onNext={(location) => {
             setFormDeparture(location);
             setCurrentScreen('destination-selection');
@@ -228,7 +226,6 @@ export default function RencanaPage() {
           onNavigateToProfile={() => router.push('/profile')}
           onNavigateToRiwayat={() => router.push('/riwayat')}
           onWishlistClick={() => router.push('/home?tab=wishlist')}
-          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
           onFinishSelection={(selected) => {
             setFormDestinations(selected);
             setActiveItinerary(null);
@@ -296,7 +293,6 @@ export default function RencanaPage() {
           onNavigateToProfile={() => router.push('/profile')}
           onNavigateToRiwayat={() => router.push('/riwayat')}
           onWishlistClick={() => router.push('/home?tab=wishlist')}
-          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
           wishlistCount={favoritCount}
         />
       )}
@@ -323,7 +319,6 @@ export default function RencanaPage() {
           onNavigateToProfile={() => router.push('/profile')}
           onNavigateToRiwayat={() => router.push('/riwayat')}
           onWishlistClick={() => router.push('/home?tab=wishlist')}
-          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
           wishlistCount={favoritCount}
         />
       )}
@@ -426,7 +421,6 @@ export default function RencanaPage() {
           onNavigateToProfile={() => router.push('/profile')}
           onNavigateToRiwayat={() => router.push('/riwayat')}
           onWishlistClick={() => router.push('/home?tab=wishlist')}
-          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
           wishlistCount={favoritCount}
         />
       )}

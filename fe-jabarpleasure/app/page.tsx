@@ -26,7 +26,9 @@ import TripShowcaseScreen from '@/components/history/TripShowcaseScreen';
 import { TripItem, DestinationItem } from '@/components/history/historyData';
 import Toast from '@/components/ui/Toast';
 import DestinationDetailModal, { DestinationDetailData } from '@/components/ui/DestinationDetailModal';
+import NotificationSheet from '@/components/notification/NotificationSheet';
 import { getAuthToken, removeAuthToken } from '@/lib/auth';
+import { getUnreadNotificationCount } from '@/lib/api';
 
 type ScreenState =
   | 'splash'
@@ -58,7 +60,15 @@ export default function Home() {
   const [previousScreen, setPreviousScreen] = useState<ScreenState>('home');
   const [showSplash, setShowSplash] = useState(true);
   const [savedWishlistCount, setSavedWishlistCount] = useState<number>(4);
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState<number>(0);
   const [globalDetailDestination, setGlobalDetailDestination] = useState<DestinationDetailData | null>(null);
+
+  React.useEffect(() => {
+    getUnreadNotificationCount()
+      .then((count) => setUnreadNotificationCount(count))
+      .catch(() => {});
+  }, []);
   const [selectedOrigin, setSelectedOrigin] = useState<string>('Stasiun Bogor');
   const [selectedTrip, setSelectedTrip] = useState<TripItem | undefined>(undefined);
   const [selectedDestination, setSelectedDestination] = useState<DestinationItem | undefined>(undefined);
@@ -234,7 +244,7 @@ export default function Home() {
       {currentScreen === 'home' && (
         <HomeScreen
           onNavigateToMap={() => setCurrentScreen('map')}
-          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
+          onNotificationClick={() => setIsNotificationOpen(true)}
           onWishlistClick={() => {
             setPreviousScreen('home');
             setCurrentScreen('wishlist');
@@ -250,6 +260,7 @@ export default function Home() {
           onNavigateToRiwayat={navigateToRiwayat}
           onItemClick={(item) => setGlobalDetailDestination(item)}
           favoritBadgeCount={savedWishlistCount}
+          unreadNotificationCount={unreadNotificationCount}
         />
       )}
 
@@ -258,7 +269,7 @@ export default function Home() {
         <HomeScreen
           initialViewMode="top-destinations"
           onNavigateToMap={() => setCurrentScreen('map')}
-          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
+          onNotificationClick={() => setIsNotificationOpen(true)}
           onWishlistClick={() => {
             setPreviousScreen('top-destinations');
             setCurrentScreen('wishlist');
@@ -274,6 +285,7 @@ export default function Home() {
           onNavigateToRiwayat={navigateToRiwayat}
           onItemClick={(item) => setGlobalDetailDestination(item)}
           favoritBadgeCount={savedWishlistCount}
+          unreadNotificationCount={unreadNotificationCount}
         />
       )}
 
@@ -281,7 +293,7 @@ export default function Home() {
       {currentScreen === 'map' && (
         <MapScreen
           onNavigateToHome={() => setCurrentScreen('home')}
-          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
+          onNotificationClick={() => setIsNotificationOpen(true)}
           onWishlistClick={() => {
             setPreviousScreen('map');
             setCurrentScreen('wishlist');
@@ -307,7 +319,7 @@ export default function Home() {
       {currentScreen === 'wishlist' && (
         <WishlistScreen
           onBack={() => setCurrentScreen(previousScreen === 'wishlist' ? 'home' : previousScreen)}
-          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
+          onNotificationClick={() => setIsNotificationOpen(true)}
           onWishlistClick={() => showToast('Anda sedang berada di halaman Wishlist', 'info')}
           onNavigateToHome={() => setCurrentScreen('home')}
           onNavigateToMap={() => setCurrentScreen('map')}
@@ -344,7 +356,7 @@ export default function Home() {
             setPreviousScreen('profile');
             setCurrentScreen('wishlist');
           }}
-          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
+          onNotificationClick={() => setIsNotificationOpen(true)}
           onNavigateToRencana={() => {
             setPreviousScreen('profile');
             setCurrentScreen('itinerary');
@@ -390,7 +402,7 @@ export default function Home() {
             setPreviousScreen('itinerary');
             setCurrentScreen('wishlist');
           }}
-          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
+          onNotificationClick={() => setIsNotificationOpen(true)}
           onCreatePlan={() => {
             setPreviousScreen('itinerary');
             setCurrentScreen('departure-location');
@@ -415,7 +427,7 @@ export default function Home() {
             setPreviousScreen('departure-location');
             setCurrentScreen('wishlist');
           }}
-          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
+          onNotificationClick={() => setIsNotificationOpen(true)}
           onNext={(loc) => {
             setSelectedOrigin(loc.name);
             setPreviousScreen('departure-location');
@@ -442,7 +454,7 @@ export default function Home() {
             setPreviousScreen('destination-selection');
             setCurrentScreen('wishlist');
           }}
-          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
+          onNotificationClick={() => setIsNotificationOpen(true)}
           onFinishSelection={() => {
             setPreviousScreen('destination-selection');
             setCurrentScreen('itinerary-summary');
@@ -483,7 +495,7 @@ export default function Home() {
             setPreviousScreen('itinerary-summary');
             setCurrentScreen('wishlist');
           }}
-          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
+          onNotificationClick={() => setIsNotificationOpen(true)}
           wishlistCount={savedWishlistCount}
         />
       )}
@@ -510,7 +522,7 @@ export default function Home() {
             setPreviousScreen('saved-plan');
             setCurrentScreen('wishlist');
           }}
-          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
+          onNotificationClick={() => setIsNotificationOpen(true)}
           wishlistCount={savedWishlistCount}
         />
       )}
@@ -538,7 +550,7 @@ export default function Home() {
             setPreviousScreen('active-trip');
             setCurrentScreen('wishlist');
           }}
-          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
+          onNotificationClick={() => setIsNotificationOpen(true)}
           wishlistCount={savedWishlistCount}
         />
       )}
@@ -570,7 +582,7 @@ export default function Home() {
             setPreviousScreen('trip-history');
             setCurrentScreen('wishlist');
           }}
-          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
+          onNotificationClick={() => setIsNotificationOpen(true)}
           wishlistCount={savedWishlistCount}
         />
       )}
@@ -604,7 +616,7 @@ export default function Home() {
             setPreviousScreen('trip-detail');
             setCurrentScreen('wishlist');
           }}
-          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
+          onNotificationClick={() => setIsNotificationOpen(true)}
           wishlistCount={savedWishlistCount}
         />
       )}
@@ -633,7 +645,7 @@ export default function Home() {
             setPreviousScreen('destination-doc');
             setCurrentScreen('wishlist');
           }}
-          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
+          onNotificationClick={() => setIsNotificationOpen(true)}
           wishlistCount={savedWishlistCount}
         />
       )}
@@ -659,7 +671,7 @@ export default function Home() {
             setPreviousScreen('trip-showcase');
             setCurrentScreen('wishlist');
           }}
-          onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
+          onNotificationClick={() => setIsNotificationOpen(true)}
           wishlistCount={savedWishlistCount}
         />
       )}
@@ -674,6 +686,17 @@ export default function Home() {
         }}
         onToggleWishlist={(_, isSaved) => {
           setSavedWishlistCount((prev) => (isSaved ? prev + 1 : Math.max(0, prev - 1)));
+        }}
+      />
+
+      {/* Global Notification Sheet */}
+      <NotificationSheet
+        isOpen={isNotificationOpen}
+        onClose={() => setIsNotificationOpen(false)}
+        onUnreadCountChange={(count) => setUnreadNotificationCount(count)}
+        onSelectDestination={() => {
+          setIsNotificationOpen(false);
+          setCurrentScreen('map');
         }}
       />
     </MobileShell>

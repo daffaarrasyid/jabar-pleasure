@@ -38,7 +38,6 @@ export default function WishlistPage() {
         onNavigateToRiwayat={() => router.push('/riwayat')}
         onCreateItinerary={() => router.push('/rencana')}
         onWishlistClick={() => showToast('Anda sedang berada di halaman Wishlist', 'info')}
-        onNotificationClick={() => showToast('Anda memiliki 2 notifikasi belum dibaca', 'info')}
         onItemClick={(item) => setSelectedDestinationForDetail(item)}
       />
 

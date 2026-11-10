@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\Destination;
 use App\Models\User;
+use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class DestinationController extends Controller
 {
@@ -300,6 +302,58 @@ class DestinationController extends Controller
             'status' => 'success',
             'data' => $results,
         ]);
+    }
+
+    /**
+     * Store a new destination directly (Admin action) and broadcast to all users.
+     */
+    public function store(Request $request, NotificationService $notificationService): JsonResponse
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:200',
+            'category_id' => 'required|integer|exists:categories,id',
+            'regency_id' => 'nullable|integer|exists:regencies_cities,id',
+            'description' => 'nullable|string',
+            'address' => 'nullable|string',
+            'price_range' => 'nullable|string|max:50',
+            'opening_hours' => 'nullable|string|max:100',
+            'latitude' => 'required|numeric|between:-11.0,6.0',
+            'longitude' => 'required|numeric|between:95.0,141.0',
+            'cover_image' => 'nullable|string|max:255',
+        ]);
+
+        $baseSlug = Str::slug($validated['name']);
+        $slug = $baseSlug;
+        $counter = 1;
+        while (Destination::where('slug', $slug)->exists()) {
+            $slug = "{$baseSlug}-{$counter}";
+            $counter++;
+        }
+
+        $lng = (float) $validated['longitude'];
+        $lat = (float) $validated['latitude'];
+
+        $destination = new Destination();
+        $destination->name = $validated['name'];
+        $destination->slug = $slug;
+        $destination->category_id = $validated['category_id'];
+        $destination->regency_id = $validated['regency_id'] ?? null;
+        $destination->description = $validated['description'] ?? null;
+        $destination->address = $validated['address'] ?? null;
+        $destination->price_range = $validated['price_range'] ?? 'Menyesuaikan';
+        $destination->opening_hours = $validated['opening_hours'] ?? 'Setiap Hari';
+        $destination->cover_image = $validated['cover_image'] ?? null;
+        $destination->location = DB::raw("ST_SetSRID(ST_MakePoint({$lng}, {$lat}), 4326)");
+        $destination->save();
+
+        // Broadcast to all users
+        $broadcastCount = $notificationService->broadcastNewDestination($destination);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => "Destinasi '{$destination->name}' berhasil ditambahkan dan disiarkan ke {$broadcastCount} pengguna.",
+            'data' => $destination->load(['category', 'regency']),
+        ], 201);
     }
 }
 

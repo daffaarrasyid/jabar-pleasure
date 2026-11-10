@@ -242,7 +242,6 @@ export default function TopDestinationsView({
     <div className={`relative w-full h-full flex flex-col bg-[#F9FAFB] overflow-hidden ${className}`}>
       {/* Top Header */}
       <AppHeader
-        unreadNotifications={2}
         wishlistCount={favoritBadgeCount}
         onNotificationClick={onNotificationClick}
         onWishlistClick={onWishlistClick || onProfileClick}
