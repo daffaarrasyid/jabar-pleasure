@@ -36,10 +36,25 @@ export default function NearbyRecommendations({
   className = '',
 }: NearbyRecommendationsProps) {
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
-  const [destinations, setDestinations] = useState<NearbyItem[]>(
-    initialItems ? initialItems.slice(0, 5) : []
-  );
-  const [isLoading, setIsLoading] = useState<boolean>(!initialItems);
+  const [destinations, setDestinations] = useState<NearbyItem[]>(() => {
+    if (initialItems && initialItems.length > 0) return initialItems.slice(0, 5);
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = sessionStorage.getItem('jp_cached_nearby');
+        if (stored) return JSON.parse(stored).slice(0, 5);
+      } catch {
+        // ignore
+      }
+    }
+    return [];
+  });
+  const [isLoading, setIsLoading] = useState<boolean>(() => {
+    if (initialItems && initialItems.length > 0) return false;
+    if (typeof window !== 'undefined') {
+      return !sessionStorage.getItem('jp_cached_nearby');
+    }
+    return true;
+  });
 
   useEffect(() => {
     if (initialItems && initialItems.length > 0) {
@@ -47,8 +62,6 @@ export default function NearbyRecommendations({
     }
 
     let isMounted = true;
-    setIsLoading(true);
-
     const limit = isExpanded ? 10 : 5;
 
     getNearbyDestinations({
@@ -79,6 +92,13 @@ export default function NearbyRecommendations({
             };
           });
           setDestinations(mapped);
+          if (typeof window !== 'undefined') {
+            try {
+              sessionStorage.setItem('jp_cached_nearby', JSON.stringify(mapped));
+            } catch {
+              // ignore
+            }
+          }
         } else {
           setDestinations([]);
         }

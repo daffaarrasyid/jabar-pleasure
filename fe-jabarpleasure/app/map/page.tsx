@@ -240,8 +240,6 @@ export default function MapPage() {
           onWishlistClick={() => setCurrentScreen('wishlist')}
           onNavigateToRencana={() => setCurrentScreen('itinerary')}
           onNavigateToRiwayat={() => setCurrentScreen('trip-history')}
-          onEditProfile={() => showToast('Fitur edit profil sedang disiapkan', 'info')}
-          onItemClick={(title) => showToast(`Membuka menu ${title}`, 'info')}
           onLogout={() => {
             showToast('Anda telah keluar dari akun.', 'info');
             router.push('/');

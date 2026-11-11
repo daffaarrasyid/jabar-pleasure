@@ -6,6 +6,7 @@ import AppHeader from '@/components/layout/AppHeader';
 import BottomNav, { NavTabId } from '@/components/layout/BottomNav';
 import { getWishlists, deleteWishlist, ApiWishlist } from '@/lib/api';
 import { getCategoryMeta } from '@/lib/categoryMeta';
+import { DestinationDetailData } from '@/components/ui/DestinationDetailModal';
 
 export interface WishlistItem {
   id: string | number;
@@ -16,7 +17,7 @@ export interface WishlistItem {
   statusTag: string;
   image: string;
   visitorsCount?: number;
-  rawDestination?: any;
+  rawDestination?: Record<string, unknown>;
 }
 
 interface WishlistScreenProps {
@@ -29,7 +30,7 @@ interface WishlistScreenProps {
   onNavigateToRencana?: () => void;
   onNavigateToRiwayat?: () => void;
   onCreateItinerary?: () => void;
-  onItemClick?: (item: any) => void;
+  onItemClick?: (item: DestinationDetailData) => void;
   wishlistCount?: number;
   activeTab?: NavTabId;
   className?: string;
@@ -50,18 +51,39 @@ export default function WishlistScreen({
   activeTab,
   className = '',
 }: WishlistScreenProps) {
-  const [wishlists, setWishlists] = useState<ApiWishlist[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [wishlists, setWishlists] = useState<ApiWishlist[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = sessionStorage.getItem('jp_cached_wishlists');
+        if (stored) return JSON.parse(stored);
+      } catch {
+        // ignore
+      }
+    }
+    return [];
+  });
+  const [isLoading, setIsLoading] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return !sessionStorage.getItem('jp_cached_wishlists');
+    }
+    return true;
+  });
 
-  // Fetch real wishlist data from database on mount
+  // Fetch real wishlist data from database on mount (SWR)
   useEffect(() => {
     let isMounted = true;
-    setIsLoading(true);
 
     getWishlists()
       .then((data) => {
         if (!isMounted) return;
         setWishlists(data || []);
+        if (typeof window !== 'undefined') {
+          try {
+            sessionStorage.setItem('jp_cached_wishlists', JSON.stringify(data || []));
+          } catch {
+            // ignore
+          }
+        }
       })
       .catch((err) => {
         console.warn('Failed to fetch wishlists:', err);

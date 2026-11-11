@@ -6,13 +6,19 @@ import {
   User,
   SlidersHorizontal,
   Bell,
+  BellOff,
   Shield,
   HelpCircle,
   LogOut,
   ChevronRight,
+  CheckCircle2,
 } from 'lucide-react';
 import AppHeader from '@/components/layout/AppHeader';
 import BottomNav, { NavTabId } from '@/components/layout/BottomNav';
+import EditProfileBottomSheet from './EditProfileBottomSheet';
+import TravelPreferencesModal from './TravelPreferencesModal';
+import PrivacySecurityModal from './PrivacySecurityModal';
+import HelpCenterModal from './HelpCenterModal';
 
 export interface UserProfileData {
   id?: number;
@@ -28,6 +34,7 @@ export interface UserProfileData {
     wishlist_count?: number;
     itinerary_count?: number;
   };
+  preferences?: Array<{ id?: number; name?: string; slug?: string }>;
 }
 
 interface ProfileScreenProps {
@@ -43,6 +50,7 @@ interface ProfileScreenProps {
   onLogout?: () => void;
   onEditProfile?: () => void;
   onItemClick?: (itemTitle: string) => void;
+  onUserUpdate?: (updatedUser: UserProfileData) => void;
   wishlistCount?: number;
   className?: string;
 }
@@ -60,16 +68,44 @@ export default function ProfileScreen({
   onLogout,
   onEditProfile,
   onItemClick,
+  onUserUpdate,
   wishlistCount = 0,
   className = '',
 }: ProfileScreenProps) {
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  // Local state for user profile updates
+  const [localUser, setLocalUser] = useState<UserProfileData | null>(null);
+  const currentUser = localUser || user || null;
 
-  const displayName = user?.name || 'Pengguna JabarPleasure';
-  const displayEmail = user?.email || '';
-  const displayCity = user?.city || 'Jawa Barat, Indonesia';
+  // Modals state
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [isTravelPrefsOpen, setIsTravelPrefsOpen] = useState(false);
+  const [isPrivacySecurityOpen, setIsPrivacySecurityOpen] = useState(false);
+  const [isHelpCenterOpen, setIsHelpCenterOpen] = useState(false);
+  const [showNotificationConfirm, setShowNotificationConfirm] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+
+  // Notification toggle state (persisted locally)
+  const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('jabarpleasure_notifications_enabled');
+      return saved !== 'false';
+    }
+    return true;
+  });
+
+  const showToast = (msg: string) => {
+    setToastMsg(msg);
+    setTimeout(() => {
+      setToastMsg((prev) => (prev === msg ? null : prev));
+    }, 3200);
+  };
+
+  const displayName = currentUser?.name || 'Pengguna JabarPleasure';
+  const displayEmail = currentUser?.email || '';
+  const displayCity = currentUser?.city || 'Jawa Barat, Indonesia';
   const displayInitials =
-    user?.initials ||
+    currentUser?.initials ||
     (displayName !== 'Pengguna JabarPleasure'
       ? displayName
           .split(' ')
@@ -79,9 +115,10 @@ export default function ProfileScreen({
           .slice(0, 2)
           .toUpperCase()
       : 'JP');
-  const tripsCount = user?.statistics?.trips_count ?? 0;
-  const effectiveWishlistCount = user?.statistics?.wishlist_count ?? wishlistCount;
-  const itineraryCount = user?.statistics?.itinerary_count ?? 0;
+  const tripsCount = currentUser?.statistics?.trips_count ?? 0;
+  const effectiveWishlistCount = currentUser?.statistics?.wishlist_count ?? wishlistCount;
+  const itineraryCount = currentUser?.statistics?.itinerary_count ?? 0;
+
   const handleTabChange = (tab: NavTabId) => {
     if (tab === 'beranda') {
       onNavigateToHome?.();
@@ -94,8 +131,47 @@ export default function ProfileScreen({
     }
   };
 
+  const handleProfileUpdateSuccess = (updated: UserProfileData) => {
+    setLocalUser(updated);
+    onUserUpdate?.(updated);
+    showToast('Profil Anda berhasil diperbarui!');
+  };
+
+  const handlePreferencesSuccess = (
+    preferences: Array<{ id?: number; name?: string; slug?: string }>
+  ) => {
+    if (currentUser) {
+      const updated = { ...currentUser, preferences };
+      setLocalUser(updated);
+      onUserUpdate?.(updated);
+    }
+    showToast('Preferensi perjalanan berhasil disimpan!');
+  };
+
+  const handleConfirmToggleNotification = () => {
+    const nextState = !notificationsEnabled;
+    setNotificationsEnabled(nextState);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('jabarpleasure_notifications_enabled', String(nextState));
+    }
+    setShowNotificationConfirm(false);
+    showToast(
+      nextState
+        ? 'Notifikasi perjalanan berhasil diaktifkan.'
+        : 'Notifikasi perjalanan telah dinonaktifkan.'
+    );
+  };
+
   return (
     <div className={`relative w-full h-full flex flex-col bg-[#F9FAFB] overflow-hidden ${className}`}>
+      {/* Toast Alert */}
+      {toastMsg && (
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-[420px] bg-gray-900/90 text-white px-4 py-2.5 rounded-2xl shadow-xl flex items-center gap-2.5 text-xs backdrop-blur-xs animate-in fade-in slide-in-from-top-2 duration-200">
+          <CheckCircle2 className="w-4 h-4 text-[#60CE9F] shrink-0" />
+          <span className="flex-1">{toastMsg}</span>
+        </div>
+      )}
+
       {/* 1. App Header with Brand Logo, Bell Badge, and Wishlist Button with Red Badge */}
       <AppHeader
         wishlistCount={isLoading ? 0 : effectiveWishlistCount}
@@ -123,25 +199,18 @@ export default function ProfileScreen({
             <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-[0_2px_12px_rgba(0,0,0,0.03)] animate-pulse">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3.5">
-                  {/* Initials Avatar Skeleton */}
                   <div className="w-14 h-14 rounded-full bg-gray-200 shrink-0" />
-
-                  {/* User Details Skeleton */}
                   <div className="space-y-2">
                     <div className="h-4.5 bg-gray-200 rounded-md w-36" />
                     <div className="h-3 bg-gray-200 rounded-md w-44" />
                     <div className="h-3 bg-gray-200 rounded-md w-28" />
                   </div>
                 </div>
-
-                {/* Edit Profile Button Placeholder */}
                 <div className="w-9 h-9 rounded-xl bg-gray-100 shrink-0" />
               </div>
 
-              {/* Divider */}
               <div className="border-t border-gray-100 my-4" />
 
-              {/* 3-Column Statistics Skeleton */}
               <div className="grid grid-cols-3 text-center gap-2">
                 <div className="flex flex-col items-center gap-1.5">
                   <div className="h-5 bg-gray-200 rounded w-8" />
@@ -197,209 +266,248 @@ export default function ProfileScreen({
         ) : (
           <>
             {/* 2. User Profile Card */}
-        <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-[0_2px_12px_rgba(0,0,0,0.03)] mt-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3.5">
-              {/* Initials Avatar */}
-              <div className="w-14 h-14 rounded-full bg-[#EEF2FF] text-[#4941EC] font-bold text-xl flex items-center justify-center shrink-0">
-                {displayInitials}
+            <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-[0_2px_12px_rgba(0,0,0,0.03)] mt-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3.5">
+                  {/* Avatar: Photo if available, or Initials */}
+                  <div className="w-14 h-14 rounded-full overflow-hidden bg-[#EEF2FF] text-[#4941EC] font-bold text-xl flex items-center justify-center shrink-0 border border-indigo-100 shadow-xs">
+                    {currentUser?.avatar_url ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img
+                        src={currentUser.avatar_url}
+                        alt={displayName}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      displayInitials
+                    )}
+                  </div>
+
+                  {/* User Details */}
+                  <div>
+                    <h2 className="font-bold text-[16px] text-gray-900 leading-snug">
+                      {displayName}
+                    </h2>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {displayEmail}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {displayCity}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Edit Profile Button (Pencil) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    onEditProfile?.();
+                    setIsEditProfileOpen(true);
+                  }}
+                  aria-label="Edit Profil"
+                  className="w-9 h-9 rounded-xl bg-[#EEF2FF] hover:bg-[#E0E7FF] text-[#4941EC] flex items-center justify-center transition-colors cursor-pointer active:scale-95 shrink-0"
+                >
+                  <Pencil className="w-4 h-4 stroke-[2.2]" />
+                </button>
               </div>
 
-              {/* User Details */}
-              <div>
-                <h2 className="font-bold text-[16px] text-gray-900 leading-snug">
-                  {displayName}
-                </h2>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  {displayEmail}
-                </p>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  {displayCity}
-                </p>
+              {/* Divider */}
+              <div className="border-t border-gray-100 my-4" />
+
+              {/* 3-Column Statistics */}
+              <div className="grid grid-cols-3 text-center">
+                <div className="flex flex-col items-center">
+                  <span className="font-bold text-[20px] text-[#4941EC] leading-tight">
+                    {tripsCount}
+                  </span>
+                  <span className="text-xs text-gray-500 mt-0.5">
+                    Perjalanan
+                  </span>
+                </div>
+
+                <div
+                  className="flex flex-col items-center cursor-pointer group"
+                  onClick={onNavigateToWishlist}
+                >
+                  <span className="font-bold text-[20px] text-[#4941EC] leading-tight group-hover:scale-105 transition-transform">
+                    {effectiveWishlistCount}
+                  </span>
+                  <span className="text-xs text-gray-500 mt-0.5 group-hover:text-[#4941EC] transition-colors">
+                    Wishlist
+                  </span>
+                </div>
+
+                <div className="flex flex-col items-center">
+                  <span className="font-bold text-[20px] text-[#4941EC] leading-tight">
+                    {itineraryCount}
+                  </span>
+                  <span className="text-xs text-gray-500 mt-0.5">
+                    Rencana
+                  </span>
+                </div>
               </div>
             </div>
 
-            {/* Edit Profile Button */}
-            <button
-              type="button"
-              onClick={onEditProfile}
-              aria-label="Edit Profil"
-              className="w-9 h-9 rounded-xl bg-[#EEF2FF] hover:bg-[#E0E7FF] text-[#4941EC] flex items-center justify-center transition-colors cursor-pointer active:scale-95 shrink-0"
-            >
-              <Pencil className="w-4 h-4 stroke-[2.2]" />
-            </button>
-          </div>
+            {/* 3. Section: Akun & Preferensi */}
+            <section aria-label="Akun dan Preferensi" className="mt-6">
+              <h2 className="font-bold text-[14px] text-gray-900 mb-2.5">
+                Akun & preferensi
+              </h2>
 
-          {/* Divider */}
-          <div className="border-t border-gray-100 my-4" />
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-[0_2px_10px_rgba(0,0,0,0.03)] divide-y divide-gray-50 overflow-hidden">
+                {/* Item 1: Informasi pribadi (Opens Edit Profile) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    onItemClick?.('Informasi pribadi');
+                    setIsEditProfileOpen(true);
+                  }}
+                  className="w-full flex items-center justify-between p-3.5 hover:bg-gray-50/80 active:bg-gray-100/70 transition-colors text-left cursor-pointer"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-[#EEF2FF] text-[#4941EC] flex items-center justify-center shrink-0">
+                      <User className="w-4 h-4 stroke-[2]" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-xs text-gray-900 leading-snug">
+                        Informasi pribadi
+                      </h3>
+                      <p className="text-[11px] text-gray-400 mt-0.5">
+                        Nama, email, dan nomor telepon
+                      </p>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
+                </button>
 
-          {/* 3-Column Statistics */}
-          <div className="grid grid-cols-3 text-center">
-            <div className="flex flex-col items-center">
-              <span className="font-bold text-[20px] text-[#4941EC] leading-tight">
-                {tripsCount}
-              </span>
-              <span className="text-xs text-gray-500 mt-0.5">
-                Perjalanan
-              </span>
-            </div>
+                {/* Item 2: Preferensi perjalanan (Opens Travel Preferences) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    onItemClick?.('Preferensi perjalanan');
+                    setIsTravelPrefsOpen(true);
+                  }}
+                  className="w-full flex items-center justify-between p-3.5 hover:bg-gray-50/80 active:bg-gray-100/70 transition-colors text-left cursor-pointer"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-[#EEF2FF] text-[#4941EC] flex items-center justify-center shrink-0">
+                      <SlidersHorizontal className="w-4 h-4 stroke-[2]" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-xs text-gray-900 leading-snug">
+                        Preferensi perjalanan
+                      </h3>
+                      <p className="text-[11px] text-gray-400 mt-0.5">
+                        Minat wisata dan gaya perjalanan
+                      </p>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
+                </button>
 
-            <div
-              className="flex flex-col items-center cursor-pointer group"
-              onClick={onNavigateToWishlist}
-            >
-              <span className="font-bold text-[20px] text-[#4941EC] leading-tight group-hover:scale-105 transition-transform">
-                {effectiveWishlistCount}
-              </span>
-              <span className="text-xs text-gray-500 mt-0.5 group-hover:text-[#4941EC] transition-colors">
-                Wishlist
-              </span>
-            </div>
+                {/* Item 3: Notifikasi (Interactive Toggle with Centered Modal Confirmation) */}
+                <div
+                  onClick={() => setShowNotificationConfirm(true)}
+                  className="w-full flex items-center justify-between p-3.5 hover:bg-gray-50/80 active:bg-gray-100/70 transition-colors text-left cursor-pointer"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-[#EEF2FF] text-[#4941EC] flex items-center justify-center shrink-0">
+                      <Bell className="w-4 h-4 stroke-[2]" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-xs text-gray-900 leading-snug">
+                        Notifikasi
+                      </h3>
+                      <p className="text-[11px] text-gray-400 mt-0.5">
+                        Pengingat trip dan rekomendasi
+                      </p>
+                    </div>
+                  </div>
 
-            <div className="flex flex-col items-center">
-              <span className="font-bold text-[20px] text-[#4941EC] leading-tight">
-                {itineraryCount}
-              </span>
-              <span className="text-xs text-gray-500 mt-0.5">
-                Rencana
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* 3. Section: Akun & Preferensi */}
-        <section aria-label="Akun dan Preferensi" className="mt-6">
-          <h2 className="font-bold text-[14px] text-gray-900 mb-2.5">
-            Akun & preferensi
-          </h2>
-
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-[0_2px_10px_rgba(0,0,0,0.03)] divide-y divide-gray-50 overflow-hidden">
-            {/* Item 1: Informasi pribadi */}
-            <button
-              type="button"
-              onClick={() => onItemClick?.('Informasi pribadi')}
-              className="w-full flex items-center justify-between p-3.5 hover:bg-gray-50/80 active:bg-gray-100/70 transition-colors text-left cursor-pointer"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-[#EEF2FF] text-[#4941EC] flex items-center justify-center shrink-0">
-                  <User className="w-4 h-4 stroke-[2]" />
+                  {/* Toggle Switch Component: Gray for Nonaktif (left), Blue for Aktif (right) */}
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`text-xs font-semibold ${
+                        notificationsEnabled ? 'text-[#4941EC]' : 'text-gray-400'
+                      }`}
+                    >
+                      {notificationsEnabled ? 'Aktif' : 'Nonaktif'}
+                    </span>
+                    <div
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                        notificationsEnabled ? 'bg-[#4941EC]' : 'bg-gray-300'
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                          notificationsEnabled ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="font-semibold text-xs text-gray-900 leading-snug">
-                    Informasi pribadi
-                  </h3>
-                  <p className="text-[11px] text-gray-400 mt-0.5">
-                    Nama, email, dan nomor telepon
-                  </p>
-                </div>
+
+                {/* Item 4: Privasi dan keamanan (Opens Privacy & Security) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    onItemClick?.('Privasi dan keamanan');
+                    setIsPrivacySecurityOpen(true);
+                  }}
+                  className="w-full flex items-center justify-between p-3.5 hover:bg-gray-50/80 active:bg-gray-100/70 transition-colors text-left cursor-pointer"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-[#EEF2FF] text-[#4941EC] flex items-center justify-center shrink-0">
+                      <Shield className="w-4 h-4 stroke-[2]" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-xs text-gray-900 leading-snug">
+                        Privasi dan keamanan
+                      </h3>
+                      <p className="text-[11px] text-gray-400 mt-0.5">
+                        Kata sandi dan izin lokasi
+                      </p>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
+                </button>
               </div>
-              <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
-            </button>
+            </section>
 
-            {/* Item 2: Preferensi perjalanan */}
-            <button
-              type="button"
-              onClick={() => onItemClick?.('Preferensi perjalanan')}
-              className="w-full flex items-center justify-between p-3.5 hover:bg-gray-50/80 active:bg-gray-100/70 transition-colors text-left cursor-pointer"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-[#EEF2FF] text-[#4941EC] flex items-center justify-center shrink-0">
-                  <SlidersHorizontal className="w-4 h-4 stroke-[2]" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-xs text-gray-900 leading-snug">
-                    Preferensi perjalanan
-                  </h3>
-                  <p className="text-[11px] text-gray-400 mt-0.5">
-                    Minat wisata dan gaya perjalanan
-                  </p>
-                </div>
-              </div>
-              <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
-            </button>
+            {/* 4. Section: Bantuan (Opens Help Center) */}
+            <section aria-label="Bantuan" className="mt-5">
+              <h2 className="font-bold text-[14px] text-gray-900 mb-2.5">
+                Bantuan
+              </h2>
 
-            {/* Item 3: Notifikasi */}
-            <button
-              type="button"
-              onClick={() => onItemClick?.('Notifikasi')}
-              className="w-full flex items-center justify-between p-3.5 hover:bg-gray-50/80 active:bg-gray-100/70 transition-colors text-left cursor-pointer"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-[#EEF2FF] text-[#4941EC] flex items-center justify-center shrink-0">
-                  <Bell className="w-4 h-4 stroke-[2]" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-xs text-gray-900 leading-snug">
-                    Notifikasi
-                  </h3>
-                  <p className="text-[11px] text-gray-400 mt-0.5">
-                    Pengingat trip dan rekomendasi
-                  </p>
-                </div>
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-[0_2px_10px_rgba(0,0,0,0.03)] overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onItemClick?.('Pusat bantuan');
+                    setIsHelpCenterOpen(true);
+                  }}
+                  className="w-full flex items-center justify-between p-3.5 hover:bg-gray-50/80 active:bg-gray-100/70 transition-colors text-left cursor-pointer"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-[#EEF2FF] text-[#4941EC] flex items-center justify-center shrink-0">
+                      <HelpCircle className="w-4 h-4 stroke-[2]" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-xs text-gray-900 leading-snug">
+                        Pusat bantuan
+                      </h3>
+                      <p className="text-[11px] text-gray-400 mt-0.5">
+                        Pertanyaan umum dan hubungi kami
+                      </p>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
+                </button>
               </div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-semibold text-[#4941EC]">
-                  Aktif
-                </span>
-                <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
-              </div>
-            </button>
-
-            {/* Item 4: Privasi dan keamanan */}
-            <button
-              type="button"
-              onClick={() => onItemClick?.('Privasi dan keamanan')}
-              className="w-full flex items-center justify-between p-3.5 hover:bg-gray-50/80 active:bg-gray-100/70 transition-colors text-left cursor-pointer"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-[#EEF2FF] text-[#4941EC] flex items-center justify-center shrink-0">
-                  <Shield className="w-4 h-4 stroke-[2]" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-xs text-gray-900 leading-snug">
-                    Privasi dan keamanan
-                  </h3>
-                  <p className="text-[11px] text-gray-400 mt-0.5">
-                    Kata sandi dan izin lokasi
-                  </p>
-                </div>
-              </div>
-              <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
-            </button>
-          </div>
-        </section>
-
-        {/* 4. Section: Bantuan */}
-        <section aria-label="Bantuan" className="mt-5">
-          <h2 className="font-bold text-[14px] text-gray-900 mb-2.5">
-            Bantuan
-          </h2>
-
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-[0_2px_10px_rgba(0,0,0,0.03)] overflow-hidden">
-            <button
-              type="button"
-              onClick={() => onItemClick?.('Pusat bantuan')}
-              className="w-full flex items-center justify-between p-3.5 hover:bg-gray-50/80 active:bg-gray-100/70 transition-colors text-left cursor-pointer"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-[#EEF2FF] text-[#4941EC] flex items-center justify-center shrink-0">
-                  <HelpCircle className="w-4 h-4 stroke-[2]" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-xs text-gray-900 leading-snug">
-                    Pusat bantuan
-                  </h3>
-                  <p className="text-[11px] text-gray-400 mt-0.5">
-                    Pertanyaan umum dan hubungi kami
-                  </p>
-                </div>
-              </div>
-              <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
-            </button>
-          </div>
-        </section>
-        </>
-      )}
+            </section>
+          </>
+        )}
 
         {/* 5. Logout Button */}
         {!isLoading && (
@@ -419,6 +527,64 @@ export default function ProfileScreen({
         </p>
       </main>
 
+      {/* Centered Notification Toggle Confirmation Modal */}
+      {showNotificationConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200">
+          <div
+            className="absolute inset-0"
+            onClick={() => setShowNotificationConfirm(false)}
+            aria-hidden="true"
+          />
+          <div className="relative w-full max-w-[340px] bg-white rounded-3xl p-6 shadow-2xl flex flex-col items-center text-center animate-in zoom-in-95 duration-200 border border-gray-100 z-10">
+            <div
+              className={`w-14 h-14 rounded-full flex items-center justify-center mb-3.5 ${
+                notificationsEnabled
+                  ? 'bg-amber-50 text-amber-500'
+                  : 'bg-[#EEF2FF] text-[#4941EC]'
+              }`}
+            >
+              {notificationsEnabled ? (
+                <BellOff className="w-7 h-7 stroke-[2.2]" />
+              ) : (
+                <Bell className="w-7 h-7 stroke-[2.2]" />
+              )}
+            </div>
+
+            <h2 className="text-base font-bold text-gray-900 tracking-tight">
+              {notificationsEnabled ? 'Nonaktifkan Notifikasi?' : 'Aktifkan Notifikasi?'}
+            </h2>
+
+            <p className="text-xs text-gray-500 mt-2 mb-6 leading-relaxed max-w-[260px]">
+              {notificationsEnabled
+                ? 'Apakah Anda yakin ingin menonaktifkan notifikasi? Anda mungkin melewatkan pengingat perjalanan dan info rekomendasi terkini.'
+                : 'Aktifkan notifikasi untuk menerima rekomendasi destinasi terdekat dan pengingat rute perjalanan Anda secara real-time.'}
+            </p>
+
+            <div className="w-full flex flex-col gap-2.5">
+              <button
+                type="button"
+                onClick={handleConfirmToggleNotification}
+                className={`w-full py-3 px-4 rounded-xl text-white text-xs font-bold shadow-md transition-all cursor-pointer active:scale-[0.98] ${
+                  notificationsEnabled
+                    ? 'bg-amber-600 hover:bg-amber-700 shadow-amber-500/20'
+                    : 'bg-[#4941EC] hover:bg-indigo-700 shadow-indigo-500/20'
+                }`}
+              >
+                {notificationsEnabled ? 'Ya, Nonaktifkan' : 'Ya, Aktifkan'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowNotificationConfirm(false)}
+                className="w-full py-3 px-4 rounded-xl bg-gray-100 hover:bg-gray-200 active:scale-[0.98] text-gray-700 text-xs font-semibold transition-all cursor-pointer"
+              >
+                Batal
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Logout Confirmation Pop-up Modal */}
       {showLogoutConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200">
@@ -437,7 +603,7 @@ export default function ProfileScreen({
             </h2>
 
             <p className="text-xs text-gray-500 mt-2 mb-6 leading-relaxed max-w-[260px]">
-              apakah ingin benar-benar logout akun?
+              Apakah Anda benar-benar ingin keluar dari akun JabarPleasure?
             </p>
 
             <div className="w-full flex flex-col gap-2.5">
@@ -462,6 +628,41 @@ export default function ProfileScreen({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Bottom Sheet Modals */}
+      {isEditProfileOpen && (
+        <EditProfileBottomSheet
+          isOpen={isEditProfileOpen}
+          onClose={() => setIsEditProfileOpen(false)}
+          user={currentUser}
+          onSuccess={handleProfileUpdateSuccess}
+          onErrorToast={showToast}
+        />
+      )}
+
+      {isTravelPrefsOpen && (
+        <TravelPreferencesModal
+          isOpen={isTravelPrefsOpen}
+          onClose={() => setIsTravelPrefsOpen(false)}
+          currentPreferences={currentUser?.preferences}
+          onSuccess={handlePreferencesSuccess}
+        />
+      )}
+
+      {isPrivacySecurityOpen && (
+        <PrivacySecurityModal
+          isOpen={isPrivacySecurityOpen}
+          onClose={() => setIsPrivacySecurityOpen(false)}
+          onSuccessToast={showToast}
+        />
+      )}
+
+      {isHelpCenterOpen && (
+        <HelpCenterModal
+          isOpen={isHelpCenterOpen}
+          onClose={() => setIsHelpCenterOpen(false)}
+        />
       )}
 
       {/* 7. Fixed Bottom Navigation Bar */}

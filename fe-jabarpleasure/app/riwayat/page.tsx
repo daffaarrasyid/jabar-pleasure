@@ -2,14 +2,16 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import MobileShell from '@/components/layout/MobileShell';
-import TripHistoryScreen from '@/components/history/TripHistoryScreen';
-import TripDetailScreen from '@/components/history/TripDetailScreen';
-import DestinationDocScreen from '@/components/history/DestinationDocScreen';
-import TripShowcaseScreen from '@/components/history/TripShowcaseScreen';
 import { TripItem, DestinationItem } from '@/components/history/historyData';
 import Toast from '@/components/ui/Toast';
 import { getItineraries } from '@/lib/api';
+
+const TripHistoryScreen = dynamic(() => import('@/components/history/TripHistoryScreen'), { ssr: false });
+const TripDetailScreen = dynamic(() => import('@/components/history/TripDetailScreen'), { ssr: false });
+const DestinationDocScreen = dynamic(() => import('@/components/history/DestinationDocScreen'), { ssr: false });
+const TripShowcaseScreen = dynamic(() => import('@/components/history/TripShowcaseScreen'), { ssr: false });
 
 export default function RiwayatPage() {
   const router = useRouter();
@@ -24,33 +26,42 @@ export default function RiwayatPage() {
   const [favoritCount] = useState<number>(4);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // History trips persistent in local storage (filtering out mock data 'bandung-trip')
-  const [historyTrips, setHistoryTrips] = useState<TripItem[]>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const stored = localStorage.getItem('jabarpleasure_trip_history');
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          if (Array.isArray(parsed)) {
-            return parsed.filter((item: TripItem) => item.id !== 'bandung-trip');
-          }
-        }
-      } catch (e) {
-        console.warn('Error reading trip history from storage:', e);
-      }
-    }
-    return [];
-  });
+  // History trips persistent in local storage
+  const [historyTrips, setHistoryTrips] = useState<TripItem[]>([]);
 
   const [selectedTrip, setSelectedTrip] = useState<TripItem | null>(null);
   const [selectedDestination, setSelectedDestination] = useState<DestinationItem | null>(null);
 
-  // Check and merge completed itineraries from backend on mount
+  const showToast = (message: string, type: 'success' | 'info' | 'error' = 'info') => {
+    setToast({ message, type });
+    setTimeout(() => {
+      setToast((prev) => (prev?.message === message ? null : prev));
+    }, 3500);
+  };
+
+  // Check and merge completed itineraries from backend on mount (Stale-While-Revalidate)
   useEffect(() => {
     let isCancelled = false;
-    setIsLoading(true);
-    getItineraries('completed')
-      .then((completedData) => {
+
+    const loadHistory = async () => {
+      // 1. Read cached trips from localStorage on client mount
+      if (typeof window !== 'undefined') {
+        try {
+          const stored = localStorage.getItem('jabarpleasure_trip_history');
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (Array.isArray(parsed) && parsed.length > 0 && !isCancelled) {
+              setHistoryTrips(parsed.filter((item: TripItem) => item.id !== 'bandung-trip'));
+              setIsLoading(false);
+            }
+          }
+        } catch (e) {
+          console.warn('Error reading trip history from storage:', e);
+        }
+      }
+
+      try {
+        const completedData = await getItineraries('completed');
         if (isCancelled) return;
 
         setHistoryTrips((prev) => {
@@ -118,27 +129,22 @@ export default function RiwayatPage() {
           }
           return merged;
         });
-      })
-      .catch((err) => {
+      } catch (err) {
         console.warn('Failed to fetch completed itineraries:', err);
-      })
-      .finally(() => {
+        showToast('Gagal menyinkronkan data riwayat terbaru.', 'error');
+      } finally {
         if (!isCancelled) {
           setIsLoading(false);
         }
-      });
+      }
+    };
+
+    loadHistory();
 
     return () => {
       isCancelled = true;
     };
   }, []);
-
-  const showToast = (message: string, type: 'success' | 'info' | 'error' = 'info') => {
-    setToast({ message, type });
-    setTimeout(() => {
-      setToast((prev) => (prev?.message === message ? null : prev));
-    }, 3500);
-  };
 
   return (
     <MobileShell activeScreen="riwayat">

@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 export type NavTabId = 'beranda' | 'riwayat' | 'peta' | 'rencana' | 'profil' | 'favorit';
@@ -120,6 +120,16 @@ export default function BottomNav({
   className = '',
 }: BottomNavProps) {
   const router = useRouter();
+
+  // Preload tab route bundles immediately in the background for instant transitions (<300ms)
+  useEffect(() => {
+    router.prefetch('/home');
+    router.prefetch('/rencana');
+    router.prefetch('/map');
+    router.prefetch('/riwayat');
+    router.prefetch('/profile');
+    router.prefetch('/wishlist');
+  }, [router]);
 
   const handleTabClick = (tab: NavTabId) => {
     onTabChange?.(tab);

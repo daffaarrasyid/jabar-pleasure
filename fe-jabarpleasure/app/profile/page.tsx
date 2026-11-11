@@ -2,10 +2,17 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import MobileShell from '@/components/layout/MobileShell';
-import ProfileScreen, { UserProfileData } from '@/components/profile/ProfileScreen';
+import type { UserProfileData } from '@/components/profile/ProfileScreen';
 import Toast from '@/components/ui/Toast';
 import { getAuthToken, removeAuthToken } from '@/lib/auth';
+
+// Render ProfileScreen on client only to completely eliminate SSR hydration mismatches
+const ProfileScreen = dynamic(
+  () => import('@/components/profile/ProfileScreen'),
+  { ssr: false }
+);
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -30,6 +37,22 @@ export default function ProfilePage() {
     let isMounted = true;
 
     const fetchUserProfile = async () => {
+      // 1. Read cached user on client mount for instant rendering
+      if (typeof window !== 'undefined') {
+        const cachedUser = localStorage.getItem('user');
+        if (cachedUser) {
+          try {
+            const parsed = JSON.parse(cachedUser);
+            if (isMounted) {
+              setUser(parsed);
+              setIsLoading(false);
+            }
+          } catch (e) {
+            console.warn('Failed to parse cached user:', e);
+          }
+        }
+      }
+
       const token = getAuthToken();
 
       // If no token, check if user session exists or redirect
@@ -39,7 +62,10 @@ export default function ProfilePage() {
           if (cachedUser) {
             try {
               const parsed = JSON.parse(cachedUser);
-              if (isMounted) setUser(parsed);
+              if (isMounted) {
+                setUser(parsed);
+                setIsLoading(false);
+              }
             } catch (e) {
               console.warn('Failed to parse cached user:', e);
             }
@@ -157,9 +183,8 @@ export default function ProfilePage() {
         onNavigateToRencana={() => router.push('/rencana')}
         onNavigateToRiwayat={() => router.push('/riwayat')}
         onWishlistClick={() => router.push('/wishlist')}
-        onEditProfile={() => showToast('Fitur edit profil sedang disiapkan', 'info')}
-        onItemClick={(title) => showToast(`Membuka menu ${title}`, 'info')}
         onLogout={handleLogout}
+        onUserUpdate={(updated) => setUser(updated)}
       />
     </MobileShell>
   );

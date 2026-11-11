@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\UserPreference;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
@@ -235,11 +236,13 @@ class AuthController extends Controller
     }
 
     /**
-     * List master categories.
+     * List master categories (cached for 5 minutes).
      */
     public function categories(): JsonResponse
     {
-        $categories = Category::all(['id', 'name', 'slug', 'icon_url']);
+        $categories = Cache::remember('categories_master', 300, function () {
+            return Category::all(['id', 'name', 'slug', 'icon_url']);
+        });
 
         return response()->json([
             'status' => 'success',

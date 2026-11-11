@@ -34,10 +34,25 @@ export default function FeaturedEntertainment({
   className = '',
 }: FeaturedEntertainmentProps) {
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
-  const [destinations, setDestinations] = useState<FeaturedItem[]>(
-    initialItems ? initialItems.slice(0, 5) : []
-  );
-  const [isLoading, setIsLoading] = useState<boolean>(!initialItems);
+  const [destinations, setDestinations] = useState<FeaturedItem[]>(() => {
+    if (initialItems && initialItems.length > 0) return initialItems.slice(0, 5);
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = sessionStorage.getItem('jp_cached_featured');
+        if (stored) return JSON.parse(stored).slice(0, 5);
+      } catch {
+        // ignore
+      }
+    }
+    return [];
+  });
+  const [isLoading, setIsLoading] = useState<boolean>(() => {
+    if (initialItems && initialItems.length > 0) return false;
+    if (typeof window !== 'undefined') {
+      return !sessionStorage.getItem('jp_cached_featured');
+    }
+    return true;
+  });
 
   useEffect(() => {
     if (initialItems && initialItems.length > 0) {
@@ -45,8 +60,6 @@ export default function FeaturedEntertainment({
     }
 
     let isMounted = true;
-    setIsLoading(true);
-
     const limit = isExpanded ? 10 : 5;
 
     getFeaturedDestinations({
@@ -75,6 +88,13 @@ export default function FeaturedEntertainment({
             };
           });
           setDestinations(mapped);
+          if (typeof window !== 'undefined') {
+            try {
+              sessionStorage.setItem('jp_cached_featured', JSON.stringify(mapped));
+            } catch {
+              // ignore
+            }
+          }
         } else {
           setDestinations([]);
         }

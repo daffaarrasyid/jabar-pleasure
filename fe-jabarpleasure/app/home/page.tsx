@@ -168,7 +168,7 @@ function HomeContent() {
       : 'Sehari di Bogor');
 
   // Synchronously load logged-in user profile from localStorage
-  const [userProfile] = useState<UserProfileData | null>(() => {
+  const [userProfile, setUserProfile] = useState<UserProfileData | null>(() => {
     if (typeof window !== 'undefined') {
       try {
         const stored = localStorage.getItem('user');
@@ -311,9 +311,8 @@ function HomeContent() {
             setCurrentScreen('itinerary');
           }}
           onNavigateToRiwayat={navigateToRiwayat}
-          onEditProfile={() => showToast('Fitur edit profil sedang disiapkan', 'info')}
-          onItemClick={(title) => showToast(`Membuka menu ${title}`, 'info')}
           onLogout={handleLogout}
+          onUserUpdate={(updated) => setUserProfile(updated)}
           wishlistCount={savedWishlistCount}
         />
       )}

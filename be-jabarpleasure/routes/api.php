@@ -42,9 +42,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/user/profile', [ProfileController::class, 'show']);
     Route::put('/user/profile', [ProfileController::class, 'update']);
+    Route::put('/user/password', [ProfileController::class, 'updatePassword']);
 
     Route::get('/profile', [ProfileController::class, 'show']);
     Route::put('/profile', [ProfileController::class, 'update']);
+    Route::put('/profile/password', [ProfileController::class, 'updatePassword']);
 
     /*
     |--------------------------------------------------------------------------
@@ -128,3 +130,5 @@ Route::post('/admin/submissions-public/{id}/reject', [PoiSubmissionController::c
 
 // Direct route fallback that supports manual token extraction if sanctum middleware is bypassed
 Route::get('/user/profile-fallback', [ProfileController::class, 'show']);
+Route::put('/user/profile-fallback', [ProfileController::class, 'update']);
+Route::put('/user/password-fallback', [ProfileController::class, 'updatePassword']);
