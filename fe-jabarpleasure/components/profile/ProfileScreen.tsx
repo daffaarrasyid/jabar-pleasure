@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Pencil,
   User,
@@ -15,6 +15,8 @@ import {
 } from 'lucide-react';
 import AppHeader from '@/components/layout/AppHeader';
 import BottomNav, { NavTabId } from '@/components/layout/BottomNav';
+import { getAuthToken } from '@/lib/auth';
+import { NOTIFICATION_EVENT } from '@/components/notification/NotificationSheet';
 import EditProfileBottomSheet from './EditProfileBottomSheet';
 import TravelPreferencesModal from './TravelPreferencesModal';
 import PrivacySecurityModal from './PrivacySecurityModal';
@@ -29,6 +31,9 @@ export interface UserProfileData {
   avatar_url?: string | null;
   initials?: string;
   role?: string;
+  travel_style?: string;
+  notifications_enabled?: boolean;
+  location_permission_enabled?: boolean;
   statistics?: {
     trips_count?: number;
     wishlist_count?: number;
@@ -85,7 +90,7 @@ export default function ProfileScreen({
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
-  // Notification toggle state (persisted locally)
+  // Notification toggle state (synced with DB user.notifications_enabled)
   const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('jabarpleasure_notifications_enabled');
@@ -93,6 +98,18 @@ export default function ProfileScreen({
     }
     return true;
   });
+
+  useEffect(() => {
+    if (typeof currentUser?.notifications_enabled === 'boolean') {
+      setNotificationsEnabled(currentUser.notifications_enabled);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(
+          'jabarpleasure_notifications_enabled',
+          String(currentUser.notifications_enabled)
+        );
+      }
+    }
+  }, [currentUser?.notifications_enabled]);
 
   const showToast = (msg: string) => {
     setToastMsg(msg);
@@ -138,28 +155,63 @@ export default function ProfileScreen({
   };
 
   const handlePreferencesSuccess = (
-    preferences: Array<{ id?: number; name?: string; slug?: string }>
+    preferences: Array<{ id?: number; name?: string; slug?: string }>,
+    travelStyle?: string
   ) => {
     if (currentUser) {
-      const updated = { ...currentUser, preferences };
+      const updated = {
+        ...currentUser,
+        preferences,
+        ...(travelStyle ? { travel_style: travelStyle } : {}),
+      };
       setLocalUser(updated);
       onUserUpdate?.(updated);
     }
     showToast('Preferensi perjalanan berhasil disimpan!');
   };
 
-  const handleConfirmToggleNotification = () => {
+  const handleConfirmToggleNotification = async () => {
     const nextState = !notificationsEnabled;
-    setNotificationsEnabled(nextState);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('jabarpleasure_notifications_enabled', String(nextState));
+    const token = getAuthToken();
+
+    try {
+      const res = await fetch('/api/user/notifications-setting', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ notifications_enabled: nextState }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        showToast(errData.message || 'Gagal memperbarui pengaturan notifikasi.');
+        setShowNotificationConfirm(false);
+        return;
+      }
+
+      setNotificationsEnabled(nextState);
+      if (currentUser) {
+        const updated = { ...currentUser, notifications_enabled: nextState };
+        setLocalUser(updated);
+        onUserUpdate?.(updated);
+      }
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('jabarpleasure_notifications_enabled', String(nextState));
+        window.dispatchEvent(new Event(NOTIFICATION_EVENT));
+      }
+      setShowNotificationConfirm(false);
+      showToast(
+        nextState
+          ? 'Notifikasi perjalanan berhasil diaktifkan.'
+          : 'Notifikasi perjalanan telah dinonaktifkan.'
+      );
+    } catch {
+      showToast('Terjadi kesalahan jaringan saat memperbarui notifikasi.');
+      setShowNotificationConfirm(false);
     }
-    setShowNotificationConfirm(false);
-    showToast(
-      nextState
-        ? 'Notifikasi perjalanan berhasil diaktifkan.'
-        : 'Notifikasi perjalanan telah dinonaktifkan.'
-    );
   };
 
   return (
@@ -646,6 +698,7 @@ export default function ProfileScreen({
           isOpen={isTravelPrefsOpen}
           onClose={() => setIsTravelPrefsOpen(false)}
           currentPreferences={currentUser?.preferences}
+          currentTravelStyle={currentUser?.travel_style}
           onSuccess={handlePreferencesSuccess}
         />
       )}
@@ -654,6 +707,14 @@ export default function ProfileScreen({
         <PrivacySecurityModal
           isOpen={isPrivacySecurityOpen}
           onClose={() => setIsPrivacySecurityOpen(false)}
+          initialLocationPermission={currentUser?.location_permission_enabled ?? true}
+          onLocationPermissionChange={(enabled) => {
+            if (currentUser) {
+              const updated = { ...currentUser, location_permission_enabled: enabled };
+              setLocalUser(updated);
+              onUserUpdate?.(updated);
+            }
+          }}
           onSuccessToast={showToast}
         />
       )}

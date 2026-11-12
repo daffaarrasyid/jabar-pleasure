@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   X,
   HelpCircle,
@@ -46,6 +46,36 @@ const FAQS = [
 
 export default function HelpCenterModal({ isOpen, onClose }: HelpCenterModalProps) {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
+  const [faqs, setFaqs] = useState(FAQS);
+  const [supportWhatsapp, setSupportWhatsapp] = useState('6285889662159');
+  const [supportEmail, setSupportEmail] = useState('bantuan@jabarpleasure.id');
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    let active = true;
+    fetch('/api/help-center', { headers: { Accept: 'application/json' } })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (!active || !json?.data) return;
+        if (json.data.support?.whatsapp) {
+          setSupportWhatsapp(String(json.data.support.whatsapp).replace(/\D/g, '') || '6285889662159');
+        }
+        if (json.data.support?.email) {
+          setSupportEmail(String(json.data.support.email));
+        }
+        if (Array.isArray(json.data.faqs) && json.data.faqs.length > 0) {
+          setFaqs(json.data.faqs);
+        }
+      })
+      .catch(() => {
+        // Keep registered default contact info and FAQs
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -55,11 +85,11 @@ export default function HelpCenterModal({ isOpen, onClose }: HelpCenterModalProp
 
   const handleOpenWhatsApp = () => {
     const text = encodeURIComponent('Halo Tim Bantuan JabarPleasure, saya membutuhkan bantuan terkait aplikasi.');
-    window.open(`https://wa.me/6281234567890?text=${text}`, '_blank');
+    window.open(`https://wa.me/${supportWhatsapp}?text=${text}`, '_blank', 'noopener,noreferrer');
   };
 
   const handleOpenEmail = () => {
-    window.location.href = 'mailto:bantuan@jabarpleasure.id?subject=Pertanyaan%20Layanan%20JabarPleasure';
+    window.location.href = `mailto:${supportEmail}?subject=Pertanyaan%20Layanan%20JabarPleasure`;
   };
 
   return (
@@ -114,7 +144,7 @@ export default function HelpCenterModal({ isOpen, onClose }: HelpCenterModalProp
             </div>
 
             <div className="space-y-2.5">
-              {FAQS.map((faq, idx) => {
+              {faqs.map((faq, idx) => {
                 const isOpen = openIndex === idx;
                 return (
                   <div
@@ -186,7 +216,7 @@ export default function HelpCenterModal({ isOpen, onClose }: HelpCenterModalProp
                   <ExternalLink className="w-3 h-3 text-[#4941EC]" />
                 </span>
                 <span className="text-[10px] text-[#4941EC]/80 mt-0.5">
-                  bantuan@jabarpleasure.id
+                  {supportEmail}
                 </span>
               </button>
             </div>

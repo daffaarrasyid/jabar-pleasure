@@ -23,6 +23,7 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::post('/auth/login', [AuthController::class, 'login']);
 
 Route::get('/categories', [AuthController::class, 'categories']);
+Route::get('/help-center', [ProfileController::class, 'helpCenter']);
 Route::post('/user/preferences', [AuthController::class, 'savePreferences']);
 
 /*
@@ -41,10 +42,15 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     Route::get('/user/profile', [ProfileController::class, 'show']);
+    Route::post('/user/profile', [ProfileController::class, 'update']);
     Route::put('/user/profile', [ProfileController::class, 'update']);
     Route::put('/user/password', [ProfileController::class, 'updatePassword']);
+    Route::put('/user/preferences', [ProfileController::class, 'updatePreferences']);
+    Route::put('/user/notifications-setting', [ProfileController::class, 'updateNotificationSetting']);
+    Route::put('/user/location-permission', [ProfileController::class, 'updateLocationPermission']);
 
     Route::get('/profile', [ProfileController::class, 'show']);
+    Route::post('/profile', [ProfileController::class, 'update']);
     Route::put('/profile', [ProfileController::class, 'update']);
     Route::put('/profile/password', [ProfileController::class, 'updatePassword']);
 
@@ -127,8 +133,3 @@ Route::post('/submissions-public', [PoiSubmissionController::class, 'store']);
 Route::get('/admin/submissions-public', [PoiSubmissionController::class, 'index']);
 Route::post('/admin/submissions-public/{id}/approve', [PoiSubmissionController::class, 'approve']);
 Route::post('/admin/submissions-public/{id}/reject', [PoiSubmissionController::class, 'reject']);
-
-// Direct route fallback that supports manual token extraction if sanctum middleware is bypassed
-Route::get('/user/profile-fallback', [ProfileController::class, 'show']);
-Route::put('/user/profile-fallback', [ProfileController::class, 'update']);
-Route::put('/user/password-fallback', [ProfileController::class, 'updatePassword']);

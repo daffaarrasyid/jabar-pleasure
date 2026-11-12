@@ -57,14 +57,19 @@ class NotificationController extends Controller
             return response()->json([
                 'status' => 'success',
                 'unread_count' => 0,
+                'notifications_enabled' => true,
             ]);
         }
 
-        $count = Notification::where('user_id', $user->id)->unread()->count();
+        $enabled = (bool) ($user->notifications_enabled ?? true);
+        $count = $enabled
+            ? Notification::where('user_id', $user->id)->unread()->count()
+            : 0;
 
         return response()->json([
             'status' => 'success',
             'unread_count' => $count,
+            'notifications_enabled' => $enabled,
         ]);
     }
 

@@ -41,4 +41,9 @@ return [
         'bucket' => env('SUPABASE_BUCKET', 'destinations'),
     ],
 
+    'support' => [
+        'whatsapp' => env('SUPPORT_WHATSAPP', '6285889662159'),
+        'email' => env('SUPPORT_EMAIL', 'bantuan@jabarpleasure.id'),
+    ],
+
 ];

@@ -37,7 +37,7 @@ export default function ProfilePage() {
     let isMounted = true;
 
     const fetchUserProfile = async () => {
-      // 1. Read cached user on client mount for instant rendering
+      // 1. Read cached user on client mount as fallback data while keeping skeleton visible until DB fetch finishes
       if (typeof window !== 'undefined') {
         const cachedUser = localStorage.getItem('user');
         if (cachedUser) {
@@ -45,7 +45,6 @@ export default function ProfilePage() {
             const parsed = JSON.parse(cachedUser);
             if (isMounted) {
               setUser(parsed);
-              setIsLoading(false);
             }
           } catch (e) {
             console.warn('Failed to parse cached user:', e);
@@ -157,6 +156,11 @@ export default function ProfilePage() {
 
     // Completely purge client cookie and storage
     removeAuthToken();
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('jabar_notifications_enabled');
+      localStorage.removeItem('jabar_travel_style');
+      localStorage.removeItem('jabar_location_permission');
+    }
 
     showToast('Anda telah keluar dari akun.', 'info');
     setTimeout(() => {

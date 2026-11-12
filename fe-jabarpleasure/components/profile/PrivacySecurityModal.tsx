@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   X,
   Shield,
@@ -19,12 +19,16 @@ import { getAuthToken } from '@/lib/auth';
 interface PrivacySecurityModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialLocationPermission?: boolean;
+  onLocationPermissionChange?: (enabled: boolean) => void;
   onSuccessToast?: (msg: string) => void;
 }
 
 export default function PrivacySecurityModal({
   isOpen,
   onClose,
+  initialLocationPermission = true,
+  onLocationPermissionChange,
   onSuccessToast,
 }: PrivacySecurityModalProps) {
   const [currentPassword, setCurrentPassword] = useState('');
@@ -40,16 +44,100 @@ export default function PrivacySecurityModal({
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   // GPS Permission state
-  const [gpsStatus, setGpsStatus] = useState<string>('Diizinkan (Presisi Tinggi)');
-  const [gpsCoords, setGpsCoords] = useState<{ lat: number; lng: number } | null>({
-    lat: -6.9175,
-    lng: 107.6191,
-  });
+  const [locationEnabled, setLocationEnabled] = useState<boolean>(initialLocationPermission);
+  const [isUpdatingLocation, setIsUpdatingLocation] = useState(false);
+  const [gpsStatus, setGpsStatus] = useState<string>(
+    initialLocationPermission ? 'Memeriksa izin GPS...' : 'Dinonaktifkan di Aplikasi'
+  );
+  const [gpsCoords, setGpsCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [isCheckingGps, setIsCheckingGps] = useState(false);
+
+  useEffect(() => {
+    setLocationEnabled(initialLocationPermission);
+  }, [initialLocationPermission]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    if (!locationEnabled) {
+      setGpsStatus('Dinonaktifkan di Aplikasi');
+      setGpsCoords(null);
+      return;
+    }
+
+    if (typeof navigator !== 'undefined' && 'permissions' in navigator && navigator.permissions?.query) {
+      navigator.permissions
+        .query({ name: 'geolocation' })
+        .then((perm) => {
+          if (perm.state === 'granted') {
+            setGpsStatus('Diizinkan (Browser & Aplikasi)');
+          } else if (perm.state === 'denied') {
+            setGpsStatus('Ditolak oleh Browser');
+          } else {
+            setGpsStatus('Menunggu Izin Browser');
+          }
+        })
+        .catch(() => {
+          setGpsStatus('Siap Diuji');
+        });
+    } else {
+      setGpsStatus('Siap Diuji');
+    }
+  }, [isOpen, locationEnabled]);
 
   if (!isOpen) return null;
 
-  const handleTestGps = () => {
+  const handleToggleLocationPermission = async () => {
+    const nextState = !locationEnabled;
+    setIsUpdatingLocation(true);
+    const token = getAuthToken();
+
+    try {
+      const res = await fetch('/api/user/location-permission', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ location_permission_enabled: nextState }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        setErrorMsg(errData.message || 'Gagal memperbarui izin lokasi.');
+        return;
+      }
+
+      setLocationEnabled(nextState);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('jabar_location_permission', String(nextState));
+      }
+      onLocationPermissionChange?.(nextState);
+      onSuccessToast?.(
+        nextState ? 'Izin lokasi GPS diaktifkan.' : 'Izin lokasi GPS dinonaktifkan.'
+      );
+
+      if (nextState) {
+        handleTestGps(true);
+      } else {
+        setGpsCoords(null);
+        setGpsStatus('Dinonaktifkan di Aplikasi');
+      }
+    } catch {
+      setErrorMsg('Terjadi kesalahan jaringan saat memperbarui izin lokasi.');
+    } finally {
+      setIsUpdatingLocation(false);
+    }
+  };
+
+  const handleTestGps = (forceEnabled = false) => {
+    if (!locationEnabled && !forceEnabled) {
+      setGpsStatus('Dinonaktifkan di Aplikasi');
+      setGpsCoords(null);
+      return;
+    }
+
     setIsCheckingGps(true);
     if ('geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(
@@ -61,8 +149,13 @@ export default function PrivacySecurityModal({
           setGpsStatus('Diizinkan (Presisi Tinggi)');
           setIsCheckingGps(false);
         },
-        () => {
-          setGpsStatus('Izin Lokasi Terbatas');
+        (err) => {
+          setGpsCoords(null);
+          if (err.code === err.PERMISSION_DENIED) {
+            setGpsStatus('Ditolak oleh Browser');
+          } else {
+            setGpsStatus('Sinyal GPS Tidak Tersedia');
+          }
           setIsCheckingGps(false);
         },
         { timeout: 8000, enableHighAccuracy: true }
@@ -298,10 +391,34 @@ export default function PrivacySecurityModal({
             </div>
 
             <div className="p-3.5 bg-gray-50 rounded-2xl border border-gray-100 space-y-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs text-gray-600 font-medium">Izin Lokasi Aplikasi:</span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={locationEnabled}
+                  disabled={isUpdatingLocation}
+                  onClick={handleToggleLocationPermission}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold transition-colors cursor-pointer disabled:opacity-60 ${
+                    locationEnabled
+                      ? 'bg-[#4941EC] text-white'
+                      : 'bg-gray-200 text-gray-700'
+                  }`}
+                >
+                  <span>{locationEnabled ? 'Diizinkan' : 'Dinonaktifkan'}</span>
+                </button>
+              </div>
+
               <div className="flex items-center justify-between">
                 <span className="text-xs text-gray-600 font-medium">Status Sensor GPS:</span>
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-700">
-                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                <span
+                  className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
+                    locationEnabled && !gpsStatus.includes('Ditolak') && !gpsStatus.includes('Tidak')
+                      ? 'bg-emerald-100 text-emerald-700'
+                      : 'bg-amber-100 text-amber-800'
+                  }`}
+                >
+                  <CheckCircle2 className="w-3 h-3" />
                   {gpsStatus}
                 </span>
               </div>
@@ -318,9 +435,9 @@ export default function PrivacySecurityModal({
 
               <button
                 type="button"
-                onClick={handleTestGps}
-                disabled={isCheckingGps}
-                className="w-full py-2 px-3 rounded-xl bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                onClick={() => handleTestGps(false)}
+                disabled={isCheckingGps || !locationEnabled}
+                className="w-full py-2 px-3 rounded-xl bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors disabled:opacity-60"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isCheckingGps ? 'animate-spin' : ''}`} />
                 <span>Uji Status GPS Perangkat</span>

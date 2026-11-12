@@ -12,8 +12,13 @@ class NotificationService
     /**
      * Send confirmation notification to submitter when their destination submission is approved or rejected.
      */
-    public function sendSubmissionConfirmation(PoiSubmission $submission, string $status, ?string $adminNote = null): Notification
+    public function sendSubmissionConfirmation(PoiSubmission $submission, string $status, ?string $adminNote = null): ?Notification
     {
+        $recipient = User::find($submission->user_id);
+        if ($recipient && $recipient->notifications_enabled === false) {
+            return null;
+        }
+
         $isApproved = strtolower($status) === 'approved';
 
         $title = $isApproved
@@ -60,7 +65,7 @@ class NotificationService
             'cover_image' => $destination->cover_image_url ?? $destination->cover_image,
         ]);
 
-        $userIds = User::pluck('id');
+        $userIds = User::where('notifications_enabled', true)->pluck('id');
         if ($userIds->isEmpty()) {
             return 0;
         }

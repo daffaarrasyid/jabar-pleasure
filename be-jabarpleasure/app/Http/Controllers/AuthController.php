@@ -8,6 +8,7 @@ use App\Models\UserPreference;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
@@ -172,7 +173,7 @@ class AuthController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Berhasil keluar sesi.',
-        ]);
+        ])->withCookie(Cookie::forget('auth_token', '/'));
     }
 
     /**
@@ -223,13 +224,36 @@ class AuthController extends Controller
         }
 
         $interests = $request->input('interests');
-        $this->attachInterests($user, $interests);
+        if ($bearer || $request->user()) {
+            $categoryIds = Category::query()
+                ->where(function ($q) use ($interests) {
+                    $numericIds = array_values(array_filter($interests, 'is_numeric'));
+                    $strings = array_values(array_filter($interests, fn ($v) => is_string($v) && !is_numeric($v)));
+                    if (!empty($numericIds)) {
+                        $q->orWhereIn('id', array_map('intval', $numericIds));
+                    }
+                    if (!empty($strings)) {
+                        $q->orWhereIn('slug', $strings)->orWhereIn('name', $strings);
+                    }
+                })
+                ->pluck('id')
+                ->all();
+
+            $user->categories()->sync($categoryIds);
+            if ($request->filled('travel_style') && in_array($request->input('travel_style'), ['healing', 'adventure', 'backpacker', 'family', 'culinary', 'staycation'], true)) {
+                $user->travel_style = $request->input('travel_style');
+                $user->save();
+            }
+        } else {
+            $this->attachInterests($user, $interests);
+        }
 
         return response()->json([
             'status' => 'success',
             'message' => 'Preferensi minat berhasil disimpan.',
             'data' => [
                 'user_id' => $user->id,
+                'travel_style' => $user->travel_style ?? 'healing',
                 'preferences' => $user->categories()->get(['categories.id', 'categories.name', 'categories.slug']),
             ],
         ]);

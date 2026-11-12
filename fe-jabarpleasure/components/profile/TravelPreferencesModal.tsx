@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, Check, SlidersHorizontal, Loader2, Compass, Sparkles } from 'lucide-react';
 import { getAuthToken } from '@/lib/auth';
 
@@ -8,45 +8,52 @@ interface TravelPreferencesModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentPreferences?: Array<{ id?: number; name?: string; slug?: string }>;
-  onSuccess?: (preferences: Array<{ id?: number; name?: string; slug?: string }>) => void;
+  currentTravelStyle?: string;
+  onSuccess?: (
+    preferences: Array<{ id?: number; name?: string; slug?: string }>,
+    travelStyle?: string
+  ) => void;
 }
 
-const CATEGORY_OPTIONS = [
-  {
-    id: 'wisata-alam',
-    name: 'Wisata Alam & Terbuka',
-    icon: '🌲',
-    desc: 'Pegunungan, Curug, Kebun Teh, Danau',
-  },
-  {
-    id: 'modern-lifestyle',
-    name: 'Modern & Lifestyle',
+const CATEGORY_META: Record<string, { icon: string; desc: string }> = {
+  'modern-lifestyle': {
     icon: '☕',
     desc: 'Kafe Estetik, Rooftop, Tempat Nongkrong',
   },
-  {
-    id: 'rekreasi-keluarga',
-    name: 'Rekreasi Keluarga',
+  'wisata-alam-terbuka': {
+    icon: '🌲',
+    desc: 'Pegunungan, Curug, Kebun Teh, Danau',
+  },
+  'publik-edukasi': {
+    icon: '📚',
+    desc: 'Taman Kota, Ruang Publik Terbuka, Galeri',
+  },
+  'rekreasi-keluarga': {
     icon: '🎡',
     desc: 'Taman Hiburan, Waterpark, Kebun Binatang',
   },
+};
+
+const DEFAULT_CATEGORY_OPTIONS = [
   {
-    id: 'sejarah-budaya',
-    name: 'Sejarah & Budaya',
-    icon: '🏛️',
-    desc: 'Museum, Bangunan Bersejarah, Cagar Budaya',
+    id: 'modern-lifestyle',
+    name: 'Modern & Lifestyle',
+    ...CATEGORY_META['modern-lifestyle'],
+  },
+  {
+    id: 'wisata-alam-terbuka',
+    name: 'Wisata Alam & Terbuka',
+    ...CATEGORY_META['wisata-alam-terbuka'],
   },
   {
     id: 'publik-edukasi',
     name: 'Publik & Edukasi',
-    icon: '📚',
-    desc: 'Taman Kota, Ruang Publik Terbuka, Galeri',
+    ...CATEGORY_META['publik-edukasi'],
   },
   {
-    id: 'kuliner-belanja',
-    name: 'Kuliner & Belanja',
-    icon: '🍲',
-    desc: 'Pusat Kuliner Khas Sunda, Oleh-oleh',
+    id: 'rekreasi-keluarga',
+    name: 'Rekreasi Keluarga',
+    ...CATEGORY_META['rekreasi-keluarga'],
   },
 ];
 
@@ -60,28 +67,19 @@ const TRAVEL_STYLES = [
 const getInitialCategories = (prefs?: Array<{ id?: number; name?: string; slug?: string }>) => {
   if (prefs && prefs.length > 0) {
     const slugs = prefs.map((p) => p.slug || p.name || '').filter(Boolean);
-    const matched = CATEGORY_OPTIONS.filter((cat) =>
+    const matched = DEFAULT_CATEGORY_OPTIONS.filter((cat) =>
       slugs.some(
         (s) =>
-          s.toLowerCase().includes(cat.id.replace('-', ' ')) ||
-          cat.name.toLowerCase().includes(s.toLowerCase()) ||
-          s === cat.id
+          s === cat.id ||
+          s.toLowerCase() === cat.name.toLowerCase() ||
+          cat.name.toLowerCase().includes(s.toLowerCase())
       )
     ).map((c) => c.id);
 
     if (matched.length > 0) return matched;
   }
 
-  if (typeof window !== 'undefined') {
-    try {
-      const cached = localStorage.getItem('user_travel_preferences');
-      if (cached) return JSON.parse(cached);
-    } catch {
-      // ignore
-    }
-  }
-
-  return ['wisata-alam', 'modern-lifestyle'];
+  return ['wisata-alam-terbuka', 'modern-lifestyle'];
 };
 
 const EMPTY_PREFERENCES: Array<{ id?: number; name?: string; slug?: string }> = [];
@@ -90,23 +88,44 @@ export default function TravelPreferencesModal({
   isOpen,
   onClose,
   currentPreferences = EMPTY_PREFERENCES,
+  currentTravelStyle = 'healing',
   onSuccess,
 }: TravelPreferencesModalProps) {
+  const [categoryOptions, setCategoryOptions] = useState(DEFAULT_CATEGORY_OPTIONS);
   const [selectedCategories, setSelectedCategories] = useState<string[]>(() =>
     getInitialCategories(currentPreferences)
   );
-  const [selectedStyle, setSelectedStyle] = useState<string>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        return localStorage.getItem('user_travel_style') || 'healing';
-      } catch {
-        return 'healing';
-      }
-    }
-    return 'healing';
-  });
+  const [selectedStyle, setSelectedStyle] = useState<string>(currentTravelStyle || 'healing');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setSelectedCategories(getInitialCategories(currentPreferences));
+    setSelectedStyle(currentTravelStyle || 'healing');
+    setErrorMsg(null);
+
+    let active = true;
+    fetch('/api/categories', { headers: { Accept: 'application/json' } })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (!active || !json?.data || !Array.isArray(json.data) || json.data.length === 0) return;
+        const mapped = json.data.map((cat: { id: number; name: string; slug: string }) => ({
+          id: cat.slug,
+          name: cat.name,
+          icon: CATEGORY_META[cat.slug]?.icon ?? '📍',
+          desc: CATEGORY_META[cat.slug]?.desc ?? 'Kategori wisata terdaftar di JabarPleasure',
+        }));
+        setCategoryOptions(mapped);
+      })
+      .catch(() => {
+        // Keep DEFAULT_CATEGORY_OPTIONS matching the 4 DB categories
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [isOpen, currentPreferences, currentTravelStyle]);
 
   if (!isOpen) return null;
 
@@ -137,9 +156,8 @@ export default function TravelPreferencesModal({
     const token = getAuthToken();
 
     try {
-      // 1. Submit to backend API /api/user/preferences
       const res = await fetch('/api/user/preferences', {
-        method: 'POST',
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           Accept: 'application/json',
@@ -147,12 +165,15 @@ export default function TravelPreferencesModal({
         },
         body: JSON.stringify({
           interests: selectedCategories,
+          travel_style: selectedStyle,
         }),
       });
 
       const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(json.message || 'Gagal menyimpan preferensi perjalanan.');
+      }
 
-      // Cache locally
       try {
         localStorage.setItem('user_travel_preferences', JSON.stringify(selectedCategories));
         localStorage.setItem('user_travel_style', selectedStyle);
@@ -164,26 +185,15 @@ export default function TravelPreferencesModal({
         json.data?.preferences ||
           selectedCategories.map((c) => ({
             slug: c,
-            name: CATEGORY_OPTIONS.find((item) => item.id === c)?.name || c,
-          }))
+            name: categoryOptions.find((item) => item.id === c)?.name || c,
+          })),
+        json.data?.travel_style || selectedStyle
       );
       onClose();
     } catch (err: unknown) {
-      console.warn('Preferences save warning:', err);
-      // Fallback cache and success
-      try {
-        localStorage.setItem('user_travel_preferences', JSON.stringify(selectedCategories));
-        localStorage.setItem('user_travel_style', selectedStyle);
-      } catch {
-        // ignore
-      }
-      onSuccess?.(
-        selectedCategories.map((c) => ({
-          slug: c,
-          name: CATEGORY_OPTIONS.find((item) => item.id === c)?.name || c,
-        }))
+      setErrorMsg(
+        err instanceof Error ? err.message : 'Gagal menyimpan preferensi perjalanan.'
       );
-      onClose();
     } finally {
       setIsSubmitting(false);
     }
@@ -250,7 +260,7 @@ export default function TravelPreferencesModal({
             </div>
 
             <div className="grid grid-cols-1 gap-2.5">
-              {CATEGORY_OPTIONS.map((cat) => {
+              {categoryOptions.map((cat) => {
                 const isSelected = selectedCategories.includes(cat.id);
                 return (
                   <button

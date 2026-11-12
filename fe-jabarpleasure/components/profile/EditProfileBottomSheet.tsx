@@ -70,12 +70,21 @@ export default function EditProfileBottomSheet({
 
     // Constraint: Max 2MB for photo (PRD & Security requirement)
     if (file.size > 2 * 1024 * 1024) {
-      setErrorMsg('Ukuran file foto melebihi batas 2MB. Silakan pilih foto lain.');
+      const msg = 'Ukuran file foto melebihi batas 2 MB. Proses unggah ditolak.';
+      e.target.value = '';
+      setErrorMsg(msg);
+      onErrorToast?.(msg);
+      if (typeof window !== 'undefined') {
+        window.alert(msg);
+      }
       return;
     }
 
     if (!file.type.startsWith('image/')) {
-      setErrorMsg('Format file harus berupa gambar (JPG, PNG, atau WebP).');
+      const msg = 'Format file harus berupa gambar (JPG, PNG, atau WebP).';
+      e.target.value = '';
+      setErrorMsg(msg);
+      onErrorToast?.(msg);
       return;
     }
 
@@ -125,9 +134,12 @@ export default function EditProfileBottomSheet({
         });
 
         if (!res.ok) {
-          // If 405 or 422, try direct PUT with json and base64 or url fallback
           const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.message || 'Gagal memperbarui profil dengan foto.');
+          const msg = errData.message || 'Gagal memperbarui profil dengan foto.';
+          if (res.status === 413 && typeof window !== 'undefined') {
+            window.alert(msg);
+          }
+          throw new Error(msg);
         }
 
         const json = await res.json();
