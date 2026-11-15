@@ -8,6 +8,23 @@ import type { NextRequest } from 'next/server';
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get('auth_token')?.value;
+  const adminToken = request.cookies.get('admin_token')?.value;
+
+  // Handle admin routes separately
+  if (pathname.startsWith('/admin')) {
+    const isAdminLogin = pathname === '/admin/login';
+    if (!adminToken && !isAdminLogin) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/admin/login';
+      return NextResponse.redirect(url);
+    }
+    if (adminToken && isAdminLogin) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/admin';
+      return NextResponse.redirect(url);
+    }
+    return NextResponse.next();
+  }
 
   const isPublicRoute =
     pathname.startsWith('/auth') ||
@@ -29,10 +46,10 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // If user is at root '/' with valid token, send them directly to '/home'
-  if (token && pathname === '/') {
+  // If user is at root '/' with valid token, send them to '/home', otherwise '/auth'
+  if (pathname === '/') {
     const url = request.nextUrl.clone();
-    url.pathname = '/home';
+    url.pathname = token ? '/home' : '/auth';
     return NextResponse.redirect(url);
   }
 

@@ -6,7 +6,6 @@ import {
   ArrowLeft,
   MapPin,
   Calendar,
-  Clock,
   CheckCircle2,
   Check,
   PlayCircle,
@@ -73,7 +72,7 @@ export default function DestinationDocScreen({
   onNavigateToRencana,
   onNavigateToMap,
   onNavigateToProfile,
-  wishlistCount = 4,
+  wishlistCount = 0,
   className = '',
 }: DestinationDocScreenProps) {
   const handleTabChange = (tab: NavTabId) => {
@@ -118,7 +117,7 @@ export default function DestinationDocScreen({
             <span className="text-[10px] text-gray-400 font-medium block">
               Kembali ke {trip.title}
             </span>
-            <h1 className="text-base sm:text-lg font-bold text-gray-900 tracking-tight">
+            <h1 className="text-base sm:text-lg font-semibold text-gray-900 tracking-tight">
               Dokumentasi Destinasi
             </h1>
           </div>
@@ -272,9 +271,8 @@ export default function DestinationDocScreen({
           <button
             type="button"
             onClick={onViewShowcase}
-            className="w-full py-3.5 bg-[#4941EC] hover:bg-[#3D35D9] active:scale-[0.99] text-white font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2 shadow-md shadow-[#4941EC]/25 transition-all cursor-pointer"
+            className="w-full py-3.5 bg-[#4941EC] hover:bg-[#3D35D9] active:scale-[0.99] text-white font-semibold text-xs sm:text-sm rounded-xl flex items-center justify-center shadow-md shadow-[#4941EC]/25 transition-all cursor-pointer"
           >
-            <PlayCircle className="w-4 h-4 fill-white/20 stroke-[2.2]" />
             <span>Lihat Perjalanan</span>
           </button>
 

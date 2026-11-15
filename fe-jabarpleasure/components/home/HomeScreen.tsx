@@ -14,6 +14,11 @@ import CategoryFilterModal from '@/components/home/CategoryFilterModal';
 import DestinationDetailModal, { DestinationDetailData } from '@/components/ui/DestinationDetailModal';
 import LocationReferenceModal, { JABAR_PRESET_CITIES } from '@/components/common/LocationReferenceModal';
 import { searchDestinations, ApiDestination } from '@/lib/api';
+import {
+  getStoredUserLocation,
+  setStoredUserLocation,
+  acquireDeviceCoordinates,
+} from '@/lib/locationStorage';
 import { Users, Navigation, MapPin, SearchX } from 'lucide-react';
 import { getCategoryMeta } from '@/lib/categoryMeta';
 
@@ -30,15 +35,6 @@ interface HomeScreenProps {
   initialViewMode?: 'overview' | 'top-destinations';
   className?: string;
 }
-
-const FALLBACK_SEARCH_IMAGES = [
-  '/gunung-malabar.jpg',
-  '/tangkuban-parahu.jpg',
-  '/floating-market.jpg',
-  '/gedung-sate.jpg',
-  '/tahura-juanda.jpg',
-  '/ranca-upas.jpg',
-];
 
 export default function HomeScreen({
   onNavigateToMap,
@@ -59,12 +55,24 @@ export default function HomeScreen({
   const [activeTab, setActiveTab] = useState<NavTabId>('beranda');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Semua');
-  const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
-  const [isGpsActive, setIsGpsActive] = useState<boolean>(false);
+
+  // Load persisted user reference location on mount
+  const [activeLocationName, setActiveLocationName] = useState<string>(() => {
+    return getStoredUserLocation().name;
+  });
+  const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(() => {
+    const loc = getStoredUserLocation();
+    return { lat: loc.lat, lng: loc.lng };
+  });
+  const [locationMode, setLocationMode] = useState<'gps' | 'manual'>(() => {
+    return getStoredUserLocation().mode;
+  });
+  const [isGpsActive, setIsGpsActive] = useState<boolean>(() => {
+    return getStoredUserLocation().mode === 'gps';
+  });
   const [isLocationModalOpen, setIsLocationModalOpen] = useState<boolean>(false);
-  const [locationMode, setLocationMode] = useState<'gps' | 'manual'>('gps');
-  const [activeLocationName, setActiveLocationName] = useState<string>('Kota Bandung');
   const [isGeocoding, setIsGeocoding] = useState<boolean>(false);
+  const [gpsErrorFeedback, setGpsErrorFeedback] = useState<string | null>(null);
 
   // Search state
   const [searchResults, setSearchResults] = useState<ApiDestination[]>([]);
@@ -74,31 +82,52 @@ export default function HomeScreen({
   const [selectedDestinationForDetail, setSelectedDestinationForDetail] = useState<DestinationDetailData | null>(null);
   const [, startTransition] = useTransition();
 
-  // 1. Handler deteksi GPS perangkat saat ini
-  const handleUseCurrentGps = () => {
-    if (typeof window !== 'undefined' && 'geolocation' in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          setUserCoords({
-            lat: latitude,
-            lng: longitude,
-          });
-          setLocationMode('gps');
-          setActiveLocationName('Lokasi GPS Anda');
-          setIsGpsActive(true);
-          setIsLocationModalOpen(false);
-        },
-        (error) => {
-          console.warn('Geolocation unavailable, defaulting to Bandung:', error.message);
-          setUserCoords({ lat: -6.9175, lng: 107.6191 });
-          setLocationMode('manual');
-          setActiveLocationName('Kota Bandung (Acuan Jabar)');
-          setIsGpsActive(false);
-          setIsLocationModalOpen(false);
-        },
-        { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
-      );
+  // 1. Handler deteksi GPS perangkat saat ini (dengan fallback dua tingkat)
+  const handleUseCurrentGps = async (isManualClick = false) => {
+    try {
+      setGpsErrorFeedback(null);
+      const coords = await acquireDeviceCoordinates({ timeoutMs: 6000 });
+      setUserCoords(coords);
+      setLocationMode('gps');
+      setActiveLocationName('Lokasi GPS Anda');
+      setIsGpsActive(true);
+      setIsLocationModalOpen(false);
+
+      setStoredUserLocation({
+        name: 'Lokasi GPS Anda',
+        lat: coords.lat,
+        lng: coords.lng,
+        mode: 'gps',
+      });
+    } catch (err) {
+      const errObj = err as { code?: number; message?: string } | null;
+      console.warn('Geolocation acquisition error:', errObj?.message || err);
+      setIsGpsActive(false);
+
+      const errMessage =
+        errObj?.code === 1
+          ? 'Izin lokasi diblokir oleh browser atau Layanan Lokasi di Pengaturan Windows belum aktif.'
+          : 'Sinyal sensor GPS/Wi-Fi perangkat tidak dapat dijangkau. Silakan pilih kota terdekat di bawah ini.';
+
+      if (isManualClick) {
+        setGpsErrorFeedback(errMessage);
+      }
+
+      // DO NOT overwrite with Bandung if user already had a saved manual location!
+      const existing = getStoredUserLocation();
+      if (existing.name && existing.name !== 'Lokasi GPS Anda') {
+        setUserCoords({ lat: existing.lat, lng: existing.lng });
+        setActiveLocationName(existing.name);
+        setLocationMode('manual');
+      } else {
+        setUserCoords({ lat: -6.9175, lng: 107.6191 });
+        setActiveLocationName('Kota Bandung');
+        setLocationMode('manual');
+      }
+
+      if (!isManualClick) {
+        setIsLocationModalOpen(false);
+      }
     }
   };
 
@@ -109,11 +138,21 @@ export default function HomeScreen({
     setActiveLocationName(city.name);
     setIsGpsActive(false);
     setIsLocationModalOpen(false);
+    setGpsErrorFeedback(null);
+
+    setStoredUserLocation({
+      name: city.name,
+      lat: city.lat,
+      lng: city.lng,
+      mode: 'manual',
+      regency: city.name,
+    });
   };
 
   // 3. Handler submit alamat manual dengan geocoding Nominatim
   const handleManualAddressSubmit = async (query: string) => {
     setIsGeocoding(true);
+    setGpsErrorFeedback(null);
     try {
       const nominatimUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
         query + ', Jawa Barat'
@@ -130,6 +169,14 @@ export default function HomeScreen({
         setActiveLocationName(query);
         setIsGpsActive(false);
         setIsLocationModalOpen(false);
+
+        setStoredUserLocation({
+          name: query,
+          lat,
+          lng,
+          mode: 'manual',
+          regency: query,
+        });
       } else {
         const matchedCity = JABAR_PRESET_CITIES.find((c) =>
           query.toLowerCase().includes(c.name.toLowerCase().replace('kota ', ''))
@@ -150,9 +197,15 @@ export default function HomeScreen({
     }
   };
 
-  // Try to acquire device geolocation for real spatial proximity on mount
+  // Only auto-acquire GPS on mount if user specifically had GPS mode active
   useEffect(() => {
-    handleUseCurrentGps();
+    const loc = getStoredUserLocation();
+    if (loc.mode === 'gps') {
+      const initGps = async () => {
+        await handleUseCurrentGps(false);
+      };
+      initGps();
+    }
   }, []);
 
   // Debounced search effect when typing or changing category
@@ -428,6 +481,7 @@ export default function HomeScreen({
             <FeaturedEntertainment
               selectedCategory={selectedCategory}
               userCoords={userCoords}
+              regency={activeLocationName}
               onViewAll={() => setViewMode('see-all-featured')}
               onItemClick={handleDestinationClick}
             />
@@ -454,10 +508,11 @@ export default function HomeScreen({
         onClose={() => setIsLocationModalOpen(false)}
         locationMode={locationMode}
         activeLocationName={activeLocationName}
-        onSelectGps={handleUseCurrentGps}
+        onSelectGps={() => handleUseCurrentGps(true)}
         onSelectPresetCity={handleSelectPresetCity}
         onManualAddressSubmit={handleManualAddressSubmit}
         isGeocoding={isGeocoding}
+        errorMessage={gpsErrorFeedback}
       />
 
       {/* Category Filter Bottom Sheet / Modal */}

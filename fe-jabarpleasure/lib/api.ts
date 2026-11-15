@@ -1,4 +1,4 @@
-import { getAuthToken } from './auth';
+import { getAuthToken, removeAuthToken } from './auth';
 
 /**
  * Standard API Client for JabarPleasure Backend
@@ -88,6 +88,17 @@ export async function fetchApi<T = any>(
   }));
 
   if (!response.ok) {
+    if (response.status === 401) {
+      removeAuthToken();
+      if (
+        typeof window !== 'undefined' &&
+        !window.location.pathname.startsWith('/auth') &&
+        !window.location.pathname.startsWith('/login') &&
+        !window.location.pathname.startsWith('/admin')
+      ) {
+        window.location.href = '/auth';
+      }
+    }
     throw new Error(data.message || `Request failed with status ${response.status}`);
   }
 
@@ -99,12 +110,14 @@ export async function fetchApi<T = any>(
  */
 export async function getFeaturedDestinations(params: {
   category?: string;
+  regency?: string;
   lat?: number;
   lng?: number;
   limit?: number;
 } = {}): Promise<ApiDestination[]> {
   const query = new URLSearchParams();
   if (params.category && params.category !== 'Semua') query.set('category', params.category);
+  if (params.regency) query.set('regency', params.regency);
   if (params.lat !== undefined) query.set('lat', params.lat.toString());
   if (params.lng !== undefined) query.set('lng', params.lng.toString());
   if (params.limit !== undefined) query.set('limit', params.limit.toString());
@@ -553,17 +566,35 @@ export async function submitPoiDestination(payload: {
   price_range?: string;
   opening_hours?: string;
   evidence_image?: string;
+  image?: File | null;
 }): Promise<any> {
+  let body: BodyInit;
+  if (payload.image instanceof File) {
+    const formData = new FormData();
+    formData.append('name', payload.name);
+    if (payload.category_name) formData.append('category_name', payload.category_name);
+    if (payload.category_id) formData.append('category_id', String(payload.category_id));
+    formData.append('latitude', String(payload.latitude));
+    formData.append('longitude', String(payload.longitude));
+    if (payload.description) formData.append('description', payload.description);
+    if (payload.price_range) formData.append('price_range', payload.price_range);
+    if (payload.opening_hours) formData.append('opening_hours', payload.opening_hours);
+    formData.append('image', payload.image);
+    body = formData;
+  } else {
+    body = JSON.stringify(payload);
+  }
+
   try {
     const res = await fetchApi('/submissions', {
       method: 'POST',
-      body: JSON.stringify(payload),
+      body,
     });
     return res.data;
   } catch {
     const res = await fetchApi('/submissions-public', {
       method: 'POST',
-      body: JSON.stringify(payload),
+      body,
     });
     return res.data;
   }

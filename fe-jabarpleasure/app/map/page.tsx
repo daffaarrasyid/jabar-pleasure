@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import MobileShell from '@/components/layout/MobileShell';
 import MapScreen from '@/components/map/MapScreen';
@@ -20,6 +20,7 @@ import { TripItem, DestinationItem } from '@/components/history/historyData';
 import Toast from '@/components/ui/Toast';
 import DestinationDetailModal, { DestinationDetailData } from '@/components/ui/DestinationDetailModal';
 import { createItinerary, deleteItinerary } from '@/lib/api';
+import { getAuthToken, removeAuthToken } from '@/lib/auth';
 
 export default function MapPage() {
   const router = useRouter();
@@ -41,26 +42,46 @@ export default function MapPage() {
   const [selectedTrip, setSelectedTrip] = useState<TripItem | undefined>(undefined);
   const [selectedDestination, setSelectedDestination] = useState<DestinationItem | undefined>(undefined);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
-  const [favoritCount, setFavoritCount] = useState<number>(4);
+  const [favoritCount, setFavoritCount] = useState<number>(0);
   const [detailDestination, setDetailDestination] = useState<DestinationDetailData | null>(null);
 
   // History trips persistent in-memory / local storage
-  const [historyTrips, setHistoryTrips] = useState<TripItem[]>(() => {
-    if (typeof window !== 'undefined') {
+  const [historyTrips, setHistoryTrips] = useState<TripItem[]>([]);
+
+  useEffect(() => {
+    const token = getAuthToken();
+    if (!token) {
+      removeAuthToken();
+      router.replace('/auth');
+    }
+  }, [router]);
+
+  useEffect(() => {
+    const loadData = async () => {
       try {
-        const stored = localStorage.getItem('jabarpleasure_trip_history');
-        if (stored) {
-          const parsed = JSON.parse(stored);
+        const storedWishlist = sessionStorage.getItem('jp_cached_wishlists');
+        if (storedWishlist) {
+          const parsed = JSON.parse(storedWishlist);
+          if (Array.isArray(parsed)) setFavoritCount(parsed.length);
+        }
+      } catch {
+        // ignore
+      }
+
+      try {
+        const storedHistory = localStorage.getItem('jabarpleasure_trip_history');
+        if (storedHistory) {
+          const parsed = JSON.parse(storedHistory);
           if (Array.isArray(parsed)) {
-            return parsed.filter((item: TripItem) => item.id !== 'bandung-trip');
+            setHistoryTrips(parsed.filter((item: TripItem) => item.id !== 'bandung-trip'));
           }
         }
       } catch (e) {
         console.warn('Error reading trip history from storage:', e);
       }
-    }
-    return [];
-  });
+    };
+    loadData();
+  }, []);
 
   // Active itinerary & Multi-step form state
   const [activeItinerary, setActiveItinerary] = useState<any>(null);

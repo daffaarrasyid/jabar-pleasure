@@ -5,7 +5,6 @@ import dynamic from 'next/dynamic';
 import {
   Calendar,
   BookmarkCheck,
-  Navigation,
 } from 'lucide-react';
 import AppHeader from '@/components/layout/AppHeader';
 import BottomNav, { NavTabId } from '@/components/layout/BottomNav';
@@ -82,7 +81,7 @@ export default function SavedPlanScreen({
   onNavigateToMap,
   onNavigateToProfile,
   onNavigateToRiwayat,
-  wishlistCount = 3,
+  wishlistCount = 0,
   className = '',
 }: SavedPlanScreenProps) {
   const [calculatedKm, setCalculatedKm] = useState<number>(totalDistanceKm || 3.1);
@@ -137,7 +136,7 @@ export default function SavedPlanScreen({
       <main className="flex-1 w-full overflow-y-auto overflow-x-hidden no-scrollbar px-5 pt-2 pb-28">
         {/* Title Header */}
         <div className="mb-4">
-          <h1 className="text-base sm:text-lg font-bold text-gray-900 tracking-tight">
+          <h1 className="text-base sm:text-lg font-semibold text-gray-900 tracking-tight">
             Rencana tersimpan
           </h1>
           <p className="text-xs text-gray-500 mt-0.5">
@@ -283,9 +282,8 @@ export default function SavedPlanScreen({
           <button
             type="button"
             onClick={onBackToRencana}
-            className="w-full py-3.5 bg-[#4941EC] hover:bg-[#3D35D9] active:scale-[0.99] text-white font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2 shadow-md shadow-[#4941EC]/25 transition-all cursor-pointer"
+            className="w-full py-3.5 bg-[#4941EC] hover:bg-[#3D35D9] active:scale-[0.99] text-white font-semibold text-xs sm:text-sm rounded-xl flex items-center justify-center shadow-md shadow-[#4941EC]/25 transition-all cursor-pointer"
           >
-            <Calendar className="w-4 h-4" />
             <span>Kembali ke Rencana</span>
           </button>
 
@@ -294,9 +292,8 @@ export default function SavedPlanScreen({
             <button
               type="button"
               onClick={onStartTrip}
-              className="w-full py-3 bg-white hover:bg-gray-50 border-2 border-[#4941EC] text-[#4941EC] font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs active:scale-[0.99]"
+              className="w-full py-3 bg-white hover:bg-gray-50 border-2 border-[#4941EC] text-[#4941EC] font-semibold text-xs sm:text-sm rounded-xl flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-[0.99]"
             >
-              <Navigation className="w-4 h-4 fill-[#4941EC] stroke-[1.5]" />
               <span>Lakukan perjalanan sekarang</span>
             </button>
           )}

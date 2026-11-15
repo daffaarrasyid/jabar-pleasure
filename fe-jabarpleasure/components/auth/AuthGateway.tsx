@@ -41,17 +41,16 @@ export default function AuthGateway({
         {/* Actions Section */}
         <div className="w-full flex flex-col items-center">
           {/* Section Heading - Balanced & Harmonious */}
-          <h2 className="text-[22px] sm:text-[25px] font-bold text-center text-gray-900 mb-4 tracking-tight font-sans">
+          <h2 className="text-[22px] sm:text-[25px] font-semibold text-center text-gray-900 mb-4 tracking-tight font-sans">
             Sudah punya akun?
           </h2>
 
           {/* Action Buttons Group with Clean Spacing */}
           <div className="flex flex-col gap-2.5 sm:gap-3 w-full">
-            {/* 1. Primary Action: Masuk -> */}
+            {/* 1. Primary Action: Masuk */}
             <Button
               variant="primary"
               onClick={onLoginClick}
-              rightIcon={<span className="text-lg leading-none font-medium">→</span>}
               className="text-base font-semibold shadow-xs"
             >
               Masuk

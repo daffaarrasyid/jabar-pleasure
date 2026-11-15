@@ -28,7 +28,7 @@ import Toast from '@/components/ui/Toast';
 import DestinationDetailModal, { DestinationDetailData } from '@/components/ui/DestinationDetailModal';
 import NotificationSheet from '@/components/notification/NotificationSheet';
 import { getAuthToken, removeAuthToken } from '@/lib/auth';
-import { getUnreadNotificationCount } from '@/lib/api';
+import { getUnreadNotificationCount, getWishlists } from '@/lib/api';
 
 type ScreenState =
   | 'splash'
@@ -59,15 +59,49 @@ export default function Home() {
   const [currentScreen, setCurrentScreen] = useState<ScreenState>('gateway');
   const [previousScreen, setPreviousScreen] = useState<ScreenState>('home');
   const [showSplash, setShowSplash] = useState(true);
-  const [savedWishlistCount, setSavedWishlistCount] = useState<number>(4);
+  const [savedWishlistCount, setSavedWishlistCount] = useState<number>(0);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState<number>(0);
   const [globalDetailDestination, setGlobalDetailDestination] = useState<DestinationDetailData | null>(null);
 
   React.useEffect(() => {
+    let isMounted = true;
+
+    const loadCached = async () => {
+      try {
+        const stored = sessionStorage.getItem('jp_cached_wishlists');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && isMounted) {
+            setSavedWishlistCount(parsed.length);
+          }
+        }
+      } catch {
+        // ignore
+      }
+    };
+    loadCached();
+
     getUnreadNotificationCount()
-      .then((count) => setUnreadNotificationCount(count))
+      .then((count) => {
+        if (isMounted) setUnreadNotificationCount(count);
+      })
       .catch(() => {});
+
+    getWishlists()
+      .then((items) => {
+        if (isMounted) {
+          setSavedWishlistCount(items?.length || 0);
+          if (typeof window !== 'undefined') {
+            sessionStorage.setItem('jp_cached_wishlists', JSON.stringify(items || []));
+          }
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
   const [selectedOrigin, setSelectedOrigin] = useState<string>('Stasiun Bogor');
   const [selectedTrip, setSelectedTrip] = useState<TripItem | undefined>(undefined);

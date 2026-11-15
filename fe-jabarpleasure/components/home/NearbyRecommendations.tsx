@@ -36,25 +36,12 @@ export default function NearbyRecommendations({
   className = '',
 }: NearbyRecommendationsProps) {
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
-  const [destinations, setDestinations] = useState<NearbyItem[]>(() => {
-    if (initialItems && initialItems.length > 0) return initialItems.slice(0, 5);
-    if (typeof window !== 'undefined') {
-      try {
-        const stored = sessionStorage.getItem('jp_cached_nearby');
-        if (stored) return JSON.parse(stored).slice(0, 5);
-      } catch {
-        // ignore
-      }
-    }
-    return [];
-  });
-  const [isLoading, setIsLoading] = useState<boolean>(() => {
-    if (initialItems && initialItems.length > 0) return false;
-    if (typeof window !== 'undefined') {
-      return !sessionStorage.getItem('jp_cached_nearby');
-    }
-    return true;
-  });
+  const [destinations, setDestinations] = useState<NearbyItem[]>(() =>
+    initialItems && initialItems.length > 0 ? initialItems.slice(0, 5) : []
+  );
+  const [isLoading, setIsLoading] = useState<boolean>(
+    !(initialItems && initialItems.length > 0)
+  );
 
   useEffect(() => {
     if (initialItems && initialItems.length > 0) {
@@ -63,6 +50,23 @@ export default function NearbyRecommendations({
 
     let isMounted = true;
     const limit = isExpanded ? 10 : 5;
+    const cacheKey = `jp_cached_nearby_${userCoords?.lat || 'default'}_${userCoords?.lng || 'default'}_${selectedCategory}`;
+
+    const loadCached = async () => {
+      try {
+        const stored = sessionStorage.getItem(cacheKey);
+        if (stored && isMounted) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setDestinations(parsed.slice(0, limit));
+            setIsLoading(false);
+          }
+        }
+      } catch {
+        // ignore
+      }
+    };
+    loadCached();
 
     getNearbyDestinations({
       category: selectedCategory !== 'Semua' ? selectedCategory : undefined,
@@ -94,7 +98,7 @@ export default function NearbyRecommendations({
           setDestinations(mapped);
           if (typeof window !== 'undefined') {
             try {
-              sessionStorage.setItem('jp_cached_nearby', JSON.stringify(mapped));
+              sessionStorage.setItem(cacheKey, JSON.stringify(mapped));
             } catch {
               // ignore
             }

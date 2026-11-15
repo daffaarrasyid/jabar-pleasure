@@ -5,7 +5,6 @@ import dynamic from 'next/dynamic';
 import {
   ArrowLeft,
   ArrowUp,
-  MapPin,
   Navigation,
   CheckCircle2,
   Check,
@@ -93,7 +92,7 @@ export default function ActiveTripScreen({
   onNavigateToMap,
   onNavigateToProfile,
   onNavigateToRiwayat,
-  wishlistCount = 3,
+  wishlistCount = 0,
   className = '',
 }: ActiveTripScreenProps) {
   // Current active destination index (0 = heading to stop 1, 1 = heading to stop 2, etc.)
@@ -261,7 +260,7 @@ export default function ActiveTripScreen({
                 <ArrowUp className="w-6 h-6 stroke-[2.8]" />
               </div>
               <div className="min-w-0 flex-1">
-                <h2 className="text-sm sm:text-base font-bold text-gray-900 truncate">
+                <h2 className="text-sm sm:text-base font-semibold text-gray-900 truncate">
                   Menuju {currentStop.name}
                 </h2>
                 <p className="text-xs text-gray-500 mt-0.5 truncate">
@@ -272,7 +271,7 @@ export default function ActiveTripScreen({
 
             {/* Live Time, Distance, and Travel Mode from Real Road Route */}
             <div className="flex items-center justify-between pt-1">
-              <span className="text-sm font-bold text-[#4941EC]">
+              <span className="text-sm font-semibold text-[#4941EC]">
                 ±{legDurationMinutes} menit · {legDistanceKm} km
               </span>
               <span className="text-xs font-semibold text-gray-600">
@@ -292,7 +291,7 @@ export default function ActiveTripScreen({
             <div className="w-12 h-12 rounded-full bg-[#10B981] text-white flex items-center justify-center shadow-xs">
               <PartyPopper className="w-6 h-6" />
             </div>
-            <h2 className="text-base font-bold text-gray-900">
+            <h2 className="text-base font-semibold text-gray-900">
               Perjalanan Selesai!
             </h2>
             <p className="text-xs text-gray-600 max-w-[280px]">
@@ -379,9 +378,8 @@ export default function ActiveTripScreen({
               <button
                 type="button"
                 onClick={handleArriveAtStop}
-                className="w-full py-3.5 bg-[#4941EC] hover:bg-[#3D35D9] active:scale-[0.99] text-white font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2 shadow-md shadow-[#4941EC]/25 transition-all cursor-pointer"
+                className="w-full py-3.5 bg-[#4941EC] hover:bg-[#3D35D9] active:scale-[0.99] text-white font-semibold text-xs sm:text-sm rounded-xl flex items-center justify-center shadow-md shadow-[#4941EC]/25 transition-all cursor-pointer"
               >
-                <MapPin className="w-4 h-4 stroke-[2.2]" />
                 <span>Tiba di {currentStop.name} (Tujuan {currentStopIndex + 1})</span>
               </button>
 
@@ -389,9 +387,8 @@ export default function ActiveTripScreen({
               <button
                 type="button"
                 onClick={() => setShowEarlyFinishDialog(true)}
-                className="w-full py-3 bg-white hover:bg-emerald-50/70 active:scale-[0.99] border border-emerald-300 text-[#059669] font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2 shadow-2xs transition-all cursor-pointer"
+                className="w-full py-3 bg-white hover:bg-emerald-50/70 active:scale-[0.99] border border-emerald-300 text-[#059669] font-semibold text-xs sm:text-sm rounded-xl flex items-center justify-center shadow-2xs transition-all cursor-pointer"
               >
-                <CheckCircle2 className="w-4 h-4 text-[#10B981] stroke-[2.4]" />
                 <span>
                   Selesai Perjalanan
                   {currentStopIndex > 0
@@ -410,9 +407,8 @@ export default function ActiveTripScreen({
             <button
               type="button"
               onClick={() => (onFinishTrip ? onFinishTrip(waypoints.length) : onBack?.())}
-              className="w-full py-3.5 bg-[#10B981] hover:bg-[#059669] active:scale-[0.99] text-white font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2 shadow-md shadow-[#10B981]/25 transition-all cursor-pointer"
+              className="w-full py-3.5 bg-[#10B981] hover:bg-[#059669] active:scale-[0.99] text-white font-semibold text-xs sm:text-sm rounded-xl flex items-center justify-center shadow-md shadow-[#10B981]/25 transition-all cursor-pointer"
             >
-              <Check className="w-4 h-4 stroke-[3]" />
               <span>Selesai & Simpan ke Riwayat</span>
             </button>
           )}
@@ -427,7 +423,7 @@ export default function ActiveTripScreen({
               <AlertTriangle className="w-5 h-5 stroke-[2.2]" />
             </div>
             <div className="text-center">
-              <h3 className="text-sm font-bold text-gray-900">
+              <h3 className="text-sm font-semibold text-gray-900">
                 Selesaikan Perjalanan Sekarang?
               </h3>
               <p className="text-xs text-gray-500 mt-1 leading-relaxed">
@@ -447,7 +443,7 @@ export default function ActiveTripScreen({
               <button
                 type="button"
                 onClick={handleConfirmEarlyFinish}
-                className="py-2 px-3 rounded-xl bg-[#10B981] hover:bg-[#059669] text-white font-bold text-xs transition-colors cursor-pointer"
+                className="py-2 px-3 rounded-xl bg-[#10B981] hover:bg-[#059669] text-white font-semibold text-xs transition-colors cursor-pointer"
               >
                 Ya, Selesai
               </button>

@@ -80,7 +80,7 @@ export default function TripDetailScreen({
   onNavigateToRencana,
   onNavigateToMap,
   onNavigateToProfile,
-  wishlistCount = 4,
+  wishlistCount = 0,
   className = '',
 }: TripDetailScreenProps) {
   const [currentTrip, setCurrentTrip] = useState<TripItem>(trip);

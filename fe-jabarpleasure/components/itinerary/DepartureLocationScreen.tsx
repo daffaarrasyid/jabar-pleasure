@@ -3,7 +3,6 @@
 import React, { useState } from 'react';
 import {
   ArrowLeft,
-  ArrowRight,
   Search,
   CheckCircle2,
   AlertCircle,
@@ -188,7 +187,7 @@ export default function DepartureLocationScreen({
             <ArrowLeft className="w-5 h-5 stroke-[2.2]" />
           </button>
           <div className="flex-1 min-w-0">
-            <h1 className="text-base sm:text-lg font-bold text-gray-900 tracking-tight">
+            <h1 className="text-base sm:text-lg font-semibold text-gray-900 tracking-tight">
               Titik keberangkatan
             </h1>
             <p className="text-xs text-gray-500 mt-0.5">
@@ -281,11 +280,8 @@ export default function DepartureLocationScreen({
                 type="button"
                 onClick={handleActivateGps}
                 disabled={isActivatingGps}
-                className="w-full py-2.5 bg-white border border-[#4941EC] text-[#4941EC] hover:bg-[#4941EC]/5 active:scale-[0.99] rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer"
+                className="w-full py-2.5 bg-white border border-[#4941EC] text-[#4941EC] hover:bg-[#4941EC]/5 active:scale-[0.99] rounded-xl text-xs font-semibold flex items-center justify-center transition-all cursor-pointer"
               >
-                <Navigation
-                  className={`w-3.5 h-3.5 stroke-[2.4] ${isActivatingGps ? 'animate-spin' : ''}`}
-                />
                 <span>
                   {isActivatingGps ? 'Mendeteksi sinyal GPS...' : 'Aktifkan GPS'}
                 </span>
@@ -637,11 +633,10 @@ export default function DepartureLocationScreen({
           type="button"
           onClick={handleNextStep}
           disabled={!selectedLocation && !searchQuery.trim()}
-          className={`w-full py-3.5 bg-[#4941EC] hover:bg-[#3D35D9] active:scale-[0.99] text-white font-bold text-sm rounded-xl flex items-center justify-center gap-2 shadow-md shadow-[#4941EC]/25 transition-all cursor-pointer mt-4 ${
+          className={`w-full py-3.5 bg-[#4941EC] hover:bg-[#3D35D9] active:scale-[0.99] text-white font-semibold text-sm rounded-xl flex items-center justify-center shadow-md shadow-[#4941EC]/25 transition-all cursor-pointer mt-4 ${
             !selectedLocation && !searchQuery.trim() ? 'opacity-50 cursor-not-allowed' : ''
           }`}
         >
-          <ArrowRight className="w-4 h-4 stroke-[2.5]" />
           <span>Lanjut pilih destinasi</span>
         </button>
       </main>

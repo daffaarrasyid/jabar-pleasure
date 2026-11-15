@@ -2,10 +2,71 @@
 
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { MapPin, Calendar, Plus } from 'lucide-react';
+import { Calendar, MapPin } from 'lucide-react';
 import AppHeader from '@/components/layout/AppHeader';
 import BottomNav, { NavTabId } from '@/components/layout/BottomNav';
 import { getItineraries, ApiItinerary } from '@/lib/api';
+
+function EmptyItineraryVector() {
+  return (
+    <svg
+      width="130"
+      height="110"
+      viewBox="0 0 130 110"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className="drop-shadow-xs"
+    >
+      <defs>
+        <linearGradient id="mapGrad" x1="15" y1="15" x2="115" y2="95" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#EEF2FF" />
+          <stop stopColor="#E0E7FF" />
+        </linearGradient>
+        <linearGradient id="pinGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop stopColor="#6366F1" />
+          <stop stopColor="#4941EC" />
+        </linearGradient>
+      </defs>
+      {/* Folded Map Background */}
+      <path
+        d="M18 24L48 16L82 24L112 16V86L82 94L48 86L18 94V24Z"
+        fill="url(#mapGrad)"
+        stroke="#CBD5E1"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+      {/* Map fold lines */}
+      <path d="M48 16V86" stroke="#94A3B8" strokeWidth="1" strokeDasharray="3 3" />
+      <path d="M82 24V94" stroke="#94A3B8" strokeWidth="1" strokeDasharray="3 3" />
+      
+      {/* Winding Route Path */}
+      <path
+        d="M32 68C38 52 56 60 64 44C72 28 88 40 96 32"
+        stroke="#4941EC"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeDasharray="4 4"
+      />
+      {/* Start Dot */}
+      <circle cx="32" cy="68" r="4.5" fill="#10B981" stroke="white" strokeWidth="1.5" />
+      
+      {/* Mid Waypoint */}
+      <circle cx="64" cy="44" r="3.5" fill="#60CE9F" stroke="white" strokeWidth="1.5" />
+
+      {/* Destination Pin */}
+      <g transform="translate(86, 12)">
+        <path
+          d="M10 0C4.477 0 0 4.477 0 10C0 17 10 26 10 26C10 26 20 17 20 10C20 4.477 15.523 0 10 0Z"
+          fill="url(#pinGrad)"
+        />
+        <circle cx="10" cy="9.5" r="3.5" fill="white" />
+      </g>
+      {/* Sparkles */}
+      <circle cx="108" cy="42" r="2" fill="#F59E0B" />
+      <circle cx="22" cy="14" r="1.5" fill="#60CE9F" />
+    </svg>
+  );
+}
 
 export interface SavedItinerary {
   id: string;
@@ -169,7 +230,7 @@ export default function ItineraryScreen({
       <main className="flex-1 w-full overflow-y-auto overflow-x-hidden no-scrollbar px-5 pt-3 pb-28">
         {/* Page Title & Subtitle matching Image 1 */}
         <div className="mb-4">
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
+          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 tracking-tight">
             Rencana Perjalanan
           </h1>
           <p className="text-xs text-gray-500 mt-1">
@@ -179,7 +240,7 @@ export default function ItineraryScreen({
 
         {/* Section Header: Rencana tersimpan with badge */}
         <div className="flex items-center justify-between mb-3 select-none">
-          <h2 className="text-sm sm:text-base font-bold text-gray-900">
+          <h2 className="text-sm sm:text-base font-semibold text-gray-900">
             Rencana tersimpan
           </h2>
           <span className="bg-[#E6F8F0] text-[#10B981] text-xs font-semibold px-2.5 py-0.5 rounded-lg">
@@ -216,14 +277,12 @@ export default function ItineraryScreen({
           </div>
         )}
 
-        {/* Empty State jika belum ada rencana tersimpan */}
+        {/* Empty State jika belum ada rencana tersimpan (No fill container, 2D vector) */}
         {!isLoading && itineraries.length === 0 && (
-          <div className="bg-white rounded-2xl p-6 border border-gray-100 text-center flex flex-col items-center gap-2.5 mb-4 shadow-2xs">
-            <div className="w-12 h-12 rounded-2xl bg-[#EEF2FF] text-[#4941EC] flex items-center justify-center">
-              <MapPin className="w-6 h-6 stroke-[2]" />
-            </div>
-            <h3 className="text-sm font-bold text-gray-900 mt-1">Belum Ada Rencana Tersimpan</h3>
-            <p className="text-xs text-gray-500 max-w-[260px] leading-relaxed">
+          <div className="py-8 sm:py-12 flex flex-col items-center text-center gap-2.5 mb-4 animate-in fade-in duration-300 select-none">
+            <EmptyItineraryVector />
+            <h3 className="text-base font-semibold text-gray-900 mt-2">Belum Ada Rencana Tersimpan</h3>
+            <p className="text-xs text-gray-500 max-w-[280px] leading-relaxed">
               Mulai rencanakan liburanmu! Pilih titik keberangkatan dan destinasi wisata favorit di Jawa Barat.
             </p>
           </div>
@@ -250,7 +309,7 @@ export default function ItineraryScreen({
                   </div>
 
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-base font-bold text-gray-900 truncate">
+                    <h3 className="text-base font-semibold text-gray-900 truncate">
                       {plan.title}
                     </h3>
                     <div className="mt-1">
@@ -308,13 +367,12 @@ export default function ItineraryScreen({
           </div>
         </div>
 
-        {/* CTA Button: + Buat rencana */}
+        {/* CTA Button: Buat rencana */}
         <button
           type="button"
           onClick={onCreatePlan}
-          className="w-full py-3.5 bg-[#4941EC] hover:bg-[#3D35D9] active:scale-[0.99] text-white font-bold text-sm rounded-xl flex items-center justify-center gap-2 shadow-md shadow-[#4941EC]/25 transition-all cursor-pointer"
+          className="w-full py-3.5 bg-[#4941EC] hover:bg-[#3D35D9] active:scale-[0.99] text-white font-semibold text-sm rounded-xl flex items-center justify-center shadow-md shadow-[#4941EC]/25 transition-all cursor-pointer"
         >
-          <Plus className="w-4 h-4 stroke-[2.5]" />
           <span>Buat rencana</span>
         </button>
       </main>

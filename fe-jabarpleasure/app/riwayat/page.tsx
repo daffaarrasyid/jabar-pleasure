@@ -7,6 +7,7 @@ import MobileShell from '@/components/layout/MobileShell';
 import { TripItem, DestinationItem } from '@/components/history/historyData';
 import Toast from '@/components/ui/Toast';
 import { getItineraries } from '@/lib/api';
+import { getAuthToken, removeAuthToken } from '@/lib/auth';
 
 const TripHistoryScreen = dynamic(() => import('@/components/history/TripHistoryScreen'), { ssr: false });
 const TripDetailScreen = dynamic(() => import('@/components/history/TripDetailScreen'), { ssr: false });
@@ -23,7 +24,7 @@ export default function RiwayatPage() {
   >('trip-history');
 
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
-  const [favoritCount] = useState<number>(4);
+  const [favoritCount, setFavoritCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // History trips persistent in local storage
@@ -31,6 +32,14 @@ export default function RiwayatPage() {
 
   const [selectedTrip, setSelectedTrip] = useState<TripItem | null>(null);
   const [selectedDestination, setSelectedDestination] = useState<DestinationItem | null>(null);
+
+  useEffect(() => {
+    const token = getAuthToken();
+    if (!token) {
+      removeAuthToken();
+      router.replace('/auth');
+    }
+  }, [router]);
 
   const showToast = (message: string, type: 'success' | 'info' | 'error' = 'info') => {
     setToast({ message, type });
@@ -46,6 +55,16 @@ export default function RiwayatPage() {
     const loadHistory = async () => {
       // 1. Read cached trips from localStorage on client mount
       if (typeof window !== 'undefined') {
+        try {
+          const storedWishlist = sessionStorage.getItem('jp_cached_wishlists');
+          if (storedWishlist) {
+            const parsedW = JSON.parse(storedWishlist);
+            if (Array.isArray(parsedW) && !isCancelled) setFavoritCount(parsedW.length);
+          }
+        } catch {
+          // ignore
+        }
+
         try {
           const stored = localStorage.getItem('jabarpleasure_trip_history');
           if (stored) {

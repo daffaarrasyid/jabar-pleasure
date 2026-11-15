@@ -45,7 +45,8 @@ class PoiSubmissionController extends Controller
             'opening_hours' => 'nullable|string|max:100',
             'latitude' => 'required|numeric|between:-11.0,6.0',
             'longitude' => 'required|numeric|between:95.0,141.0',
-            'evidence_image' => 'nullable|string|max:255',
+            'evidence_image' => 'nullable|string|max:500',
+            'image' => 'nullable|image|max:2048',
         ]);
 
         // Resolve category
@@ -74,6 +75,12 @@ class PoiSubmissionController extends Controller
         $lng = (float) $validated['longitude'];
         $lat = (float) $validated['latitude'];
 
+        $evidenceImage = $validated['evidence_image'] ?? null;
+        if ($request->hasFile('image')) {
+            $path = $request->file('image')->store('submissions', 'public');
+            $evidenceImage = "/storage/{$path}";
+        }
+
         $submission = new PoiSubmission();
         $submission->user_id = $user->id;
         $submission->category_id = $categoryId;
@@ -82,7 +89,7 @@ class PoiSubmissionController extends Controller
         $submission->description = $validated['description'] ?? "Destinasi diajukan oleh pengguna {$user->name}";
         $submission->price_range = $validated['price_range'] ?? 'Gratis / Menyesuaikan';
         $submission->opening_hours = $validated['opening_hours'] ?? 'Setiap Hari';
-        $submission->evidence_image = $validated['evidence_image'] ?? null;
+        $submission->evidence_image = $evidenceImage;
         $submission->status = 'pending';
         $submission->proposed_location = DB::raw("ST_SetSRID(ST_MakePoint({$lng}, {$lat}), 4326)");
         $submission->save();

@@ -11,6 +11,7 @@ import NearbyResultsSheet, { NearbyDestination } from '@/components/map/NearbyRe
 import { MarkerData } from '@/components/map/WebGisMap';
 import { getNearbyDestinations, searchDestinations, ApiDestination, createItinerary, ApiItinerary } from '@/lib/api';
 import { fetchRoadRoute } from '@/lib/routing';
+import { getStoredUserLocation, setStoredUserLocation } from '@/lib/locationStorage';
 
 // Dynamic import with SSR disabled for Leaflet WebGIS Map
 const WebGisMap = dynamic(() => import('@/components/map/WebGisMap'), {
@@ -75,10 +76,20 @@ export default function MapScreen({
   className = '',
 }: MapScreenProps) {
   // 1. Geolocation & User Coordinates State
-  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
-  const [locationMode, setLocationMode] = useState<'gps' | 'manual'>('gps');
-  const [activeLocationName, setActiveLocationName] = useState<string>('Kota Bandung');
-  const [mapCenter, setMapCenter] = useState<[number, number]>(DEFAULT_CENTER);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(() => {
+    const loc = getStoredUserLocation();
+    return { lat: loc.lat, lng: loc.lng };
+  });
+  const [locationMode, setLocationMode] = useState<'gps' | 'manual'>(() => {
+    return getStoredUserLocation().mode;
+  });
+  const [activeLocationName, setActiveLocationName] = useState<string>(() => {
+    return getStoredUserLocation().name;
+  });
+  const [mapCenter, setMapCenter] = useState<[number, number]>(() => {
+    const loc = getStoredUserLocation();
+    return [loc.lat, loc.lng];
+  });
   const [zoomLevel, setZoomLevel] = useState<number>(13);
   const [isOutsideJabar, setIsOutsideJabar] = useState<boolean>(false);
   const [isGpsDenied, setIsGpsDenied] = useState<boolean>(false);
@@ -242,6 +253,13 @@ export default function MapScreen({
         setLocationAlertDismissed(true);
         setIsLocationModalOpen(false);
 
+        setStoredUserLocation({
+          name: 'Lokasi GPS Anda',
+          lat: latitude,
+          lng: longitude,
+          mode: 'gps',
+        });
+
         fetchDestinationsData(latitude, longitude, radius, selectedCategory, searchQuery);
       } else {
         // Pengguna terdeteksi di luar Jawa Barat
@@ -273,13 +291,23 @@ export default function MapScreen({
 
       setIsOutsideJabar(false);
       setLocationMode('manual');
-      setActiveLocationName('Kota Bandung (Acuan Jabar)');
-      const fallbackLoc = { lat: DEFAULT_CENTER[0], lng: DEFAULT_CENTER[1] };
-      setUserLocation(fallbackLoc);
-      setMapCenter(DEFAULT_CENTER);
-      setZoomLevel(12);
 
-      fetchDestinationsData(DEFAULT_CENTER[0], DEFAULT_CENTER[1], radius, selectedCategory, searchQuery);
+      // Do not wipe user's chosen manual city to Bandung if one was already chosen
+      const saved = getStoredUserLocation();
+      if (saved.name && saved.name !== 'Lokasi GPS Anda') {
+        setActiveLocationName(saved.name);
+        setUserLocation({ lat: saved.lat, lng: saved.lng });
+        setMapCenter([saved.lat, saved.lng]);
+        setZoomLevel(13);
+        fetchDestinationsData(saved.lat, saved.lng, radius, selectedCategory, searchQuery);
+      } else {
+        setActiveLocationName('Kota Bandung (Acuan Jabar)');
+        const fallbackLoc = { lat: DEFAULT_CENTER[0], lng: DEFAULT_CENTER[1] };
+        setUserLocation(fallbackLoc);
+        setMapCenter(DEFAULT_CENTER);
+        setZoomLevel(12);
+        fetchDestinationsData(DEFAULT_CENTER[0], DEFAULT_CENTER[1], radius, selectedCategory, searchQuery);
+      }
     },
     [fetchDestinationsData, radius, searchQuery, selectedCategory]
   );
@@ -291,9 +319,10 @@ export default function MapScreen({
     if (!('geolocation' in navigator)) {
       setIsGpsDenied(true);
       setLocationMode('manual');
-      setActiveLocationName('Kota Bandung (Manual)');
-      setUserLocation({ lat: DEFAULT_CENTER[0], lng: DEFAULT_CENTER[1] });
-      fetchDestinationsData(DEFAULT_CENTER[0], DEFAULT_CENTER[1], radius, selectedCategory, searchQuery);
+      const saved = getStoredUserLocation();
+      setActiveLocationName(saved.name || 'Kota Bandung');
+      setUserLocation({ lat: saved.lat, lng: saved.lng });
+      fetchDestinationsData(saved.lat, saved.lng, radius, selectedCategory, searchQuery);
       return;
     }
 
@@ -339,9 +368,17 @@ export default function MapScreen({
     );
   }, [fetchDestinationsData, handleGpsFailure, handleGpsSuccess, radius, searchQuery, selectedCategory]);
 
-  // Inisialisasi awal saat load
+  // Inisialisasi awal saat load: hormati pilihan lokasi yang tersimpan
   useEffect(() => {
-    requestDeviceGpsLocation();
+    const initLocation = async () => {
+      const loc = getStoredUserLocation();
+      if (loc.mode === 'gps') {
+        requestDeviceGpsLocation();
+      } else {
+        fetchDestinationsData(loc.lat, loc.lng, radius, selectedCategory, searchQuery);
+      }
+    };
+    initLocation();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Handler memilih opsi "Gunakan Lokasi Saat Ini (GPS)" dari Modal
@@ -362,6 +399,14 @@ export default function MapScreen({
     setIsGpsDenied(false);
     setIsLocationModalOpen(false);
     setLocationAlertDismissed(true);
+
+    setStoredUserLocation({
+      name: city.name,
+      lat: city.lat,
+      lng: city.lng,
+      mode: 'manual',
+      regency: city.name,
+    });
 
     fetchDestinationsData(city.lat, city.lng, radius, selectedCategory, searchQuery);
   };
@@ -396,6 +441,14 @@ export default function MapScreen({
         setIsGpsDenied(false);
         setIsLocationModalOpen(false);
         setLocationAlertDismissed(true);
+
+        setStoredUserLocation({
+          name: query,
+          lat,
+          lng,
+          mode: 'manual',
+          regency: query,
+        });
 
         fetchDestinationsData(lat, lng, radius, selectedCategory, searchQuery);
       } else {
@@ -588,9 +641,12 @@ export default function MapScreen({
         isCancelled = true;
       };
     } else {
-      setRoadRouteCoords(undefined);
-      setRoadGeoJson(null);
-      setRoadDistanceKm(0);
+      const resetRouting = async () => {
+        setRoadRouteCoords(undefined);
+        setRoadGeoJson(null);
+        setRoadDistanceKm(0);
+      };
+      resetRouting();
     }
   }, [userLocation, mapCenter, selectedDestIds, activeDestinationId, destinations]);
 

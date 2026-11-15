@@ -5,9 +5,6 @@ import dynamic from 'next/dynamic';
 import {
   ArrowLeft,
   Pencil,
-  Trash2,
-  Bookmark,
-  Navigation,
   GripVertical,
   Check,
   AlertTriangle,
@@ -105,7 +102,7 @@ export default function ItinerarySummaryScreen({
   onNavigateToMap,
   onNavigateToProfile,
   onNavigateToRiwayat,
-  wishlistCount = 3,
+  wishlistCount = 0,
   className = '',
 }: ItinerarySummaryScreenProps) {
   const [title, setTitle] = useState(planTitle);
@@ -218,7 +215,7 @@ export default function ItinerarySummaryScreen({
             <ArrowLeft className="w-5 h-5 stroke-[2.2]" />
           </button>
           <div className="flex-1 min-w-0">
-            <h1 className="text-base sm:text-lg font-bold text-gray-900 tracking-tight">
+            <h1 className="text-base sm:text-lg font-semibold text-gray-900 tracking-tight">
               Ringkasan rencana
             </h1>
             <p className="text-xs text-gray-500 mt-0.5">
@@ -241,7 +238,7 @@ export default function ItinerarySummaryScreen({
             <span className="text-xs font-medium text-gray-400">
               Destinasi
             </span>
-            <span className="text-xs font-bold text-[#4941EC]">
+            <span className="text-xs font-semibold text-[#4941EC]">
               Ringkasan
             </span>
           </div>
@@ -397,9 +394,8 @@ export default function ItinerarySummaryScreen({
           <button
             type="button"
             onClick={onEditDestinations || onBack}
-            className="py-2.5 px-3 bg-white hover:bg-gray-50 border border-[#4941EC] text-[#4941EC] font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+            className="py-2.5 px-3 bg-white hover:bg-gray-50 border border-[#4941EC] text-[#4941EC] font-semibold text-xs rounded-xl flex items-center justify-center transition-colors cursor-pointer shadow-2xs"
           >
-            <Pencil className="w-3.5 h-3.5 stroke-[2.2]" />
             <span>Edit destinasi</span>
           </button>
 
@@ -407,9 +403,8 @@ export default function ItinerarySummaryScreen({
           <button
             type="button"
             onClick={() => setShowDeleteModal(true)}
-            className="py-2.5 px-3 bg-white hover:bg-red-50 border-2 border-red-500 text-red-600 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+            className="py-2.5 px-3 bg-white hover:bg-red-50 border-2 border-red-500 text-red-600 font-semibold text-xs rounded-xl flex items-center justify-center transition-colors cursor-pointer shadow-2xs"
           >
-            <Trash2 className="w-3.5 h-3.5 stroke-[2.2]" />
             <span>Hapus perjalanan</span>
           </button>
         </div>
@@ -420,9 +415,8 @@ export default function ItinerarySummaryScreen({
           <button
             type="button"
             onClick={() => onSaveTrip?.(title, routeList)}
-            className="w-full py-3 bg-white hover:bg-gray-50 border-2 border-[#4941EC] text-[#4941EC] font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs active:scale-[0.99]"
+            className="w-full py-3 bg-white hover:bg-gray-50 border-2 border-[#4941EC] text-[#4941EC] font-semibold text-xs sm:text-sm rounded-xl flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-[0.99]"
           >
-            <Bookmark className="w-4 h-4 stroke-[2.2]" />
             <span>Simpan perjalanan</span>
           </button>
 
@@ -430,9 +424,8 @@ export default function ItinerarySummaryScreen({
           <button
             type="button"
             onClick={onStartTrip}
-            className="w-full py-3.5 bg-[#4941EC] hover:bg-[#3D35D9] active:scale-[0.99] text-white font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2 shadow-md shadow-[#4941EC]/25 transition-all cursor-pointer"
+            className="w-full py-3.5 bg-[#4941EC] hover:bg-[#3D35D9] active:scale-[0.99] text-white font-semibold text-xs sm:text-sm rounded-xl flex items-center justify-center shadow-md shadow-[#4941EC]/25 transition-all cursor-pointer"
           >
-            <Navigation className="w-4 h-4 fill-white stroke-[1.5]" />
             <span>Lakukan perjalanan</span>
           </button>
 
@@ -450,7 +443,7 @@ export default function ItinerarySummaryScreen({
               <AlertTriangle className="w-5 h-5 stroke-[2.2]" />
             </div>
             <div className="text-center">
-              <h3 className="text-sm font-bold text-gray-900">
+              <h3 className="text-sm font-semibold text-gray-900">
                 Hapus Rencana Perjalanan?
               </h3>
               <p className="text-xs text-gray-500 mt-1 leading-relaxed">
@@ -471,7 +464,7 @@ export default function ItinerarySummaryScreen({
                   setShowDeleteModal(false);
                   onDeleteTrip?.();
                 }}
-                className="py-2 px-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs transition-colors cursor-pointer"
+                className="py-2 px-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-semibold text-xs transition-colors cursor-pointer"
               >
                 Ya, Hapus
               </button>

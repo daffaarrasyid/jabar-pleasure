@@ -20,7 +20,7 @@ import { TripItem, DestinationItem } from '@/components/history/historyData';
 import Toast from '@/components/ui/Toast';
 import DestinationDetailModal, { DestinationDetailData } from '@/components/ui/DestinationDetailModal';
 import { getAuthToken, removeAuthToken } from '@/lib/auth';
-import { createItinerary, deleteItinerary } from '@/lib/api';
+import { createItinerary, deleteItinerary, getWishlists } from '@/lib/api';
 
 type HomeScreenState =
   | 'home'
@@ -63,7 +63,49 @@ function HomeContent() {
   const setCurrentScreen = (s: HomeScreenState) => setScreenOverride(s);
 
   const [previousScreen, setPreviousScreen] = useState<HomeScreenState>('home');
-  const [savedWishlistCount, setSavedWishlistCount] = useState<number>(4);
+  const [savedWishlistCount, setSavedWishlistCount] = useState<number>(0);
+
+  React.useEffect(() => {
+    const token = getAuthToken();
+    if (!token) {
+      removeAuthToken();
+      router.replace('/auth');
+    }
+  }, [router]);
+
+  React.useEffect(() => {
+    let isMounted = true;
+
+    const loadCached = async () => {
+      try {
+        const stored = sessionStorage.getItem('jp_cached_wishlists');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && isMounted) {
+            setSavedWishlistCount(parsed.length);
+          }
+        }
+      } catch {
+        // ignore
+      }
+    };
+    loadCached();
+
+    getWishlists()
+      .then((items) => {
+        if (!isMounted) return;
+        const count = items?.length || 0;
+        setSavedWishlistCount(count);
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem('jp_cached_wishlists', JSON.stringify(items || []));
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
   const [globalDetailDestination, setGlobalDetailDestination] = useState<DestinationDetailData | null>(null);
   const [selectedOrigin, setSelectedOrigin] = useState<string>('Stasiun Bogor');
   const [selectedDepartureLoc, setSelectedDepartureLoc] = useState<{
@@ -81,22 +123,24 @@ function HomeContent() {
   });
   const [activeItinerary, setActiveItinerary] = useState<any>(null);
   const [formDestinations, setFormDestinations] = useState<any[]>([]);
-  const [historyTrips, setHistoryTrips] = useState<TripItem[]>(() => {
-    if (typeof window !== 'undefined') {
+  const [historyTrips, setHistoryTrips] = useState<TripItem[]>([]);
+
+  React.useEffect(() => {
+    const loadStoredHistory = async () => {
       try {
         const stored = localStorage.getItem('jabarpleasure_trip_history');
         if (stored) {
           const parsed = JSON.parse(stored);
           if (Array.isArray(parsed)) {
-            return parsed.filter((item: TripItem) => item.id !== 'bandung-trip');
+            setHistoryTrips(parsed.filter((item: TripItem) => item.id !== 'bandung-trip'));
           }
         }
       } catch (e) {
         console.warn('Error reading trip history from storage:', e);
       }
-    }
-    return [];
-  });
+    };
+    loadStoredHistory();
+  }, []);
   const [tripStartTime, setTripStartTime] = useState<string>('');
   const [selectedTrip, setSelectedTrip] = useState<TripItem | undefined>(undefined);
   const [selectedDestination, setSelectedDestination] = useState<DestinationItem | undefined>(undefined);
@@ -167,18 +211,22 @@ function HomeContent() {
       ? `Trip Seru di ${selectedOrigin}`
       : 'Sehari di Bogor');
 
-  // Synchronously load logged-in user profile from localStorage
-  const [userProfile, setUserProfile] = useState<UserProfileData | null>(() => {
-    if (typeof window !== 'undefined') {
+  // Asynchronously load logged-in user profile from localStorage after mount
+  const [userProfile, setUserProfile] = useState<UserProfileData | null>(null);
+
+  React.useEffect(() => {
+    const loadUser = async () => {
       try {
         const stored = localStorage.getItem('user');
-        if (stored) return JSON.parse(stored);
+        if (stored) {
+          setUserProfile(JSON.parse(stored));
+        }
       } catch {
         // ignore
       }
-    }
-    return null;
-  });
+    };
+    loadUser();
+  }, []);
 
   const showToast = (
     message: string,

@@ -28,6 +28,17 @@ Route::post('/user/preferences', [AuthController::class, 'savePreferences']);
 
 /*
 |--------------------------------------------------------------------------
+| Public Destination Endpoints (Visitor & Authenticated)
+|--------------------------------------------------------------------------
+*/
+Route::get('/destinations', [DestinationController::class, 'index']);
+Route::get('/destinations/featured', [DestinationController::class, 'featured']);
+Route::get('/destinations/nearby', [DestinationController::class, 'nearby']);
+Route::get('/destinations/search', [DestinationController::class, 'search']);
+Route::get('/destinations/{slug}', [DestinationController::class, 'show']);
+
+/*
+|--------------------------------------------------------------------------
 | Profile & Protected Routes (Sanctum Authenticated)
 |--------------------------------------------------------------------------
 */
@@ -53,17 +64,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/profile', [ProfileController::class, 'update']);
     Route::put('/profile', [ProfileController::class, 'update']);
     Route::put('/profile/password', [ProfileController::class, 'updatePassword']);
-
-    /*
-    |--------------------------------------------------------------------------
-    | Destination Endpoints (Authenticated)
-    |--------------------------------------------------------------------------
-    */
-    Route::get('/destinations', [DestinationController::class, 'index']);
-    Route::get('/destinations/featured', [DestinationController::class, 'featured']);
-    Route::get('/destinations/nearby', [DestinationController::class, 'nearby']);
-    Route::get('/destinations/search', [DestinationController::class, 'search']);
-    Route::get('/destinations/{slug}', [DestinationController::class, 'show']);
 
     /*
     |--------------------------------------------------------------------------

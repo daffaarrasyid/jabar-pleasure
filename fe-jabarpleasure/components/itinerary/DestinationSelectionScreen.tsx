@@ -6,12 +6,9 @@ import {
   ArrowLeft,
   Search,
   Plus,
-  Check,
   CheckCircle2,
-  Heart,
   MapPin,
   Users,
-  SlidersHorizontal,
   X,
   Loader2,
 } from 'lucide-react';
@@ -132,7 +129,7 @@ export default function DestinationSelectionScreen({
   onNavigateToMap,
   onNavigateToProfile,
   onNavigateToRiwayat,
-  wishlistCount = 3,
+  wishlistCount = 0,
   initialMode = 'popular',
   className = '',
 }: DestinationSelectionScreenProps) {
@@ -494,7 +491,7 @@ export default function DestinationSelectionScreen({
             <ArrowLeft className="w-5 h-5 stroke-[2.2]" />
           </button>
           <div className="flex-1 min-w-0">
-            <h1 className="text-base sm:text-lg font-bold text-gray-900 tracking-tight">
+            <h1 className="text-base sm:text-lg font-semibold text-gray-900 tracking-tight">
               {isMauKemanaLagi ? 'Mau ke mana lagi?' : 'Pilih destinasi'}
             </h1>
             <p className="text-xs text-gray-500 mt-0.5">
@@ -980,9 +977,8 @@ export default function DestinationSelectionScreen({
             <button
               type="button"
               onClick={() => onFinishSelection?.(selectedDestinations)}
-              className="w-full py-3.5 bg-[#4941EC] hover:bg-[#3D35D9] active:scale-[0.99] text-white font-bold text-sm rounded-xl flex items-center justify-center gap-2 shadow-md shadow-[#4941EC]/25 transition-all cursor-pointer"
+              className="w-full py-3.5 bg-[#4941EC] hover:bg-[#3D35D9] active:scale-[0.99] text-white font-semibold text-sm rounded-xl flex items-center justify-center shadow-md shadow-[#4941EC]/25 transition-all cursor-pointer"
             >
-              <Check className="w-4 h-4 stroke-[2.5]" />
               <span>Selesai memilih</span>
             </button>
           </div>

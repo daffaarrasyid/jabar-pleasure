@@ -91,24 +91,35 @@ export default function ProfileScreen({
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   // Notification toggle state (synced with DB user.notifications_enabled)
-  const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('jabarpleasure_notifications_enabled');
-      return saved !== 'false';
-    }
-    return true;
-  });
+  const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(true);
 
   useEffect(() => {
-    if (typeof currentUser?.notifications_enabled === 'boolean') {
-      setNotificationsEnabled(currentUser.notifications_enabled);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(
-          'jabarpleasure_notifications_enabled',
-          String(currentUser.notifications_enabled)
-        );
+    const loadPref = async () => {
+      try {
+        const saved = localStorage.getItem('jabarpleasure_notifications_enabled');
+        if (saved !== null) {
+          setNotificationsEnabled(saved !== 'false');
+        }
+      } catch {
+        // ignore
       }
-    }
+    };
+    loadPref();
+  }, []);
+
+  useEffect(() => {
+    const syncPref = async () => {
+      if (typeof currentUser?.notifications_enabled === 'boolean') {
+        setNotificationsEnabled(currentUser.notifications_enabled);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(
+            'jabarpleasure_notifications_enabled',
+            String(currentUser.notifications_enabled)
+          );
+        }
+      }
+    };
+    syncPref();
   }, [currentUser?.notifications_enabled]);
 
   const showToast = (msg: string) => {

@@ -138,7 +138,7 @@ export default function TripShowcaseScreen({
   onNavigateToRencana,
   onNavigateToMap,
   onNavigateToProfile,
-  wishlistCount = 4,
+  wishlistCount = 0,
   className = '',
 }: TripShowcaseScreenProps) {
   const [isPlaying, setIsPlaying] = useState(false);

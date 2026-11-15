@@ -12,6 +12,7 @@ import ActiveTripScreen from '@/components/itinerary/ActiveTripScreen';
 import { TripItem } from '@/components/history/historyData';
 import Toast from '@/components/ui/Toast';
 import { createItinerary, deleteItinerary, completeItinerary } from '@/lib/api';
+import { getAuthToken, removeAuthToken } from '@/lib/auth';
 
 export default function RencanaPage() {
   const router = useRouter();
@@ -24,26 +25,46 @@ export default function RencanaPage() {
     | 'active-trip'
   >('itinerary');
 
-  const [favoritCount] = useState<number>(4);
+  const [favoritCount, setFavoritCount] = useState<number>(0);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
 
   // History trips persistent in local storage
-  const [, setHistoryTrips] = useState<TripItem[]>(() => {
-    if (typeof window !== 'undefined') {
+  const [, setHistoryTrips] = useState<TripItem[]>([]);
+
+  useEffect(() => {
+    const token = getAuthToken();
+    if (!token) {
+      removeAuthToken();
+      router.replace('/auth');
+    }
+  }, [router]);
+
+  useEffect(() => {
+    const loadData = async () => {
       try {
-        const stored = localStorage.getItem('jabarpleasure_trip_history');
+        const stored = sessionStorage.getItem('jp_cached_wishlists');
         if (stored) {
           const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) setFavoritCount(parsed.length);
+        }
+      } catch {
+        // ignore
+      }
+
+      try {
+        const storedHistory = localStorage.getItem('jabarpleasure_trip_history');
+        if (storedHistory) {
+          const parsed = JSON.parse(storedHistory);
           if (Array.isArray(parsed)) {
-            return parsed.filter((item: TripItem) => item.id !== 'bandung-trip');
+            setHistoryTrips(parsed.filter((item: TripItem) => item.id !== 'bandung-trip'));
           }
         }
       } catch (e) {
         console.warn('Error reading trip history from storage:', e);
       }
-    }
-    return [];
-  });
+    };
+    loadData();
+  }, []);
 
   const [activeItinerary, setActiveItinerary] = useState<any>(null);
   const [draftTitle, setDraftTitle] = useState<string>('');
@@ -67,28 +88,31 @@ export default function RencanaPage() {
 
   // Deteksi draft rencana perjalanan dari halaman Map (jika diarahkan dari Maps)
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      const draftRaw = sessionStorage.getItem('jabarpleasure_draft_itinerary');
-      if (draftRaw) {
-        const draft = JSON.parse(draftRaw);
-        sessionStorage.removeItem('jabarpleasure_draft_itinerary');
-        if (draft.origin) {
-          setFormDeparture(draft.origin);
+    const loadDraft = async () => {
+      if (typeof window === 'undefined') return;
+      try {
+        const draftRaw = sessionStorage.getItem('jabarpleasure_draft_itinerary');
+        if (draftRaw) {
+          const draft = JSON.parse(draftRaw);
+          sessionStorage.removeItem('jabarpleasure_draft_itinerary');
+          if (draft.origin) {
+            setFormDeparture(draft.origin);
+          }
+          if (draft.destinations && Array.isArray(draft.destinations)) {
+            setFormDestinations(draft.destinations);
+          }
+          if (draft.title) {
+            setDraftTitle(draft.title);
+          }
+          // Pastikan belum tersimpan ke database sampai user mengklik 'Simpan perjalanan'
+          setActiveItinerary(null);
+          setCurrentScreen('itinerary-summary');
         }
-        if (draft.destinations && Array.isArray(draft.destinations)) {
-          setFormDestinations(draft.destinations);
-        }
-        if (draft.title) {
-          setDraftTitle(draft.title);
-        }
-        // Pastikan belum tersimpan ke database sampai user mengklik 'Simpan perjalanan'
-        setActiveItinerary(null);
-        setCurrentScreen('itinerary-summary');
+      } catch (err) {
+        console.warn('Error reading draft itinerary from storage:', err);
       }
-    } catch (err) {
-      console.warn('Error reading draft itinerary from storage:', err);
-    }
+    };
+    loadDraft();
   }, []);
 
   const showToast = (message: string, type: 'success' | 'info' | 'error' = 'info') => {
