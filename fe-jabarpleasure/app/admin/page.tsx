@@ -8,6 +8,8 @@ import AdminOverview from '@/components/admin/AdminOverview';
 import AdminPoiManagement from '@/components/admin/AdminPoiManagement';
 import AdminSubmissionManagement from '@/components/admin/AdminSubmissionManagement';
 import AdminFeedbackManagement from '@/components/admin/AdminFeedbackManagement';
+import AdminUserManagement from '@/components/admin/AdminUserManagement';
+import AdminMediaModeration from '@/components/admin/AdminMediaModeration';
 import { getAdminSession, removeAdminSession, isAdminAuthenticated } from '@/lib/auth';
 import { Construction } from 'lucide-react';
 
@@ -104,16 +106,20 @@ export default function AdminDashboardPage() {
           {activeTab === 'poi' && <AdminPoiManagement />}
           {activeTab === 'pengajuan' && <AdminSubmissionManagement />}
           {activeTab === 'saran' && <AdminFeedbackManagement />}
+          {activeTab === 'akun' && <AdminUserManagement />}
+          {activeTab === 'moderasi' && <AdminMediaModeration />}
           {activeTab !== 'overview' &&
             activeTab !== 'poi' &&
             activeTab !== 'pengajuan' &&
-            activeTab !== 'saran' && (
+            activeTab !== 'saran' &&
+            activeTab !== 'akun' &&
+            activeTab !== 'moderasi' && (
             <div className="bg-white rounded-2xl border border-gray-100 p-8 sm:p-12 text-center shadow-xs">
               <div className="w-14 h-14 rounded-2xl bg-[#EEF0FF] text-[#4941EC] flex items-center justify-center mx-auto mb-4">
                 <Construction className="w-7 h-7" />
               </div>
               <h2 className="text-base sm:text-lg font-semibold text-gray-900 tracking-tight">
-                Menu {activeTab.toUpperCase()} Sedang Dipersiapkan
+                Menu {String(activeTab).toUpperCase()} Sedang Dipersiapkan
               </h2>
               <p className="text-xs sm:text-sm text-gray-500 mt-1.5 max-w-md mx-auto">
                 Halaman ini difokuskan pada tahap tampilan antarmuka (frontend). Anda dapat kembali ke menu Overview & Analitik atau POI Destinasi.
