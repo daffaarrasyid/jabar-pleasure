@@ -41,10 +41,10 @@ export default function InspectionModal({
         {/* Header */}
         <div className="flex items-center justify-between p-4 sm:p-5 border-b border-gray-100 bg-gray-50/50">
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#4941EC] bg-[#EEF0FF] px-2 py-0.5 rounded-md">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-[#4941EC] bg-[#EEF0FF] px-2 py-0.5 rounded-md">
               Validasi POI Pengguna
             </span>
-            <h3 className="text-base font-bold text-gray-900 mt-1">
+            <h3 className="text-base font-semibold text-gray-900 mt-1">
               Tinjau Pengajuan: {submission.name}
             </h3>
           </div>
@@ -83,7 +83,7 @@ export default function InspectionModal({
               <Tag className="w-4 h-4 text-[#4941EC]" />
               Kategori Wisata:
             </span>
-            <span className="font-bold text-[#4941EC] bg-[#EEF0FF] px-2.5 py-1 rounded-lg text-xs">
+            <span className="font-semibold text-[#4941EC] bg-[#EEF0FF] px-2.5 py-1 rounded-lg text-xs">
               {submission.category}
             </span>
           </div>
@@ -122,7 +122,7 @@ export default function InspectionModal({
           <button
             type="button"
             onClick={() => onReject(submission.id)}
-            className="px-4 py-2 rounded-xl text-xs font-bold text-red-600 hover:bg-red-50 border border-red-200 transition-colors flex items-center gap-1.5 cursor-pointer"
+            className="px-4 py-2 rounded-xl text-xs font-semibold text-red-600 hover:bg-red-50 border border-red-200 transition-colors flex items-center gap-1.5 cursor-pointer"
           >
             <Trash2 className="w-3.5 h-3.5" />
             <span>Tolak Pengajuan</span>
@@ -131,7 +131,7 @@ export default function InspectionModal({
           <button
             type="button"
             onClick={() => onApprove(submission.id)}
-            className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-[#60CE9F] hover:bg-[#4EB789] transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+            className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-[#60CE9F] hover:bg-[#4EB789] transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
           >
             <Check className="w-3.5 h-3.5 stroke-[2.5]" />
             <span>Setujui & Publikasikan POI</span>
