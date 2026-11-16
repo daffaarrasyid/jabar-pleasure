@@ -621,7 +621,7 @@ export default function DestinationSelectionScreen({
                   <Flag className="w-4 h-4 stroke-[2.2]" />
                 </div>
                 <div className="min-w-0">
-                  <span className="text-[10px] uppercase font-bold text-emerald-600 tracking-wider">
+                  <span className="text-[10px] font-semibold text-emerald-600">
                     Titik Awal Keberangkatan
                   </span>
                   <p className="text-xs sm:text-sm font-bold text-gray-900 truncate">

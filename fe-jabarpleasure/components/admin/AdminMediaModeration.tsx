@@ -1,24 +1,28 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
+import Image from 'next/image';
 import {
-  FolderArchive,
-  CheckCircle2,
-  Trash2,
-  Film,
   Search,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
   X,
-  MapPin,
-  ExternalLink,
-  Calendar,
-  Image as ImageIcon,
-  Video,
-  AlertTriangle,
+  Check,
+  CheckCircle2,
+  AlertCircle,
+  ShieldAlert,
+  Eye,
+  Trash2,
+  Film,
+  Camera,
+  Layers,
+  Clock,
 } from 'lucide-react';
 
+/* -------------------------------------------------------------------------- */
+/*                                ANIMATED NUMBER                             */
+/* -------------------------------------------------------------------------- */
 interface AnimatedNumberProps {
   value: number;
   duration?: number;
@@ -27,7 +31,7 @@ interface AnimatedNumberProps {
 
 function AnimatedNumber({
   value,
-  duration = 1400,
+  duration = 1200,
   formatDot = true,
 }: AnimatedNumberProps) {
   const [displayValue, setDisplayValue] = useState<number>(0);
@@ -41,7 +45,6 @@ function AnimatedNumber({
       const elapsed = timestamp - startTimestamp;
       const progress = Math.min(elapsed / duration, 1);
 
-      // Smooth ease-out cubic
       const easeProgress = 1 - Math.pow(1 - progress, 3);
       const current = Math.round(easeProgress * value);
 
@@ -66,140 +69,227 @@ function AnimatedNumber({
   return <>{formatted}</>;
 }
 
-export type MediaModerationStatus = 'published' | 'deleted';
-export type MediaType = 'photo' | 'video';
-export type LocationMethod = 'gps' | 'maps_link';
+/* -------------------------------------------------------------------------- */
+/*                                TYPE DEFINITIONS                            */
+/* -------------------------------------------------------------------------- */
+export type ModerationStatus = 'pending' | 'sanctioned' | 'approved';
+export type SanctionLevel = 0 | 1 | 2 | 3; // 0: Aman / Lolos, 1: Peringatan, 2: Peringatan keras, 3: Ban akun
 
-export interface UserMediaContent {
-  id: number;
-  submitter: string;
-  date: string;
-  name: string;
-  category: string;
-  method: LocationMethod;
-  locationDetail: string;
-  district: string;
-  mediaFileName: string;
-  mediaType: MediaType;
-  mediaSize: string;
-  status: MediaModerationStatus;
-  moderationReason?: string;
+export interface TripDocumentationMedia {
+  id: string; // e.g. "Med-89f2a1"
+  type: 'photo' | 'video';
+  fileName: string; // e.g. "doc_c89b21a0fe.jpg"
+  url: string;
+  size: string;
+  caption?: string;
+  isDeleted: boolean;
 }
 
-const INITIAL_MEDIA_CONTENTS: UserMediaContent[] = [
+export interface TripModerationItem {
+  id: string; // e.g. "Trip-101"
+  tripName: string; // e.g. "Wisata Alam & Kawah Ciwidey"
+  userId: string; // e.g. "Usr-204"
+  userName: string; // e.g. "Budi Santoso"
+  userHandle: string; // e.g. "@budisantoso"
+  timestamp: string; // e.g. "16 Nov 2026, 14:20 WIB"
+  status: ModerationStatus;
+  sanctionLevel?: SanctionLevel;
+  sanctionReason?: string;
+  mediaList: TripDocumentationMedia[];
+}
+
+/* -------------------------------------------------------------------------- */
+/*                                INITIAL DEMO DATA                           */
+/* -------------------------------------------------------------------------- */
+const INITIAL_TRIP_MODERATION: TripModerationItem[] = [
   {
-    id: 1,
-    submitter: '@julyandre',
-    date: '12/10/2026, 09:24 WIB',
-    name: 'Curug Tilu Leuwi Opat',
-    category: 'Wisata Alam & Terbuka',
-    method: 'gps',
-    locationDetail: 'Lat: -6.8245, Long: 107.5789',
-    district: 'Kec. Parongpong, Kab. Bandung Barat',
-    mediaFileName: 'Foto_Curug_Tilu.jpg',
-    mediaType: 'photo',
-    mediaSize: '1.4 MB',
-    status: 'published',
+    id: 'Trip-101',
+    tripName: 'Wisata Alam & Kawah Ciwidey',
+    userId: 'Usr-204',
+    userName: 'Budi Santoso',
+    userHandle: '@budisantoso',
+    timestamp: '16 Nov 2026, 14:20 WIB',
+    status: 'pending',
+    mediaList: [
+      {
+        id: 'Med-89a101',
+        type: 'photo',
+        fileName: 'doc_ciwidey_89a1.jpg',
+        url: '/tangkuban-parahu.jpg',
+        size: '1.4 MB',
+        caption: 'Kabut tipis di tepian kawah',
+        isDeleted: false,
+      },
+      {
+        id: 'Med-89a102',
+        type: 'photo',
+        fileName: 'doc_kawah_89a2.jpg',
+        url: '/kawah-ratu.jpg',
+        size: '2.1 MB',
+        caption: 'Pemandangan lanskap kawah putih',
+        isDeleted: false,
+      },
+      {
+        id: 'Med-89a103',
+        type: 'video',
+        fileName: 'doc_drone_89a3.mp4',
+        url: '/videos/timelapse-perjalanan.mp4',
+        size: '4.8 MB',
+        caption: 'Cuplikan video flyover perjalanan',
+        isDeleted: false,
+      },
+    ],
   },
   {
-    id: 2,
-    submitter: '@daffa_dev',
-    date: '12/10/2026, 16:45 WIB',
-    name: 'Dago Bakery Punclut',
-    category: 'Modern & Lifestyle',
-    method: 'maps_link',
-    locationDetail: 'https://maps.app.goo.gl/vX9kLmA2qR8zP1',
-    district: 'Kec. Cidadap, Kota Bandung',
-    mediaFileName: 'DagoBakery_Castle.jpg',
-    mediaType: 'photo',
-    mediaSize: '1.8 MB',
-    status: 'published',
+    id: 'Trip-102',
+    tripName: 'Keliling Kuliner & Heritage Bandung',
+    userId: 'Usr-312',
+    userName: 'July Andre',
+    userHandle: '@julyandre',
+    timestamp: '15 Nov 2026, 19:45 WIB',
+    status: 'pending',
+    mediaList: [
+      {
+        id: 'Med-77b101',
+        type: 'photo',
+        fileName: 'doc_gedungsate_77b1.jpg',
+        url: '/gedung-sate.jpg',
+        size: '1.2 MB',
+        caption: 'Arsitektur ikonik Gedung Sate',
+        isDeleted: false,
+      },
+      {
+        id: 'Med-77b102',
+        type: 'photo',
+        fileName: 'doc_banner_promo_spam.jpg',
+        url: '/botani-square.jpg',
+        size: '3.2 MB',
+        caption: 'Brosur promo komersial tidak relevan',
+        isDeleted: false,
+      },
+      {
+        id: 'Med-77b103',
+        type: 'photo',
+        fileName: 'doc_kuliner_77b3.jpg',
+        url: '/dusun-bambu.jpg',
+        size: '1.6 MB',
+        caption: 'Suasana santap malam santai',
+        isDeleted: false,
+      },
+    ],
   },
   {
-    id: 3,
-    submitter: '@rifaldi_pm',
-    date: '11/10/2026, 10:15 WIB',
-    name: 'Kampung Kohod',
-    category: 'Rekreasi Keluarga',
-    method: 'gps',
-    locationDetail: 'Lat: -6.9175, Long: 107.6191',
-    district: 'Kec. Sumur Bandung, Kota Bandung',
-    mediaFileName: 'Suasana_Kampung_Kohod.mp4',
-    mediaType: 'video',
-    mediaSize: '7.2 MB',
-    status: 'published',
+    id: 'Trip-103',
+    tripName: 'Liburan Keluarga Floating Market',
+    userId: 'Usr-108',
+    userName: 'Siti Rahmawati',
+    userHandle: '@sitirahma',
+    timestamp: '14 Nov 2026, 11:30 WIB',
+    status: 'approved',
+    sanctionLevel: 0,
+    sanctionReason: 'Dokumentasi terverifikasi bersih dan sesuai panduan komunitas.',
+    mediaList: [
+      {
+        id: 'Med-64c201',
+        type: 'photo',
+        fileName: 'doc_lake_64c1.jpg',
+        url: '/floating-market.jpg',
+        size: '1.8 MB',
+        caption: 'Danau buatan dan perahu wisata',
+        isDeleted: false,
+      },
+      {
+        id: 'Med-64c202',
+        type: 'photo',
+        fileName: 'doc_family_64c2.jpg',
+        url: '/friends-crater.jpg',
+        size: '2.0 MB',
+        caption: 'Foto bersama rombongan keluarga',
+        isDeleted: false,
+      },
+    ],
   },
   {
-    id: 4,
-    submitter: '@bintang_gis',
-    date: '10/10/2026, 14:20 WIB',
-    name: 'Sanghyang Heuleut',
-    category: 'Wisata Alam & Terbuka',
-    method: 'gps',
-    locationDetail: 'Lat: -6.8831, Long: 107.3451',
-    district: 'Kec. Rajamandala Kulon, Kab. Bandung Barat',
-    mediaFileName: 'Danau_Purba_Sanghyang.jpg',
-    mediaType: 'photo',
-    mediaSize: '1.9 MB',
-    status: 'published',
+    id: 'Trip-104',
+    tripName: 'Trekking Puncak Sari & Hutan Pinus',
+    userId: 'Usr-559',
+    userName: 'User Nakal',
+    userHandle: '@user_nakal',
+    timestamp: '13 Nov 2026, 09:15 WIB',
+    status: 'sanctioned',
+    sanctionLevel: 2,
+    sanctionReason: 'Mengunggah konten tidak pantas pada ruang publik destinasi wisata alam.',
+    mediaList: [
+      {
+        id: 'Med-55d301',
+        type: 'photo',
+        fileName: 'doc_puncak_55d1.jpg',
+        url: '/puncak-sari.jpg',
+        size: '1.5 MB',
+        caption: 'Jalur pendakian pinus',
+        isDeleted: false,
+      },
+      {
+        id: 'Med-55d302',
+        type: 'photo',
+        fileName: 'doc_violation_sensitive.jpg',
+        url: '/dusun-bambu.jpg',
+        size: '2.6 MB',
+        caption: 'Berkas bermasalah melanggar norma',
+        isDeleted: true,
+      },
+    ],
   },
   {
-    id: 5,
-    submitter: '@user_nakal',
-    date: '09/10/2026, 11:05 WIB',
-    name: 'Cafe Non-Wisata Spammer',
-    category: 'Modern & Lifestyle',
-    method: 'maps_link',
-    locationDetail: 'https://maps.app.goo.gl/zY8mPn1',
-    district: 'Kec. Kebayoran Baru, Jakarta Selatan',
-    mediaFileName: 'Gambar_Iklan_Spam.jpg',
-    mediaType: 'photo',
-    mediaSize: '2.4 MB',
-    status: 'deleted',
-    moderationReason: 'Foto berupa brosur promosi spam komersial di luar wilayah Jawa Barat.',
+    id: 'Trip-105',
+    tripName: 'Eksplorasi Kebun Raya & Tugu Kujang',
+    userId: 'Usr-640',
+    userName: 'Ahmad Fauzi',
+    userHandle: '@ahmadfauzi',
+    timestamp: '12 Nov 2026, 16:10 WIB',
+    status: 'pending',
+    mediaList: [
+      {
+        id: 'Med-44e401',
+        type: 'photo',
+        fileName: 'doc_kujang_44e1.jpg',
+        url: '/tugu-kujang.jpg',
+        size: '1.6 MB',
+        caption: 'Monumen Tugu Kujang sore hari',
+        isDeleted: false,
+      },
+      {
+        id: 'Med-44e402',
+        type: 'photo',
+        fileName: 'doc_kebunraya_44e2.jpg',
+        url: '/kebun-raya-bogor.jpg',
+        size: '1.9 MB',
+        caption: 'Pepohonan rindang Kebun Raya Bogor',
+        isDeleted: false,
+      },
+    ],
   },
   {
-    id: 6,
-    submitter: '@citra_lestari',
-    date: '08/10/2026, 08:30 WIB',
-    name: 'Tebing Keraton Sunrise',
-    category: 'Wisata Alam & Terbuka',
-    method: 'gps',
-    locationDetail: 'Lat: -6.8339, Long: 107.6636',
-    district: 'Kec. Cimenyan, Kab. Bandung Barat',
-    mediaFileName: 'Sunrise_Kabut_Tebing.jpg',
-    mediaType: 'photo',
-    mediaSize: '1.1 MB',
-    status: 'published',
-  },
-  {
-    id: 7,
-    submitter: '@eko_prasetyo',
-    date: '07/10/2026, 13:40 WIB',
-    name: 'Kawah Putih Ciwidey',
-    category: 'Wisata Alam & Terbuka',
-    method: 'gps',
-    locationDetail: 'Lat: -7.1662, Long: 107.4021',
-    district: 'Kec. Rancabali, Kab. Bandung',
-    mediaFileName: 'Video_Kawah_Putih_Drone.mp4',
-    mediaType: 'video',
-    mediaSize: '8.5 MB',
-    status: 'published',
-  },
-  {
-    id: 8,
-    submitter: '@bot_promo',
-    date: '05/10/2026, 19:15 WIB',
-    name: 'Vila Ilegal Tanpa Izin',
-    category: 'Modern & Lifestyle',
-    method: 'maps_link',
-    locationDetail: 'https://maps.app.goo.gl/promo_invalid',
-    district: 'Wilayah Tidak Teridentifikasi',
-    mediaFileName: 'Brosur_Promo_Ilegal.png',
-    mediaType: 'photo',
-    mediaSize: '1.5 MB',
-    status: 'deleted',
-    moderationReason: 'Konten promosi terdeteksi melanggar pedoman komunitas dan hak cipta media.',
+    id: 'Trip-106',
+    tripName: 'Spam Akun Ilegal Promosi Judi',
+    userId: 'Usr-999',
+    userName: 'Spammer Bot',
+    userHandle: '@bot_promo',
+    timestamp: '10 Nov 2026, 02:40 WIB',
+    status: 'sanctioned',
+    sanctionLevel: 3,
+    sanctionReason: 'Penyebaran tautan terlarang dan konten judi online dalam album dokumentasi perjalanan.',
+    mediaList: [
+      {
+        id: 'Med-99f901',
+        type: 'photo',
+        fileName: 'doc_spam_banner_99f1.jpg',
+        url: '/botani-square.jpg',
+        size: '2.8 MB',
+        caption: 'Tangkapan layar banner judi online terlarang',
+        isDeleted: true,
+      },
+    ],
   },
 ];
 
@@ -219,326 +309,308 @@ function getPageNumbers(currentPage: number, totalPages: number): (number | stri
   return [1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages];
 }
 
+/* -------------------------------------------------------------------------- */
+/*                            MAIN ADMIN COMPONENT                            */
+/* -------------------------------------------------------------------------- */
 export default function AdminMediaModeration() {
-  const [contents, setContents] = useState<UserMediaContent[]>(INITIAL_MEDIA_CONTENTS);
+  // 1. Data states with local storage persistence
+  const [tripList, setTripList] = useState<TripModerationItem[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('jp_admin_trip_moderation');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch {
+        // fallback
+      }
+    }
+    return INITIAL_TRIP_MODERATION;
+  });
+
+  // 2. Filter states
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
-  const [selectedMethod, setSelectedMethod] = useState<string>('all');
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [itemsPerPage, setItemsPerPage] = useState<number>(5);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
-  // Custom Dropdown open states
+  // Dropdown open states
   const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
-  const [isMethodDropdownOpen, setIsMethodDropdownOpen] = useState(false);
   const [isLimitDropdownOpen, setIsLimitDropdownOpen] = useState(false);
 
-  // Modal Moderation State
-  const [inspectingItem, setInspectingItem] = useState<UserMediaContent | null>(null);
-  const [editStatus, setEditStatus] = useState<MediaModerationStatus>('published');
-  const [moderationReasonInput, setModerationReasonInput] = useState('');
-  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  // 3. Inspection Modal State
+  const [inspectingTrip, setInspectingTrip] = useState<TripModerationItem | null>(null);
+  const [stagedMediaList, setStagedMediaList] = useState<TripDocumentationMedia[]>([]);
+  const [selectedSanctionLevel, setSelectedSanctionLevel] = useState<SanctionLevel>(0);
+  const [sanctionReasonInput, setSanctionReasonInput] = useState<string>('');
+  const [formError, setFormError] = useState<string | null>(null);
 
-  // Toast State
+  // 4. Media Lightbox Preview State
+  const [previewMedia, setPreviewMedia] = useState<TripDocumentationMedia | null>(null);
+
+  // 5. Toast feedback
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [lastAction, setLastAction] = useState<{
-    id: number;
-    prevStatus: MediaModerationStatus;
-    name: string;
-  } | null>(null);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
-    setTimeout(() => {
-      setToastMessage(null);
-    }, 4500);
+    setTimeout(() => setToastMessage(null), 3000);
   };
 
-  // Close dropdowns on outside click
+  // Save to localStorage whenever tripList updates
   useEffect(() => {
-    const handleOutsideClick = (e: MouseEvent) => {
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('jp_admin_trip_moderation', JSON.stringify(tripList));
+      } catch {
+        // ignore
+      }
+    }
+  }, [tripList]);
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       if (!target.closest('[data-dropdown]')) {
         setIsStatusDropdownOpen(false);
-        setIsMethodDropdownOpen(false);
         setIsLimitDropdownOpen(false);
       }
     };
-    window.addEventListener('click', handleOutsideClick);
-    return () => window.removeEventListener('click', handleOutsideClick);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Compute KPI metrics dynamically (baseline counts: 50 active, 8 deleted, 58 total)
+  /* -------------------------------------------------------------------------- */
+  /*                             METRIC AGGREGATION                             */
+  /* -------------------------------------------------------------------------- */
   const metrics = useMemo(() => {
-    const published = 50 + contents.filter((c) => c.status === 'published').length - 6;
-    const deleted = 8 + contents.filter((c) => c.status === 'deleted').length - 2;
-    const total = published + deleted;
-    const videoCount = contents.filter((c) => c.mediaType === 'video').length + 12;
-    return { published, deleted, total, videoCount };
-  }, [contents]);
+    const totalTrips = tripList.length;
+    const pendingCount = tripList.filter((t) => t.status === 'pending').length;
+    const sanctionedCount = tripList.filter((t) => t.status === 'sanctioned').length;
+    const deletedMediaCount = tripList.reduce(
+      (acc, trip) => acc + trip.mediaList.filter((m) => m.isDeleted).length,
+      0
+    );
 
-  // Filtered & Searched data
-  const filteredContents = useMemo(() => {
-    return contents.filter((item) => {
-      const query = searchQuery.toLowerCase();
-      const matchSearch =
-        item.name.toLowerCase().includes(query) ||
-        item.submitter.toLowerCase().includes(query) ||
-        item.mediaFileName.toLowerCase().includes(query) ||
-        item.district.toLowerCase().includes(query);
+    return {
+      totalTrips,
+      pendingCount,
+      sanctionedCount,
+      deletedMediaCount,
+    };
+  }, [tripList]);
 
-      const matchStatus =
-        selectedStatus === 'all' || item.status === selectedStatus;
+  /* -------------------------------------------------------------------------- */
+  /*                             FILTER & PAGINATION                            */
+  /* -------------------------------------------------------------------------- */
+  const filteredTrips = useMemo(() => {
+    return tripList.filter((item) => {
+      // 1. Search filter: Id perjalanan, nama perjalanan, Id pengguna, nama pengguna
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase().trim();
+        const matchId = item.id.toLowerCase().includes(query);
+        const matchTitle = item.tripName.toLowerCase().includes(query);
+        const matchUserId = item.userId.toLowerCase().includes(query);
+        const matchUserName = item.userName.toLowerCase().includes(query);
+        const matchUserHandle = item.userHandle.toLowerCase().includes(query);
 
-      const matchMethod =
-        selectedMethod === 'all' || item.method === selectedMethod;
+        if (!matchId && !matchTitle && !matchUserId && !matchUserName && !matchUserHandle) {
+          return false;
+        }
+      }
 
-      return matchSearch && matchStatus && matchMethod;
+      // 2. Status filter
+      if (selectedStatus !== 'all' && item.status !== selectedStatus) {
+        return false;
+      }
+
+      return true;
     });
-  }, [contents, searchQuery, selectedStatus, selectedMethod]);
+  }, [tripList, searchQuery, selectedStatus]);
 
-  // Pagination calculation
-  const totalPages = Math.ceil(filteredContents.length / itemsPerPage) || 1;
-  const paginatedContents = useMemo(() => {
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    return filteredContents.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredContents, currentPage, itemsPerPage]);
+  const totalPages = Math.max(1, Math.ceil(filteredTrips.length / itemsPerPage));
 
-  const totalItems = filteredContents.length;
-  const startItem = totalItems === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
-  const endItem = Math.min(currentPage * itemsPerPage, totalItems);
+  const paginatedTrips = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredTrips.slice(start, start + itemsPerPage);
+  }, [filteredTrips, currentPage, itemsPerPage]);
 
-  const pageNumbers = useMemo(() => {
-    return getPageNumbers(currentPage, totalPages);
-  }, [currentPage, totalPages]);
-
-  // Open Inspection Modal
-  const handleOpenInspection = (item: UserMediaContent) => {
-    setInspectingItem(item);
-    setEditStatus(item.status);
-    setModerationReasonInput(item.moderationReason || '');
-    setConfirmDeleteId(null);
-  };
-
-  // Quick Delete / Restore toggle
-  const handleQuickToggleDelete = (id: number) => {
-    const target = contents.find((c) => c.id === id);
-    if (!target) return;
-
-    const previousStatus = target.status;
-    const newStatus: MediaModerationStatus = target.status === 'published' ? 'deleted' : 'published';
-
-    setContents((prev) =>
-      prev.map((c) =>
-        c.id === id
-          ? {
-              ...c,
-              status: newStatus,
-              moderationReason:
-                newStatus === 'deleted'
-                  ? 'Konten dinonaktifkan oleh administrator melalui aksi moderasi cepat.'
-                  : undefined,
-            }
-          : c
-      )
-    );
-
-    setLastAction({ id, prevStatus: previousStatus, name: target.name });
-    showToast(
-      newStatus === 'deleted'
-        ? `Media destinasi "${target.name}" berhasil dihapus dari publikasi.`
-        : `Media destinasi "${target.name}" berhasil dipulihkan ke publikasi.`
-    );
-  };
-
-  // Save Moderation Modal changes
-  const handleSaveModeration = () => {
-    if (!inspectingItem) return;
-
-    setContents((prev) =>
-      prev.map((c) =>
-        c.id === inspectingItem.id
-          ? {
-              ...c,
-              status: editStatus,
-              moderationReason:
-                editStatus === 'deleted' ? moderationReasonInput.trim() : undefined,
-            }
-          : c
-      )
-    );
-
-    showToast(`Status moderasi untuk "${inspectingItem.name}" berhasil disimpan.`);
-    setInspectingItem(null);
-  };
-
-  // Permanent Delete
-  const handlePermanentDelete = (id: number) => {
-    const target = contents.find((c) => c.id === id);
-    if (!target) return;
-
-    setContents((prev) => prev.filter((c) => c.id !== id));
-    setInspectingItem(null);
-    setConfirmDeleteId(null);
-    showToast(`Konten media "${target.name}" berhasil dihapus permanen dari server.`);
-  };
-
-  // Undo Last Action
-  const handleUndo = () => {
-    if (!lastAction) return;
-
-    setContents((prev) =>
-      prev.map((c) =>
-        c.id === lastAction.id
-          ? {
-              ...c,
-              status: lastAction.prevStatus,
-            }
-          : c
-      )
-    );
-
-    showToast(`Aksi moderasi pada "${lastAction.name}" berhasil dibatalkan.`);
-    setLastAction(null);
-  };
+  const startItem = filteredTrips.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
+  const endItem = Math.min(currentPage * itemsPerPage, filteredTrips.length);
 
   const handleResetFilters = () => {
     setSearchQuery('');
     setSelectedStatus('all');
-    setSelectedMethod('all');
     setCurrentPage(1);
+  };
+
+  /* -------------------------------------------------------------------------- */
+  /*                          INSPECTION MODAL HANDLERS                         */
+  /* -------------------------------------------------------------------------- */
+  const handleOpenInspection = (trip: TripModerationItem) => {
+    setInspectingTrip(trip);
+    setStagedMediaList(trip.mediaList.map((m) => ({ ...m })));
+    setSelectedSanctionLevel(trip.sanctionLevel ?? 0);
+    setSanctionReasonInput(trip.sanctionReason ?? '');
+    setFormError(null);
+  };
+
+  const handleCloseInspection = () => {
+    setInspectingTrip(null);
+    setStagedMediaList([]);
+    setFormError(null);
+  };
+
+  const handleToggleStagedMediaDelete = (mediaId: string) => {
+    setStagedMediaList((prev) =>
+      prev.map((m) => (m.id === mediaId ? { ...m, isDeleted: !m.isDeleted } : m))
+    );
+  };
+
+  const handleSubmitModeration = () => {
+    if (!inspectingTrip) return;
+
+    // Validate: if sanction level is > 0, reason must be provided
+    if (selectedSanctionLevel > 0 && !sanctionReasonInput.trim()) {
+      setFormError('Alasan pelanggaran wajib diisi jika menetapkan sanksi.');
+      return;
+    }
+
+    const newStatus: ModerationStatus =
+      selectedSanctionLevel > 0 ? 'sanctioned' : 'approved';
+
+    setTripList((prev) =>
+      prev.map((t) => {
+        if (t.id === inspectingTrip.id) {
+          return {
+            ...t,
+            status: newStatus,
+            sanctionLevel: selectedSanctionLevel,
+            sanctionReason: sanctionReasonInput.trim() || undefined,
+            mediaList: stagedMediaList,
+          };
+        }
+        return t;
+      })
+    );
+
+    showToast(
+      selectedSanctionLevel > 0
+        ? `Tindakan sanksi tingkat ${selectedSanctionLevel} berhasil diterapkan untuk ${inspectingTrip.id}.`
+        : `Moderasi perjalanan ${inspectingTrip.id} berhasil disetujui (bersih).`
+    );
+
+    handleCloseInspection();
   };
 
   return (
     <div className="space-y-6">
-      {/* Apple UI Liquid Glass Toast Notification with Undo */}
+      {/* Toast Feedback Banner */}
       {toastMessage && (
-        <div
-          className="fixed top-5 left-1/2 -translate-x-1/2 z-[100] max-w-[calc(100vw-32px)] sm:max-w-lg w-max flex items-center gap-2.5 pl-3.5 pr-3 py-2.5 rounded-full bg-white/85 backdrop-blur-xl saturate-150 border border-white/70 shadow-[0_10px_32px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.04),inset_0_1px_1px_rgba(255,255,255,0.95)] ring-1 ring-black/[0.04] text-gray-800 text-xs sm:text-[13px] font-semibold animate-in fade-in zoom-in-95 slide-in-from-top-4 duration-300"
-          role="alert"
-        >
-          <div className="w-6 h-6 rounded-full bg-emerald-500/15 flex items-center justify-center shrink-0">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 stroke-[2.5]" />
-          </div>
-          <span className="truncate leading-snug">{toastMessage}</span>
-          {lastAction && (
-            <button
-              type="button"
-              onClick={handleUndo}
-              className="ml-2 px-3 py-1 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold text-[11px] transition-all cursor-pointer shrink-0"
-            >
-              Urungkan
-            </button>
-          )}
+        <div className="fixed top-20 right-6 z-50 bg-[#0B0F19]/90 text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-xl border border-white/20 flex items-center gap-2 backdrop-blur-md animate-in fade-in slide-in-from-top-2 duration-200">
+          <CheckCircle2 className="w-4 h-4 text-[#60CE9F] shrink-0" />
+          <span>{toastMessage}</span>
         </div>
       )}
 
-      {/* Page Title & Subtitle */}
-      <div>
-        <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 tracking-tight">
-          Moderasi Media & Pengajuan Lokasi Destinasi Baru (User-Generated Content)
-        </h1>
-        <p className="text-xs sm:text-sm text-gray-500 mt-1">
-          Status bawaan pengajuan langsung Published. Admin dapat mengelola status atau menghapus data (Deleted)
-        </p>
-      </div>
-
-      {/* 4 KPI SUMMARY CARDS (Published, Deleted, Total Pengajuan, Media Journaling) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1: Published (Aktif) */}
+      {/* 1. METRICS CARDS: 4 CLEAN METRICS (MATCHING POI & OVERVIEW STYLE) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+        {/* Card 1: Total Perjalanan */}
         <div className="group bg-white rounded-2xl p-4 sm:p-5 border border-gray-100 shadow-[0_2px_12px_rgba(0,0,0,0.02)] hover:shadow-[0_12px_28px_rgba(0,0,0,0.06)] hover:-translate-y-1.5 hover:border-gray-200/80 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] flex items-center gap-3.5 cursor-default select-none">
-          <div className="w-11 h-11 rounded-full bg-[#60CE9F] text-white flex items-center justify-center shrink-0 shadow-[0_4px_12px_rgba(96,206,159,0.3)] transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:scale-115 group-hover:shadow-[0_6px_18px_rgba(96,206,159,0.35)]">
-            <CheckCircle2 className="w-5 h-5 stroke-[2.2] transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:scale-110" />
+          <div className="w-11 h-11 rounded-full bg-[#4941EC] text-white flex items-center justify-center shrink-0 shadow-[0_4px_12px_rgba(73,65,236,0.25)] transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:scale-110">
+            <Layers className="w-5 h-5 stroke-[2.2]" />
           </div>
           <div>
-            <span className="text-xs font-semibold text-gray-800">Published (Aktif)</span>
+            <span className="text-xs font-semibold text-gray-800">Total Perjalanan</span>
             <div className="flex items-baseline gap-2 mt-0.5">
               <span className="text-xl sm:text-2xl font-semibold text-gray-900 tracking-tight">
-                <AnimatedNumber value={metrics.published} formatDot={false} />
+                <AnimatedNumber value={metrics.totalTrips} formatDot={false} />
               </span>
             </div>
             <p className="text-[10px] sm:text-[11px] text-gray-400 mt-0.5">
-              tampil aktif di peta publik
+              antrean moderasi media
             </p>
           </div>
         </div>
 
-        {/* Card 2: Deleted (Dihapus) */}
+        {/* Card 2: Menunggu Verifikasi */}
         <div className="group bg-white rounded-2xl p-4 sm:p-5 border border-gray-100 shadow-[0_2px_12px_rgba(0,0,0,0.02)] hover:shadow-[0_12px_28px_rgba(0,0,0,0.06)] hover:-translate-y-1.5 hover:border-gray-200/80 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] flex items-center gap-3.5 cursor-default select-none">
-          <div className="w-11 h-11 rounded-full bg-[#EF4444] text-white flex items-center justify-center shrink-0 shadow-[0_4px_12px_rgba(239,68,68,0.25)] transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:scale-115 group-hover:shadow-[0_6px_18px_rgba(239,68,68,0.35)]">
-            <Trash2 className="w-5 h-5 stroke-[2.2] transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:scale-110" />
+          <div className="w-11 h-11 rounded-full bg-[#EDAD40] text-white flex items-center justify-center shrink-0 shadow-[0_4px_12px_rgba(237,173,64,0.25)] transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:scale-110">
+            <Clock className="w-5 h-5 stroke-[2.2]" />
           </div>
           <div>
-            <span className="text-xs font-semibold text-gray-800">Deleted (Dihapus)</span>
+            <span className="text-xs font-semibold text-gray-800">Menunggu Tinjauan</span>
             <div className="flex items-baseline gap-2 mt-0.5">
               <span className="text-xl sm:text-2xl font-semibold text-gray-900 tracking-tight">
-                <AnimatedNumber value={metrics.deleted} formatDot={false} />
+                <AnimatedNumber value={metrics.pendingCount} formatDot={false} />
               </span>
             </div>
             <p className="text-[10px] sm:text-[11px] text-gray-400 mt-0.5">
-              dinonaktifkan / spam
+              perlu audit dokumentasi
             </p>
           </div>
         </div>
 
-        {/* Card 3: Total Pengajuan UGC */}
+        {/* Card 3: Sanksi Diberikan */}
         <div className="group bg-white rounded-2xl p-4 sm:p-5 border border-gray-100 shadow-[0_2px_12px_rgba(0,0,0,0.02)] hover:shadow-[0_12px_28px_rgba(0,0,0,0.06)] hover:-translate-y-1.5 hover:border-gray-200/80 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] flex items-center gap-3.5 cursor-default select-none">
-          <div className="w-11 h-11 rounded-full bg-[#4941EC] text-white flex items-center justify-center shrink-0 shadow-[0_4px_12px_rgba(73,65,236,0.25)] transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:scale-115 group-hover:shadow-[0_6px_18px_rgba(73,65,236,0.35)]">
-            <FolderArchive className="w-5 h-5 stroke-[2.2] transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:scale-110" />
+          <div className="w-11 h-11 rounded-full bg-[#E11D48] text-white flex items-center justify-center shrink-0 shadow-[0_4px_12px_rgba(225,29,72,0.25)] transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:scale-110">
+            <ShieldAlert className="w-5 h-5 stroke-[2.2]" />
           </div>
           <div>
-            <span className="text-xs font-semibold text-gray-800">Total Pengajuan</span>
+            <span className="text-xs font-semibold text-gray-800">Sanksi Pengguna</span>
             <div className="flex items-baseline gap-2 mt-0.5">
               <span className="text-xl sm:text-2xl font-semibold text-gray-900 tracking-tight">
-                <AnimatedNumber value={metrics.total} formatDot={false} />
+                <AnimatedNumber value={metrics.sanctionedCount} formatDot={false} />
               </span>
             </div>
             <p className="text-[10px] sm:text-[11px] text-gray-400 mt-0.5">
-              agregasi konten pengguna
+              pelanggaran ditindak
             </p>
           </div>
         </div>
 
-        {/* Card 4: Media Journaling & Video */}
+        {/* Card 4: Media Dihapus */}
         <div className="group bg-white rounded-2xl p-4 sm:p-5 border border-gray-100 shadow-[0_2px_12px_rgba(0,0,0,0.02)] hover:shadow-[0_12px_28px_rgba(0,0,0,0.06)] hover:-translate-y-1.5 hover:border-gray-200/80 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] flex items-center gap-3.5 cursor-default select-none">
-          <div className="w-11 h-11 rounded-full bg-[#3B82F6] text-white flex items-center justify-center shrink-0 shadow-[0_4px_12px_rgba(59,130,246,0.25)] transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:scale-115 group-hover:shadow-[0_6px_18px_rgba(59,130,246,0.35)]">
-            <Film className="w-5 h-5 stroke-[2.2] transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:scale-110" />
+          <div className="w-11 h-11 rounded-full bg-[#64748B] text-white flex items-center justify-center shrink-0 shadow-[0_4px_12px_rgba(100,116,139,0.25)] transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:scale-110">
+            <Trash2 className="w-5 h-5 stroke-[2.2]" />
           </div>
           <div>
-            <span className="text-xs font-semibold text-gray-800">Media Journaling</span>
+            <span className="text-xs font-semibold text-gray-800">Media Dihapus</span>
             <div className="flex items-baseline gap-2 mt-0.5">
               <span className="text-xl sm:text-2xl font-semibold text-gray-900 tracking-tight">
-                <AnimatedNumber value={metrics.videoCount} formatDot={false} />
+                <AnimatedNumber value={metrics.deletedMediaCount} formatDot={false} />
               </span>
             </div>
             <p className="text-[10px] sm:text-[11px] text-gray-400 mt-0.5">
-              lampiran foto & video
+              berkas tak pantas ditakedown
             </p>
           </div>
         </div>
       </div>
 
-      {/* SINGLE UNIFIED WHITE CARD CONTAINER: Filters + Table + Pagination */}
+      {/* 2. UNIFIED WHITE CONTAINER: FILTERS + TABLE + PAGINATION */}
       <div className="bg-white rounded-3xl border border-gray-100 shadow-xs p-5 sm:p-7 space-y-5">
-        {/* Row 1: Header Title & Total Count (Without Background Fill) */}
+        {/* Row 1: Header Title & Total Count (Clean text, no uppercase) */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-gray-100/80">
           <div>
             <h2 className="text-base sm:text-lg font-semibold text-gray-900 tracking-tight">
-              Daftar Pengajuan Tempat Baru
+              Moderasi Media Dokumentasi Perjalanan
             </h2>
             <p className="text-xs text-gray-400 mt-0.5">
-              Moderasi konten media foto, video, dan status penayangan lokasi usulan pengguna
+              Pemeriksaan konten media foto dan video dokumentasi perjalanan wisata yang diunggah pengguna
             </p>
           </div>
 
           <div className="text-xs sm:text-sm font-semibold text-[#4941EC] self-start sm:self-auto">
-            Total Pengajuan: {metrics.total}
+            Total Perjalanan: {filteredTrips.length}
           </div>
         </div>
 
-        {/* Row 2: Filter Toolbar (Search Bar + Status Dropdown + Metode Dropdown) */}
+        {/* Row 2: Filter Toolbar (Search Bar + Status Dropdown + Reset Button) */}
         <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2.5 flex-1">
-            {/* Search Input (Rounded-full) */}
+            {/* Search Input (Rounded-full, matching POI management) */}
             <div className="relative flex-1 min-w-[220px] max-w-md">
               <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
@@ -548,7 +620,7 @@ export default function AdminMediaModeration() {
                   setSearchQuery(e.target.value);
                   setCurrentPage(1);
                 }}
-                placeholder="Cari nama tempat atau pengaju..."
+                placeholder="Cari Id perjalanan, nama perjalanan, atau pengguna..."
                 className="w-full pl-10 pr-9 py-2 rounded-full bg-[#F6F7FB] border border-transparent focus:border-gray-200 focus:bg-white text-xs sm:text-sm text-gray-800 placeholder:text-gray-400 outline-none transition-all"
               />
               {searchQuery && (
@@ -569,7 +641,6 @@ export default function AdminMediaModeration() {
                 type="button"
                 onClick={() => {
                   setIsStatusDropdownOpen(!isStatusDropdownOpen);
-                  setIsMethodDropdownOpen(false);
                   setIsLimitDropdownOpen(false);
                 }}
                 className={`px-4 py-2 rounded-full border text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
@@ -580,10 +651,12 @@ export default function AdminMediaModeration() {
               >
                 <span className="truncate max-w-[150px]">
                   {selectedStatus === 'all'
-                    ? 'Semua Status'
-                    : selectedStatus === 'published'
-                    ? 'Published (Aktif)'
-                    : 'Deleted (Dihapus)'}
+                    ? 'Semua status'
+                    : selectedStatus === 'pending'
+                    ? 'Menunggu tinjauan'
+                    : selectedStatus === 'sanctioned'
+                    ? 'Telah disanksi'
+                    : 'Disetujui (bersih)'}
                 </span>
                 <ChevronDown
                   className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-200 ${
@@ -595,9 +668,10 @@ export default function AdminMediaModeration() {
               {isStatusDropdownOpen && (
                 <div className="absolute left-0 top-full mt-2 w-52 bg-white/95 backdrop-blur-xl border border-gray-100 shadow-[0_10px_30px_rgba(0,0,0,0.08)] rounded-2xl p-1.5 z-30 animate-in fade-in zoom-in-95 duration-150">
                   {[
-                    { value: 'all', label: 'Semua Status' },
-                    { value: 'published', label: 'Published (Aktif)' },
-                    { value: 'deleted', label: 'Deleted (Dihapus)' },
+                    { value: 'all', label: 'Semua status' },
+                    { value: 'pending', label: 'Menunggu tinjauan' },
+                    { value: 'sanctioned', label: 'Telah disanksi' },
+                    { value: 'approved', label: 'Disetujui (bersih)' },
                   ].map((opt) => (
                     <button
                       type="button"
@@ -614,71 +688,15 @@ export default function AdminMediaModeration() {
                       }`}
                     >
                       <span>{opt.label}</span>
+                      {selectedStatus === opt.value && <Check className="w-3.5 h-3.5 text-[#4941EC]" />}
                     </button>
                   ))}
                 </div>
               )}
             </div>
 
-            {/* Custom Method Dropdown (Rounded-full) */}
-            <div className="relative" data-dropdown>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsMethodDropdownOpen(!isMethodDropdownOpen);
-                  setIsStatusDropdownOpen(false);
-                  setIsLimitDropdownOpen(false);
-                }}
-                className={`px-4 py-2 rounded-full border text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
-                  selectedMethod !== 'all'
-                    ? 'bg-[#EEF2FF] text-[#4941EC] border-[#4941EC]/30'
-                    : 'bg-[#F6F7FB] text-gray-700 border-transparent hover:bg-white hover:border-gray-200'
-                }`}
-              >
-                <span className="truncate max-w-[150px]">
-                  {selectedMethod === 'all'
-                    ? 'Semua Metode'
-                    : selectedMethod === 'gps'
-                    ? 'Realtime GPS'
-                    : 'Link Google Maps'}
-                </span>
-                <ChevronDown
-                  className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-200 ${
-                    isMethodDropdownOpen ? 'rotate-180 text-[#4941EC]' : ''
-                  }`}
-                />
-              </button>
-
-              {isMethodDropdownOpen && (
-                <div className="absolute left-0 top-full mt-2 w-52 bg-white/95 backdrop-blur-xl border border-gray-100 shadow-[0_10px_30px_rgba(0,0,0,0.08)] rounded-2xl p-1.5 z-30 animate-in fade-in zoom-in-95 duration-150">
-                  {[
-                    { value: 'all', label: 'Semua Metode' },
-                    { value: 'gps', label: 'Realtime GPS' },
-                    { value: 'maps_link', label: 'Link Google Maps' },
-                  ].map((opt) => (
-                    <button
-                      type="button"
-                      key={opt.value}
-                      onClick={() => {
-                        setSelectedMethod(opt.value);
-                        setIsMethodDropdownOpen(false);
-                        setCurrentPage(1);
-                      }}
-                      className={`w-full text-left px-3 py-2 rounded-xl text-xs font-medium flex items-center justify-between transition-colors cursor-pointer ${
-                        selectedMethod === opt.value
-                          ? 'bg-[#EEF2FF] text-[#4941EC] font-semibold'
-                          : 'text-gray-700 hover:bg-gray-50'
-                      }`}
-                    >
-                      <span>{opt.label}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Reset Filter Button (Clean text only, no icon) */}
-            {(selectedStatus !== 'all' || selectedMethod !== 'all' || searchQuery) && (
+            {/* Reset Filter Button */}
+            {(selectedStatus !== 'all' || searchQuery) && (
               <button
                 type="button"
                 onClick={handleResetFilters}
@@ -690,152 +708,111 @@ export default function AdminMediaModeration() {
           </div>
 
           <div className="text-xs text-gray-400 font-medium self-end md:self-auto">
-            <span>Sistem Moderasi Otomatis Aktif</span>
+            <span>Sistem moderasi konten terintegrasi</span>
           </div>
         </div>
 
-        {/* MODERATION TABLE (CLEAN HEADER WITH NO GRAY FILL AND ZERO CAPSLOCK) */}
+        {/* Table View: Id perjalanan | Nama perjalanan | Id pengguna | Time stamp | Status | Aksi */}
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead>
               <tr className="border-b border-gray-100 text-gray-700 font-semibold">
-                <th className="py-3 px-5 sm:px-6">Tgl & Pengaju</th>
-                <th className="py-3 px-3">Nama Tempat</th>
-                <th className="py-3 px-3">Kategori</th>
-                <th className="py-3 px-3">Metode & Detail Lokasi</th>
-                <th className="py-3 px-3">Status Bawaan</th>
-                <th className="py-3 px-5 sm:px-6 text-right">Aksi Moderasi</th>
+                <th className="py-3 px-5 sm:px-6">Id perjalanan</th>
+                <th className="py-3 px-3">Nama perjalanan</th>
+                <th className="py-3 px-3">Id pengguna</th>
+                <th className="py-3 px-3">Time stamp</th>
+                <th className="py-3 px-3">Status</th>
+                <th className="py-3 px-5 sm:px-6 text-right">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {paginatedContents.map((item) => (
+              {paginatedTrips.map((item) => (
                 <tr
                   key={item.id}
                   className="hover:bg-gray-50/70 transition-colors group"
                 >
-                  {/* Tgl & Pengaju */}
-                  <td className="py-3.5 px-5 sm:px-6 whitespace-nowrap">
-                    <p className="text-[11px] text-gray-400 font-medium">
-                      {item.date.split(',')[0]}
-                    </p>
-                    <p className="font-semibold text-[#4941EC] text-xs">
-                      {item.submitter}
-                    </p>
-                  </td>
-
-                  {/* Nama Tempat */}
-                  <td className="py-3.5 px-3 font-semibold text-gray-900">
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-lg bg-[#EEF2FF] text-[#4941EC] flex items-center justify-center shrink-0">
-                        {item.mediaType === 'video' ? (
-                          <Video className="w-3.5 h-3.5" />
-                        ) : (
-                          <ImageIcon className="w-3.5 h-3.5" />
-                        )}
-                      </div>
-                      <span className="truncate max-w-[180px] sm:max-w-[220px]">
-                        {item.name}
-                      </span>
-                    </div>
-                  </td>
-
-                  {/* Kategori */}
-                  <td className="py-3.5 px-3 whitespace-nowrap">
-                    <span
-                      className={`px-2.5 py-1 rounded-full text-[10px] font-semibold ${
-                        item.category === 'Wisata Alam & Terbuka'
-                          ? 'bg-[#EEF2FF] text-[#4941EC]'
-                          : item.category === 'Modern & Lifestyle'
-                          ? 'bg-[#FEF6E7] text-[#D97706]'
-                          : item.category === 'Publik & Edukasi'
-                          ? 'bg-[#ECFDF5] text-[#059669]'
-                          : 'bg-[#EFF6FF] text-[#2563EB]'
-                      }`}
-                    >
-                      {item.category}
+                  {/* Id perjalanan */}
+                  <td className="py-3.5 px-5 sm:px-6 font-semibold text-gray-900 whitespace-nowrap">
+                    <span className="font-mono text-xs px-2.5 py-1 rounded-lg bg-[#EEF2FF] text-[#4941EC] font-semibold border border-[#4941EC]/15">
+                      {item.id}
                     </span>
                   </td>
 
-                  {/* Metode & Detail Lokasi */}
-                  <td className="py-3.5 px-3">
-                    <div className="text-xs">
-                      <span className="font-medium text-gray-800 flex items-center gap-1.5">
-                        {item.method === 'gps' ? (
-                          <>
-                            <MapPin className="w-3.5 h-3.5 text-[#60CE9F]" />
-                            Realtime GPS
-                          </>
-                        ) : (
-                          <>
-                            <ExternalLink className="w-3.5 h-3.5 text-[#4941EC]" />
-                            Link Google Maps
-                          </>
-                        )}
+                  {/* Nama perjalanan + Media count badge */}
+                  <td className="py-3.5 px-3 font-semibold text-gray-900">
+                    <div className="flex flex-col">
+                      <span className="truncate max-w-[200px] sm:max-w-[280px]">
+                        {item.tripName}
                       </span>
-                      <p className="text-[11px] text-gray-400 font-mono truncate max-w-[220px] mt-0.5">
-                        {item.locationDetail}
-                      </p>
+                      <span className="text-[10px] text-gray-400 font-normal flex items-center gap-1.5 mt-0.5">
+                        <Camera className="w-3 h-3 text-gray-400" />
+                        <span>{item.mediaList.length} berkas media dokumentasi</span>
+                      </span>
                     </div>
                   </td>
 
-                  {/* Status Bawaan */}
+                  {/* Id pengguna + Nama */}
                   <td className="py-3.5 px-3 whitespace-nowrap">
-                    {item.status === 'published' ? (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold text-[10px]">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                        Published
+                    <div className="flex flex-col">
+                      <span className="font-mono text-[11px] text-[#4941EC] font-semibold">
+                        {item.userId}
+                      </span>
+                      <span className="text-[11px] text-gray-700 font-medium">
+                        {item.userName}{' '}
+                        <span className="text-gray-400 font-normal">({item.userHandle})</span>
+                      </span>
+                    </div>
+                  </td>
+
+                  {/* Time stamp */}
+                  <td className="py-3.5 px-3 text-gray-600 font-medium whitespace-nowrap">
+                    {item.timestamp}
+                  </td>
+
+                  {/* Status Badge with Dot */}
+                  <td className="py-3.5 px-3 whitespace-nowrap">
+                    {item.status === 'pending' ? (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 font-semibold text-[10px]">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                        Menunggu tinjauan
+                      </span>
+                    ) : item.status === 'sanctioned' ? (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 font-semibold text-[10px]">
+                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                        Telah disanksi (tingkat {item.sanctionLevel})
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-red-50 text-red-600 font-semibold text-[10px]">
-                        <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
-                        Deleted
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold text-[10px]">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                        Disetujui (bersih)
                       </span>
                     )}
                   </td>
 
-                  {/* Aksi Moderasi Buttons (NO BUTTON ICONS) */}
+                  {/* Aksi Button (Matching POI table button: rounded-full pill) */}
                   <td className="py-3.5 px-5 sm:px-6 text-right whitespace-nowrap">
-                    <div className="inline-flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => handleOpenInspection(item)}
-                        className="px-3 py-1.5 rounded-full border border-gray-200 text-gray-700 hover:bg-[#EEF0FF] hover:text-[#4941EC] hover:border-[#4941EC]/30 text-[11px] font-semibold transition-all cursor-pointer shadow-2xs active:scale-95"
-                      >
-                        Kelola
-                      </button>
-
-                      {item.status === 'published' ? (
-                        <button
-                          type="button"
-                          onClick={() => handleQuickToggleDelete(item.id)}
-                          className="px-3 py-1.5 rounded-full border border-gray-200 text-gray-700 hover:bg-red-50 hover:text-red-600 hover:border-red-200 text-[11px] font-semibold transition-all cursor-pointer shadow-2xs active:scale-95"
-                        >
-                          Hapus
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => handleQuickToggleDelete(item.id)}
-                          className="px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 text-[11px] font-semibold transition-all cursor-pointer shadow-2xs active:scale-95"
-                        >
-                          Pulihkan
-                        </button>
-                      )}
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenInspection(item)}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-gray-200 text-gray-700 hover:bg-[#EEF0FF] hover:text-[#4941EC] hover:border-[#4941EC]/30 text-[11px] font-semibold transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer shadow-2xs"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Periksa media</span>
+                    </button>
                   </td>
                 </tr>
               ))}
 
-              {paginatedContents.length === 0 && (
+              {paginatedTrips.length === 0 && (
                 <tr>
                   <td colSpan={6} className="py-12 text-center text-gray-400">
                     <div className="flex flex-col items-center justify-center gap-2">
-                      <FolderArchive className="w-8 h-8 stroke-[1.5] text-gray-300" />
+                      <Search className="w-8 h-8 stroke-[1.5] text-gray-300" />
                       <p className="text-xs font-semibold text-gray-700">
-                        Tidak ada konten media pengajuan yang cocok
+                        Tidak ada data perjalanan yang cocok
                       </p>
                       <p className="text-[11px] text-gray-400">
-                        Coba sesuaikan kata kunci pencarian atau ubah filter status/metode.
+                        Coba sesuaikan kata kunci pencarian atau ubah filter status moderasi.
                       </p>
                     </div>
                   </td>
@@ -845,359 +822,596 @@ export default function AdminMediaModeration() {
           </table>
         </div>
 
-        {/* PAGINATION SECTION */}
-        <div className="pt-4 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-500">
-          {/* Left: Data display count */}
-          <div>
-            Menampilkan{' '}
-            <strong className="text-gray-900 font-semibold">{startItem}</strong> -{' '}
-            <strong className="text-gray-900 font-semibold">{endItem}</strong> dari{' '}
-            <strong className="text-gray-900 font-semibold">{totalItems}</strong> data
+        {/* Pagination Footer: Left info, Right custom limit dropdown & sliding numbers */}
+        <div className="px-5 sm:px-6 py-4 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-gray-600">
+          {/* Left: Menampilkan ... - ... dari ... data */}
+          <div className="text-gray-500 font-medium">
+            {filteredTrips.length > 0 ? (
+              <span>
+                Menampilkan <strong className="font-semibold text-gray-900">{startItem}</strong> -{' '}
+                <strong className="font-semibold text-gray-900">{endItem}</strong> dari{' '}
+                <strong className="font-semibold text-gray-900">{filteredTrips.length}</strong> data perjalanan
+              </span>
+            ) : (
+              <span>Menampilkan 0 data perjalanan</span>
+            )}
           </div>
 
-          {/* Right: Items per page & page buttons */}
+          {/* Right: Custom Limit Dropdown & Sliding Page Numbers */}
           <div className="flex items-center gap-3">
-            {/* Limit Selector */}
-            <div className="relative flex items-center gap-1.5" data-dropdown>
-              <span className="text-[11px] text-gray-400 hidden sm:inline">Tampilkan:</span>
+            <div className="relative" data-dropdown>
               <button
                 type="button"
                 onClick={() => {
                   setIsLimitDropdownOpen(!isLimitDropdownOpen);
                   setIsStatusDropdownOpen(false);
-                  setIsMethodDropdownOpen(false);
                 }}
-                className="px-2.5 py-1 rounded-lg border border-gray-200 bg-white text-gray-700 text-xs font-semibold flex items-center gap-1.5 hover:bg-gray-50 cursor-pointer"
+                className="px-3 py-1.5 rounded-full bg-[#F6F7FB] border border-gray-200/80 hover:bg-white text-xs font-semibold text-gray-700 flex items-center gap-1.5 transition-all cursor-pointer"
               >
-                <span>{itemsPerPage} Data</span>
-                <ChevronDown className="w-3 h-3 text-gray-400" />
+                <span>{itemsPerPage} / hal</span>
+                <ChevronDown
+                  className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-200 ${
+                    isLimitDropdownOpen ? 'rotate-180 text-[#4941EC]' : ''
+                  }`}
+                />
               </button>
 
               {isLimitDropdownOpen && (
-                <div className="absolute right-0 bottom-full mb-1 w-28 bg-white border border-gray-100 shadow-lg rounded-xl p-1 z-30">
-                  {[5, 10, 20, 50].map((limit) => (
+                <div className="absolute right-0 bottom-full mb-1.5 w-32 bg-white/95 backdrop-blur-xl border border-gray-100 shadow-[0_10px_30px_rgba(0,0,0,0.08)] rounded-2xl p-1 z-30 animate-in fade-in zoom-in-95 duration-150">
+                  {[5, 10, 20].map((lim) => (
                     <button
                       type="button"
-                      key={limit}
+                      key={lim}
                       onClick={() => {
-                        setItemsPerPage(limit);
+                        setItemsPerPage(lim);
                         setIsLimitDropdownOpen(false);
                         setCurrentPage(1);
                       }}
-                      className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium cursor-pointer ${
-                        itemsPerPage === limit
+                      className={`w-full text-left px-3 py-1.5 rounded-xl text-xs font-medium flex items-center justify-between transition-colors cursor-pointer ${
+                        itemsPerPage === lim
                           ? 'bg-[#EEF2FF] text-[#4941EC] font-semibold'
                           : 'text-gray-700 hover:bg-gray-50'
                       }`}
                     >
-                      {limit} per halaman
+                      <span>{lim} / hal</span>
+                      {itemsPerPage === lim && <Check className="w-3.5 h-3.5" />}
                     </button>
                   ))}
                 </div>
               )}
             </div>
 
-            {/* Prev / Page numbers / Next */}
+            {/* Pagination Controls */}
             <div className="flex items-center gap-1">
               <button
                 type="button"
-                onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
                 aria-label="Halaman sebelumnya"
-                className="p-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed transition-colors"
+                className="w-8 h-8 rounded-full border border-gray-200/80 hover:bg-[#EEF0FF] hover:text-[#4941EC] hover:border-[#4941EC]/30 flex items-center justify-center text-gray-600 disabled:opacity-40 disabled:pointer-events-none transition-all cursor-pointer"
               >
-                <ChevronLeft className="w-3.5 h-3.5" />
+                <ChevronLeft className="w-4 h-4" />
               </button>
 
-              <div className="flex items-center gap-1">
-                {pageNumbers.map((page, index) => {
-                  if (page === '...') {
-                    return (
-                      <span key={`dots-${index}`} className="px-1 text-gray-400 text-xs">
-                        ...
-                      </span>
-                    );
-                  }
-
-                  const pageNum = Number(page);
-                  const isCurrent = pageNum === currentPage;
-
-                  return (
-                    <button
-                      type="button"
-                      key={`page-${pageNum}`}
-                      onClick={() => setCurrentPage(pageNum)}
-                      className={`min-w-[28px] h-7 px-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                        isCurrent
-                          ? 'bg-[#4941EC] text-white shadow-xs'
-                          : 'text-gray-700 hover:bg-gray-100'
-                      }`}
-                    >
-                      {pageNum}
-                    </button>
-                  );
-                })}
-              </div>
+              {getPageNumbers(currentPage, totalPages).map((pageNum, idx) =>
+                typeof pageNum === 'number' ? (
+                  <button
+                    type="button"
+                    key={`page-${pageNum}`}
+                    onClick={() => setCurrentPage(pageNum)}
+                    className={`w-8 h-8 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+                      currentPage === pageNum
+                        ? 'bg-[#4941EC] text-white shadow-xs'
+                        : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                ) : (
+                  <span
+                    key={`dots-${idx}`}
+                    className="w-7 text-center text-gray-400 font-semibold"
+                  >
+                    ...
+                  </span>
+                )
+              )}
 
               <button
                 type="button"
-                onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
-                disabled={currentPage === totalPages || totalPages === 0}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
                 aria-label="Halaman berikutnya"
-                className="p-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed transition-colors"
+                className="w-8 h-8 rounded-full border border-gray-200/80 hover:bg-[#EEF0FF] hover:text-[#4941EC] hover:border-[#4941EC]/30 flex items-center justify-center text-gray-600 disabled:opacity-40 disabled:pointer-events-none transition-all cursor-pointer"
               >
-                <ChevronRight className="w-3.5 h-3.5" />
+                <ChevronRight className="w-4 h-4" />
               </button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* MODAL: FORM DETAIL & MODERASI MEDIA PENGGUNA */}
-      {inspectingItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-200">
+      {/* 3. INSPECTION MODAL (SYSTEM ANALYST DESIGN SPECIFICATION) */}
+      {inspectingTrip && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-3 sm:p-5 overflow-y-auto animate-in fade-in duration-200">
           <div
-            className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[92vh]"
-            role="dialog"
-            aria-modal="true"
-          >
+            className="absolute inset-0"
+            onClick={handleCloseInspection}
+            aria-hidden="true"
+          />
+
+          <div className="relative w-full max-w-4xl bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden z-10 flex flex-col max-h-[92vh] my-auto">
             {/* Modal Header */}
-            <div className="p-5 border-b border-gray-100 flex items-center justify-between">
+            <div className="flex items-center justify-between p-4 sm:p-5 border-b border-gray-100 bg-white shrink-0">
               <div>
-                <h3 className="text-sm sm:text-base font-semibold text-gray-900 tracking-tight">
-                  Form Detail & Moderasi Media Pengguna
+                <span className="text-[10px] font-semibold text-[#4941EC] bg-[#EEF2FF] px-2.5 py-0.5 rounded-full border border-[#4941EC]/15">
+                  Inspeksi moderasi konten
+                </span>
+                <h3 className="text-base sm:text-lg font-bold text-gray-900 mt-1">
+                  Detail moderasi media perjalanan
                 </h3>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Tinjau kelayakan media foto/video dan status penayangan di peta publik
-                </p>
               </div>
               <button
                 type="button"
-                onClick={() => setInspectingItem(null)}
-                aria-label="Tutup form"
-                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 flex items-center justify-center transition-colors cursor-pointer shrink-0"
+                onClick={handleCloseInspection}
+                aria-label="Tutup inspeksi"
+                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 hover:text-gray-800 flex items-center justify-center transition-all cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Modal Body */}
-            <div className="p-5 sm:p-6 overflow-y-auto space-y-5 flex-1">
-              {/* 1. Informasi Dasar Usulan & Pengaju */}
-              <div className="p-4 rounded-2xl bg-[#FBFBFE] border border-gray-100 space-y-2.5">
-                <div className="flex items-start justify-between gap-3">
+            {/* Scrollable Body: Clean, Flat Structure (No excessive nesting) */}
+            <div className="p-4 sm:p-6 overflow-y-auto space-y-5">
+              {/* ----------------------------------------------------------------- */}
+              {/* A. CARD OVERVIEW: Id perjalanan, nama perjalanan, Id pengguna     */}
+              {/* ----------------------------------------------------------------- */}
+              <div className="bg-[#F8FAFC] rounded-2xl p-4 sm:p-5 border border-gray-100">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+                  {/* Id perjalanan */}
                   <div>
-                    <span className="text-[11px] text-gray-400 font-medium block">
-                      Nama Tempat Usulan
+                    <span className="text-[10px] font-semibold text-gray-400 block">
+                      Id perjalanan
                     </span>
-                    <h4 className="text-base font-semibold text-gray-900">
-                      {inspectingItem.name}
-                    </h4>
+                    <span className="font-mono text-xs font-bold text-[#4941EC] bg-white px-2 py-0.5 rounded border border-gray-200/60 inline-block mt-0.5">
+                      {inspectingTrip.id}
+                    </span>
                   </div>
-                  <span
-                    className={`px-2.5 py-1 rounded-full text-[10px] font-semibold ${
-                      inspectingItem.category === 'Wisata Alam & Terbuka'
-                        ? 'bg-[#EEF2FF] text-[#4941EC]'
-                        : inspectingItem.category === 'Modern & Lifestyle'
-                        ? 'bg-[#FEF6E7] text-[#D97706]'
-                        : inspectingItem.category === 'Publik & Edukasi'
-                        ? 'bg-[#ECFDF5] text-[#059669]'
-                        : 'bg-[#EFF6FF] text-[#2563EB]'
-                    }`}
-                  >
-                    {inspectingItem.category}
-                  </span>
-                </div>
 
-                <div className="pt-2 border-t border-gray-200/60 flex flex-wrap items-center justify-between text-xs text-gray-600">
-                  <span>
-                    Diajukan Oleh:{' '}
-                    <strong className="text-gray-900 font-semibold">
-                      {inspectingItem.submitter}
-                    </strong>
-                  </span>
-                  <span className="text-gray-400 flex items-center gap-1">
-                    <Calendar className="w-3 h-3" />
-                    {inspectingItem.date}
-                  </span>
-                </div>
-              </div>
-
-              {/* 2. Pratinjau Media Lampiran */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="block text-xs font-semibold text-gray-800 flex items-center gap-1.5">
-                    {inspectingItem.mediaType === 'video' ? (
-                      <Video className="w-3.5 h-3.5 text-[#3B82F6]" />
-                    ) : (
-                      <ImageIcon className="w-3.5 h-3.5 text-[#4941EC]" />
-                    )}
-                    Pratinjau Media Lampiran:
-                  </label>
-                  <span className="text-[11px] text-gray-400 font-mono">
-                    {inspectingItem.mediaFileName} ({inspectingItem.mediaSize})
-                  </span>
-                </div>
-
-                <div className="w-full h-48 rounded-2xl bg-gray-100 border border-gray-200 flex flex-col items-center justify-center text-gray-500 gap-2 p-4 text-center">
-                  <div className="w-10 h-10 rounded-full bg-white shadow-2xs flex items-center justify-center text-[#4941EC]">
-                    {inspectingItem.mediaType === 'video' ? (
-                      <Video className="w-5 h-5" />
-                    ) : (
-                      <ImageIcon className="w-5 h-5" />
-                    )}
-                  </div>
+                  {/* Nama perjalanan */}
                   <div>
-                    <p className="text-xs font-semibold text-gray-800">
-                      {inspectingItem.mediaFileName}
-                    </p>
-                    <p className="text-[11px] text-gray-400 mt-0.5">
-                      Ukuran File: {inspectingItem.mediaSize} • Format {inspectingItem.mediaType === 'video' ? 'Video MP4' : 'Foto JPEG'}
-                    </p>
+                    <span className="text-[10px] font-semibold text-gray-400 block">
+                      Nama perjalanan
+                    </span>
+                    <span className="text-xs font-bold text-gray-900 block truncate mt-0.5" title={inspectingTrip.tripName}>
+                      {inspectingTrip.tripName}
+                    </span>
+                  </div>
+
+                  {/* Id pengguna & Nama */}
+                  <div>
+                    <span className="text-[10px] font-semibold text-gray-400 block">
+                      Pengguna pengunggah
+                    </span>
+                    <div className="text-xs text-gray-900 font-semibold truncate mt-0.5">
+                      <span className="font-mono text-[#4941EC] mr-1.5">{inspectingTrip.userId}</span>
+                      <span>{inspectingTrip.userName}</span>
+                    </div>
+                  </div>
+
+                  {/* Time stamp */}
+                  <div>
+                    <span className="text-[10px] font-semibold text-gray-400 block">
+                      Time stamp
+                    </span>
+                    <span className="text-xs font-semibold text-gray-700 block mt-0.5">
+                      {inspectingTrip.timestamp}
+                    </span>
                   </div>
                 </div>
               </div>
 
-              {/* 3. Data Spasial & Wilayah */}
-              <div className="p-3.5 rounded-xl bg-gray-50/80 border border-gray-200 text-xs space-y-1.5">
-                <span className="text-[11px] font-semibold text-gray-700 block">
-                  Data Lokasi Spasial:
+              {/* ----------------------------------------------------------------- */}
+              {/* B. TABLE MEDIA: Id media | Jenis media | Nama media | Lihat + aksi*/}
+              {/* ----------------------------------------------------------------- */}
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-gray-900">
+                    Daftar media dokumentasi ({stagedMediaList.length} berkas)
+                  </h4>
+                  <span className="text-[11px] text-gray-400">
+                    {stagedMediaList.filter((m) => m.isDeleted).length} media ditandai hapus
+                  </span>
+                </div>
+
+                <div className="overflow-x-auto rounded-2xl border border-gray-100">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="border-b border-gray-100 bg-[#F8FAFC] text-gray-700 font-semibold">
+                        <th className="py-2.5 px-4">Id media</th>
+                        <th className="py-2.5 px-3">Jenis media</th>
+                        <th className="py-2.5 px-3">Nama media</th>
+                        <th className="py-2.5 px-4 text-right">Lihat & aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50 bg-white">
+                      {stagedMediaList.map((media) => (
+                        <tr
+                          key={media.id}
+                          className={`transition-colors ${
+                            media.isDeleted ? 'bg-red-50/40 text-gray-400' : 'hover:bg-gray-50/60'
+                          }`}
+                        >
+                          {/* Id media */}
+                          <td className="py-3 px-4 font-mono text-[11px] font-semibold whitespace-nowrap">
+                            <span
+                              className={
+                                media.isDeleted
+                                  ? 'line-through text-gray-400'
+                                  : 'text-gray-800'
+                              }
+                            >
+                              {media.id}
+                            </span>
+                          </td>
+
+                          {/* Jenis media (badge Foto / Video) */}
+                          <td className="py-3 px-3 whitespace-nowrap">
+                            {media.type === 'video' ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-[#EFF6FF] text-[#2563EB] border border-[#2563EB]/20">
+                                <Film className="w-3 h-3 text-[#2563EB]" />
+                                <span>Video</span>
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-[#EEF2FF] text-[#4941EC] border border-[#4941EC]/20">
+                                <Camera className="w-3 h-3 text-[#4941EC]" />
+                                <span>Foto</span>
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Nama media (abstrak teks / hash file) */}
+                          <td className="py-3 px-3">
+                            <div className="flex items-center gap-2">
+                              {/* Micro thumbnail */}
+                              <div
+                                onClick={() => setPreviewMedia(media)}
+                                className="relative w-8 h-8 rounded-lg overflow-hidden bg-gray-100 shrink-0 border border-gray-200/80 cursor-pointer hover:opacity-80 transition-opacity"
+                                title="Klik untuk pratinjau"
+                              >
+                                {media.type === 'video' ? (
+                                  <div className="w-full h-full flex items-center justify-center bg-gray-900 text-white">
+                                    <Film className="w-3.5 h-3.5 text-[#60CE9F]" />
+                                  </div>
+                                ) : (
+                                  <Image
+                                    src={media.url}
+                                    alt={media.fileName}
+                                    fill
+                                    className="object-cover"
+                                    sizes="32px"
+                                  />
+                                )}
+                              </div>
+
+                              <div className="min-w-0">
+                                <span
+                                  className={`font-mono text-xs block truncate max-w-[200px] sm:max-w-xs ${
+                                    media.isDeleted
+                                      ? 'line-through text-gray-400'
+                                      : 'font-semibold text-gray-800'
+                                  }`}
+                                  title={media.fileName}
+                                >
+                                  {media.fileName}
+                                </span>
+                                <span className="text-[10px] text-gray-400 block mt-0.5">
+                                  {media.size}
+                                  {media.caption && (
+                                    <> &bull; &ldquo;{media.caption}&rdquo;</>
+                                  )}
+                                </span>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Lihat + Aksi (Hapus Media) */}
+                          <td className="py-3 px-4 text-right whitespace-nowrap">
+                            <div className="inline-flex items-center gap-1.5">
+                              {/* Lihat Button */}
+                              <button
+                                type="button"
+                                onClick={() => setPreviewMedia(media)}
+                                className="px-2.5 py-1 rounded-lg border border-gray-200 text-gray-700 hover:bg-[#EEF0FF] hover:text-[#4941EC] hover:border-[#4941EC]/30 text-[11px] font-semibold transition-all cursor-pointer shadow-2xs"
+                              >
+                                Lihat
+                              </button>
+
+                              {/* Hapus Media Toggle Button */}
+                              {media.isDeleted ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleStagedMediaDelete(media.id)}
+                                  className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 text-[11px] font-semibold transition-all cursor-pointer shadow-2xs"
+                                >
+                                  Batal hapus
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleStagedMediaDelete(media.id)}
+                                  className="px-2.5 py-1 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 text-[11px] font-semibold transition-all cursor-pointer shadow-2xs"
+                                >
+                                  Hapus media
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* ----------------------------------------------------------------- */}
+              {/* C. CARD SANKSI: Tingkat pelanggaran (3 tingkatan) + Alasan + Submit*/}
+              {/* ----------------------------------------------------------------- */}
+              <div className="bg-[#F8FAFC] rounded-2xl p-4 sm:p-5 border border-gray-100 space-y-4">
+                <div>
+                  <h4 className="text-xs font-bold text-gray-900">
+                    Penetapan tindakan & sanksi pelanggaran
+                  </h4>
+                  <p className="text-[11px] text-gray-400 mt-0.5">
+                    Pilih tingkat penindakan sesuai keparahan pelanggaran konten media pada perjalanan ini
+                  </p>
+                </div>
+
+                {/* 3 Tingkatan Pelanggaran (+ 1 Opsi Aman) */}
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-semibold text-gray-700 block">
+                    Tingkat pelanggaran:
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                    {/* Opsi 0: Aman / Lolos */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedSanctionLevel(0);
+                        setFormError(null);
+                      }}
+                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-2.5 ${
+                        selectedSanctionLevel === 0
+                          ? 'bg-emerald-50 border-emerald-500 text-emerald-900 ring-1 ring-emerald-500'
+                          : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      <div
+                        className={`w-4 h-4 rounded-full border mt-0.5 flex items-center justify-center shrink-0 ${
+                          selectedSanctionLevel === 0
+                            ? 'border-emerald-500 bg-emerald-500 text-white'
+                            : 'border-gray-300 bg-white'
+                        }`}
+                      >
+                        {selectedSanctionLevel === 0 && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold block leading-tight">
+                          Aman / Lolos
+                        </span>
+                        <span className="text-[10px] text-gray-500 leading-tight block mt-0.5">
+                          Tidak ada pelanggaran
+                        </span>
+                      </div>
+                    </button>
+
+                    {/* Opsi 1: Peringatan */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedSanctionLevel(1);
+                        setFormError(null);
+                      }}
+                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-2.5 ${
+                        selectedSanctionLevel === 1
+                          ? 'bg-amber-50 border-amber-500 text-amber-900 ring-1 ring-amber-500'
+                          : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      <div
+                        className={`w-4 h-4 rounded-full border mt-0.5 flex items-center justify-center shrink-0 ${
+                          selectedSanctionLevel === 1
+                            ? 'border-amber-500 bg-amber-500 text-white'
+                            : 'border-gray-300 bg-white'
+                        }`}
+                      >
+                        {selectedSanctionLevel === 1 && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold block leading-tight">
+                          1 - Peringatan
+                        </span>
+                        <span className="text-[10px] text-gray-500 leading-tight block mt-0.5">
+                          Pelanggaran ringan / spam
+                        </span>
+                      </div>
+                    </button>
+
+                    {/* Opsi 2: Peringatan keras */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedSanctionLevel(2);
+                        setFormError(null);
+                      }}
+                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-2.5 ${
+                        selectedSanctionLevel === 2
+                          ? 'bg-rose-50 border-rose-500 text-rose-900 ring-1 ring-rose-500'
+                          : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      <div
+                        className={`w-4 h-4 rounded-full border mt-0.5 flex items-center justify-center shrink-0 ${
+                          selectedSanctionLevel === 2
+                            ? 'border-rose-500 bg-rose-500 text-white'
+                            : 'border-gray-300 bg-white'
+                        }`}
+                      >
+                        {selectedSanctionLevel === 2 && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold block leading-tight">
+                          2 - Peringatan keras
+                        </span>
+                        <span className="text-[10px] text-gray-500 leading-tight block mt-0.5">
+                          Pelanggaran berulang / kasar
+                        </span>
+                      </div>
+                    </button>
+
+                    {/* Opsi 3: Ban akun */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedSanctionLevel(3);
+                        setFormError(null);
+                      }}
+                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-2.5 ${
+                        selectedSanctionLevel === 3
+                          ? 'bg-red-50 border-red-600 text-red-950 ring-1 ring-red-600'
+                          : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      <div
+                        className={`w-4 h-4 rounded-full border mt-0.5 flex items-center justify-center shrink-0 ${
+                          selectedSanctionLevel === 3
+                            ? 'border-red-600 bg-red-600 text-white'
+                            : 'border-gray-300 bg-white'
+                        }`}
+                      >
+                        {selectedSanctionLevel === 3 && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold block leading-tight">
+                          3 - Ban akun
+                        </span>
+                        <span className="text-[10px] text-gray-500 leading-tight block mt-0.5">
+                          Pemblokiran akses permanen
+                        </span>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Alasan Pelanggaran */}
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-semibold text-gray-700 block">
+                    Alasan pelanggaran:
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={sanctionReasonInput}
+                    onChange={(e) => {
+                      setSanctionReasonInput(e.target.value);
+                      if (formError) setFormError(null);
+                    }}
+                    placeholder={
+                      selectedSanctionLevel === 0
+                        ? 'Catatan verifikasi (opsional)...'
+                        : 'Jelaskan alasan penetapan sanksi (misal: foto mengandung materi tidak senonoh / spam promosi)...'
+                    }
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-gray-200 focus:border-[#4941EC] focus:ring-1 focus:ring-[#4941EC] text-xs text-gray-800 placeholder:text-gray-400 outline-none transition-all resize-none"
+                  />
+                  {formError && (
+                    <p className="text-[11px] font-semibold text-rose-600 flex items-center gap-1 mt-1">
+                      <AlertCircle className="w-3.5 h-3.5" />
+                      <span>{formError}</span>
+                    </p>
+                  )}
+                </div>
+
+                {/* Submit Action Row */}
+                <div className="flex flex-col sm:flex-row items-center justify-end gap-2.5 pt-2 border-t border-gray-200/60">
+                  <button
+                    type="button"
+                    onClick={handleCloseInspection}
+                    className="w-full sm:w-auto px-5 py-2.5 rounded-full border border-gray-200 text-gray-700 hover:bg-gray-100 text-xs font-semibold transition-all cursor-pointer"
+                  >
+                    Batal
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleSubmitModeration}
+                    className="w-full sm:w-auto px-6 py-2.5 rounded-full bg-[#4941EC] hover:bg-[#3D35DA] active:scale-95 text-white text-xs font-semibold shadow-[0_2px_10px_rgba(73,65,236,0.22)] transition-all cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    <Check className="w-4 h-4 stroke-[2.5]" />
+                    <span>Submit tindakan</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 4. LIGHTBOX PREVIEW MODAL (FOTO / VIDEO PLAYER) */}
+      {previewMedia && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-150">
+          <div
+            className="absolute inset-0"
+            onClick={() => setPreviewMedia(null)}
+            aria-hidden="true"
+          />
+
+          <div className="relative z-10 max-w-3xl w-full bg-[#0B0F19] rounded-2xl overflow-hidden border border-white/20 shadow-2xl flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between p-3.5 bg-black/50 border-b border-white/10 text-white">
+              <div className="min-w-0 pr-2">
+                <span className="font-mono text-xs font-bold text-[#60CE9F] block truncate">
+                  {previewMedia.fileName}
                 </span>
-                <p className="text-gray-800 font-mono text-[11px]">
-                  {inspectingItem.locationDetail}
-                </p>
-                <p className="text-[11px] text-gray-500 italic">
-                  Wilayah: {inspectingItem.district}
-                </p>
+                <span className="text-[10px] text-white/60 block">
+                  Format: {previewMedia.type === 'video' ? 'Video MP4' : 'Foto JPEG/PNG'} &bull; Ukuran: {previewMedia.size}
+                </span>
               </div>
+              <button
+                type="button"
+                onClick={() => setPreviewMedia(null)}
+                aria-label="Tutup pratinjau"
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all cursor-pointer shrink-0"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
 
-              {/* 4. Update Status Moderasi */}
-              <div className="space-y-2">
-                <label className="block text-xs font-semibold text-gray-800 flex items-center gap-1.5">
-                  <AlertTriangle className="w-3.5 h-3.5 text-gray-400" />
-                  Status Publikasi & Moderasi:
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  <button
-                    type="button"
-                    onClick={() => setEditStatus('published')}
-                    className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex items-center gap-2.5 ${
-                      editStatus === 'published'
-                        ? 'bg-emerald-50 border-emerald-500 text-emerald-800 ring-1 ring-emerald-500'
-                        : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    <div
-                      className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
-                        editStatus === 'published'
-                          ? 'border-emerald-500 bg-emerald-500'
-                          : 'border-gray-300 bg-white'
-                      }`}
-                    >
-                      {editStatus === 'published' && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
-                    </div>
-                    <div>
-                      <span className="text-xs font-semibold block">Published (Aktif)</span>
-                      <span className="text-[10px] text-gray-400">Tampil di Peta Publik & Feed</span>
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setEditStatus('deleted')}
-                    className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex items-center gap-2.5 ${
-                      editStatus === 'deleted'
-                        ? 'bg-red-50 border-red-500 text-red-800 ring-1 ring-red-500'
-                        : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    <div
-                      className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
-                        editStatus === 'deleted'
-                          ? 'border-red-500 bg-red-500'
-                          : 'border-gray-300 bg-white'
-                      }`}
-                    >
-                      {editStatus === 'deleted' && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
-                    </div>
-                    <div>
-                      <span className="text-xs font-semibold block">Deleted (Dihapus)</span>
-                      <span className="text-[10px] text-gray-400">Disembunyikan dari Publik</span>
-                    </div>
-                  </button>
-                </div>
-
-                {/* Catatan Alasan Moderasi */}
-                {editStatus === 'deleted' && (
-                  <div className="pt-2 animate-in fade-in duration-150">
-                    <label className="block text-[11px] font-semibold text-gray-700 mb-1">
-                      Catatan Moderasi / Alasan Penghapusan:
-                    </label>
-                    <textarea
-                      rows={2}
-                      value={moderationReasonInput}
-                      onChange={(e) => setModerationReasonInput(e.target.value)}
-                      placeholder="Tuliskan alasan penonaktifan konten media atau lokasi..."
-                      className="w-full px-3 py-2 rounded-xl bg-[#F6F7FB] border border-transparent focus:border-red-300 focus:bg-white text-xs text-gray-800 outline-none transition-all resize-none"
-                    />
-                  </div>
-                )}
-              </div>
-
-              {/* Confirm Delete Section (if triggered) */}
-              {confirmDeleteId && (
-                <div className="p-3.5 rounded-2xl bg-red-50 border border-red-200 text-xs text-red-700 flex items-center justify-between gap-3 animate-in fade-in duration-150">
-                  <span>Yakin ingin menghapus berkas media ini secara permanen dari server penyimpanan?</span>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => setConfirmDeleteId(null)}
-                      className="px-3 py-1 rounded-full border border-gray-300 bg-white text-gray-700 font-semibold text-[11px] hover:bg-gray-50 cursor-pointer"
-                    >
-                      Batal
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handlePermanentDelete(confirmDeleteId)}
-                      className="px-3 py-1 rounded-full bg-red-600 hover:bg-red-700 text-white font-semibold text-[11px] cursor-pointer"
-                    >
-                      Ya, Hapus
-                    </button>
-                  </div>
-                </div>
+            {/* Media Viewport */}
+            <div className="relative w-full h-[360px] sm:h-[480px] bg-black flex items-center justify-center">
+              {previewMedia.type === 'video' ? (
+                <video
+                  src={previewMedia.url}
+                  controls
+                  autoPlay
+                  className="max-w-full max-h-full object-contain"
+                />
+              ) : (
+                <Image
+                  src={previewMedia.url}
+                  alt={previewMedia.fileName}
+                  fill
+                  className="object-contain"
+                  sizes="(max-width: 768px) 100vw, 768px"
+                  priority
+                />
               )}
             </div>
 
-            {/* Modal Footer Actions (NO BUTTON ICONS) */}
-            <div className="p-4 sm:p-5 border-t border-gray-100 bg-[#FBFBFE] flex flex-wrap items-center justify-between gap-3">
-              {/* Primary Action Button (Left / Prominent) */}
-              <button
-                type="button"
-                onClick={handleSaveModeration}
-                className="px-5 py-2 rounded-full bg-[#4941EC] hover:bg-[#3D35DA] active:scale-95 text-white text-xs font-semibold shadow-xs transition-all cursor-pointer"
-              >
-                Simpan Status Moderasi
-              </button>
-
-              {/* Secondary Actions (Right) */}
-              <div className="flex items-center gap-2.5 ml-auto">
-                <button
-                  type="button"
-                  onClick={() => setConfirmDeleteId(inspectingItem.id)}
-                  className="px-4 py-2 rounded-full border border-red-200 text-red-600 hover:bg-red-50 text-xs font-semibold transition-colors cursor-pointer"
-                >
-                  Hapus Media Permanen
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setInspectingItem(null)}
-                  className="px-4 py-2 rounded-full border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
-                >
-                  Batal
-                </button>
+            {/* Caption Footer */}
+            {previewMedia.caption && (
+              <div className="p-3 bg-black/70 border-t border-white/10 text-center text-xs text-white/90">
+                &ldquo;{previewMedia.caption}&rdquo;
               </div>
-            </div>
+            )}
           </div>
         </div>
       )}

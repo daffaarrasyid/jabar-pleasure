@@ -1,21 +1,25 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import MobileShell from '@/components/layout/MobileShell';
 import { TripItem, DestinationItem } from '@/components/history/historyData';
 import Toast from '@/components/ui/Toast';
 import { getItineraries } from '@/lib/api';
 import { getAuthToken, removeAuthToken, getUserTripHistoryKey } from '@/lib/auth';
+import { formatHumanDate, formatCompletedDayDate, formatDestinationTime } from '@/lib/dateUtils';
 
 const TripHistoryScreen = dynamic(() => import('@/components/history/TripHistoryScreen'), { ssr: false });
 const TripDetailScreen = dynamic(() => import('@/components/history/TripDetailScreen'), { ssr: false });
 const DestinationDocScreen = dynamic(() => import('@/components/history/DestinationDocScreen'), { ssr: false });
 const TripShowcaseScreen = dynamic(() => import('@/components/history/TripShowcaseScreen'), { ssr: false });
 
-export default function RiwayatPage() {
+function RiwayatContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const tripIdParam = searchParams.get('tripId');
+
   const [currentScreen, setCurrentScreen] = useState<
     | 'trip-history'
     | 'trip-detail'
@@ -48,6 +52,25 @@ export default function RiwayatPage() {
     }, 3500);
   };
 
+  // Automatically restore trip-detail screen when returning from timelapse page via ?tripId=...
+  useEffect(() => {
+    if (!tripIdParam || historyTrips.length === 0) return;
+
+    const cleanParam = tripIdParam.trim().replace(/^trip-/, '');
+    const matched = historyTrips.find(
+      (t) =>
+        t.id === tripIdParam ||
+        t.id === `trip-${cleanParam}` ||
+        t.id.replace(/^trip-/, '') === cleanParam
+    );
+
+    if (matched) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSelectedTrip(matched);
+      setCurrentScreen('trip-detail');
+    }
+  }, [tripIdParam, historyTrips]);
+
   // Check and sync completed itineraries from backend on mount (Strictly User-Scoped)
   useEffect(() => {
     let isCancelled = false;
@@ -76,7 +99,18 @@ export default function RiwayatPage() {
           if (stored) {
             const parsed = JSON.parse(stored);
             if (Array.isArray(parsed) && !isCancelled) {
-              cachedTrips = parsed.filter((item: TripItem) => item.id !== 'bandung-trip');
+              cachedTrips = parsed
+                .filter((item: TripItem) => item.id !== 'bandung-trip')
+                .map((item: TripItem) => ({
+                  ...item,
+                  dateRange: formatHumanDate(item.dateRange),
+                  completedDate: formatCompletedDayDate(item.completedDate),
+                  destinations: (item.destinations || []).map((d) => ({
+                    ...d,
+                    time: formatDestinationTime(d.time, d.visitDate),
+                    visitDate: formatHumanDate(d.visitDate),
+                  })),
+                }));
               setHistoryTrips(cachedTrips);
               if (cachedTrips.length > 0) {
                 setIsLoading(false);
@@ -98,7 +132,9 @@ export default function RiwayatPage() {
           const itinId = `trip-${itin.id}`;
           const localTrip = cachedMap.get(itinId);
 
-          const dateStr = itin.end_date || itin.start_date || 'Hari ini';
+          const rawDate = itin.end_date || itin.start_date || 'Hari ini';
+          const cleanDate = formatHumanDate(rawDate);
+          const completedDayDate = formatCompletedDayDate(rawDate);
           const originName =
             itin.route_geojson?.properties?.departure_name ||
             itin.route_geojson?.departure_name ||
@@ -119,9 +155,9 @@ export default function RiwayatPage() {
               itin.start_date && itin.end_date && itin.start_date !== itin.end_date
                 ? '2 hari 1 malam'
                 : '1 hari',
-            dateRange: dateStr,
+            dateRange: cleanDate,
             location: originName,
-            completedDate: dateStr,
+            completedDate: completedDayDate,
             stats: {
               destinations: itin.items?.length || 1,
               photos: localTrip?.stats?.photos || 0,
@@ -134,12 +170,12 @@ export default function RiwayatPage() {
               return {
                 id: String(it.destination_id || idx + 1),
                 name: it.destination?.name || `Destinasi ${idx + 1}`,
-                time: `${dateStr} • Selesai`,
+                time: `${cleanDate} • Selesai`,
                 status: 'Sudah dikunjungi',
                 photoCount: localDest?.photoCount || 0,
                 image: it.destination?.cover_image_url || it.destination?.cover_image || firstImage,
                 location: it.destination?.address || originName,
-                visitDate: dateStr,
+                visitDate: cleanDate,
                 visitTime: 'Selesai',
                 notes: localDest?.notes || `Kunjungan ke-${idx + 1} rencana perjalanan ${itin.title}`,
                 photos: localDest?.photos || [],
@@ -216,7 +252,10 @@ export default function RiwayatPage() {
       {currentScreen === 'trip-detail' && (
         <TripDetailScreen
           trip={selectedTrip || undefined}
-          onBack={() => setCurrentScreen('trip-history')}
+          onBack={() => {
+            router.replace('/riwayat');
+            setCurrentScreen('trip-history');
+          }}
           onUpdateTrip={(updated) => {
             setSelectedTrip(updated);
             setHistoryTrips((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
@@ -242,6 +281,12 @@ export default function RiwayatPage() {
           destination={selectedDestination || undefined}
           trip={selectedTrip || undefined}
           onBack={() => setCurrentScreen('trip-detail')}
+          onUpdateTrip={(updated) => {
+            setSelectedTrip(updated);
+            setHistoryTrips((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+            const updatedDest = updated.destinations?.find((d) => d.id === selectedDestination?.id);
+            if (updatedDest) setSelectedDestination(updatedDest);
+          }}
           onNavigateToHome={() => router.push('/home')}
           onNavigateToRencana={() => router.push('/rencana')}
           onNavigateToMap={() => router.push('/map')}
@@ -265,5 +310,21 @@ export default function RiwayatPage() {
         />
       )}
     </MobileShell>
+  );
+}
+
+export default function RiwayatPage() {
+  return (
+    <Suspense
+      fallback={
+        <MobileShell activeScreen="riwayat">
+          <div className="w-full h-full flex items-center justify-center p-6 text-gray-400 text-xs">
+            Memuat riwayat perjalanan...
+          </div>
+        </MobileShell>
+      }
+    >
+      <RiwayatContent />
+    </Suspense>
   );
 }

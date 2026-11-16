@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CheckIn;
 use App\Models\Destination;
 use App\Models\Itinerary;
 use App\Models\ItineraryItem;
+use App\Models\JournalMedia;
 use App\Models\Notification;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
@@ -241,6 +243,188 @@ class ItineraryController extends Controller
         return response()->json([
             'status' => 'success',
             'data' => $itinerary,
+        ]);
+    }
+
+    /**
+     * Get 3D interactive timelapse replay data for an itinerary / trip.
+     */
+    public function timelapse(Request $request, $id): JsonResponse
+    {
+        $rawId = str_replace('trip-', '', (string) $id);
+        $user = $request->user() ?? auth('sanctum')->user();
+
+        $query = Itinerary::select([
+            'itineraries.*',
+            DB::raw('ST_Y(departure_location::geometry) as departure_lat'),
+            DB::raw('ST_X(departure_location::geometry) as departure_lng'),
+        ])->with([
+            'items.destination' => function ($q) {
+                $q->withCoordinates()->with('category');
+            },
+        ]);
+
+        if (is_numeric($rawId)) {
+            $query->where('id', (int) $rawId);
+        } else {
+            if ($user) {
+                $query->where('user_id', $user->id);
+            }
+        }
+
+        $itinerary = $query->first();
+
+        // Fallback: If not found by given ID, retrieve latest completed itinerary
+        if (!$itinerary) {
+            $fallbackQuery = Itinerary::select([
+                'itineraries.*',
+                DB::raw('ST_Y(departure_location::geometry) as departure_lat'),
+                DB::raw('ST_X(departure_location::geometry) as departure_lng'),
+            ])->with([
+                'items.destination' => function ($q) {
+                    $q->withCoordinates()->with('category');
+                },
+            ])->latest();
+
+            if ($user) {
+                $fallbackQuery->where('user_id', $user->id);
+            }
+            $itinerary = $fallbackQuery->first();
+        }
+
+        if (!$itinerary) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Data perjalanan tidak ditemukan.',
+            ], 404);
+        }
+
+        // Fetch user journal media for this itinerary
+        $journalMediaMap = [];
+        $checkIns = CheckIn::where('itinerary_id', $itinerary->id)->pluck('id', 'destination_id')->toArray();
+        if (!empty($checkIns)) {
+            $mediaRecords = JournalMedia::whereIn('check_in_id', array_values($checkIns))->get();
+            $checkInToDest = array_flip($checkIns);
+            foreach ($mediaRecords as $media) {
+                $destId = $checkInToDest[$media->check_in_id] ?? null;
+                if ($destId) {
+                    $journalMediaMap[$destId][] = [
+                        'id' => (string) $media->id,
+                        'type' => $media->media_type === 'video' ? 'video' : 'image',
+                        'url' => $media->url,
+                        'caption' => $media->caption ?: '',
+                    ];
+                }
+            }
+        }
+
+        // Extract departure coordinates
+        $depLat = $itinerary->departure_lat ? (float) $itinerary->departure_lat : -6.5950;
+        $depLng = $itinerary->departure_lng ? (float) $itinerary->departure_lng : 106.7972;
+        $depName = $itinerary->route_geojson['properties']['departure_name']
+            ?? $itinerary->route_geojson['departure_name']
+            ?? 'Titik Keberangkatan';
+
+        // Extract route polyline from route_geojson
+        $routePolyline = null;
+        if (!empty($itinerary->route_geojson['geometry'])) {
+            $routePolyline = $itinerary->route_geojson['geometry'];
+        } elseif (!empty($itinerary->route_geojson['features'][0]['geometry'])) {
+            $routePolyline = $itinerary->route_geojson['features'][0]['geometry'];
+        } elseif (!empty($itinerary->route_geojson['coordinates'])) {
+            $routePolyline = [
+                'type' => 'LineString',
+                'coordinates' => $itinerary->route_geojson['coordinates'],
+            ];
+        }
+
+        // Build stops array
+        $stops = [];
+
+        // Stop 0: Departure / Start Point
+        $stops[] = [
+            'id' => 'start-point',
+            'name' => $depName,
+            'category' => 'Titik Keberangkatan',
+            'coordinates' => [$depLng, $depLat],
+            'is_start_point' => true,
+            'media' => [],
+        ];
+
+        // Stops 1..N: Visited Destinations
+        $cityCenter = [$depLng, $depLat];
+        $items = $itinerary->items ?? collect();
+        foreach ($items as $idx => $item) {
+            $dest = $item->destination;
+            if (!$dest) continue;
+
+            $dLat = (float) ($dest->latitude ?? $dest->lat ?? -6.6009);
+            $dLng = (float) ($dest->longitude ?? $dest->lng ?? 106.8058);
+
+            if ($idx === 0) {
+                $cityCenter = [$dLng, $dLat];
+            }
+
+            $destMedia = $journalMediaMap[$dest->id] ?? [];
+
+            $stops[] = [
+                'id' => (string) $dest->id,
+                'name' => $dest->name,
+                'category' => $dest->category ? $dest->category->name : 'Wisata Jawa Barat',
+                'coordinates' => [$dLng, $dLat],
+                'is_start_point' => false,
+                'media' => $destMedia,
+            ];
+        }
+
+        // If routePolyline was not stored in DB, construct fallback LineString through the stops
+        if (!$routePolyline || empty($routePolyline['coordinates'])) {
+            $coords = array_map(function ($s) {
+                return $s['coordinates'];
+            }, $stops);
+
+            $routePolyline = [
+                'type' => 'LineString',
+                'coordinates' => $coords,
+            ];
+        }
+
+        // Standard West Java boundary polygon Feature for INTRO_JABAR
+        $boundaryGeojson = [
+            'type' => 'Feature',
+            'properties' => [
+                'name' => 'Provinsi Jawa Barat',
+                'prov_code' => '32',
+            ],
+            'geometry' => [
+                'type' => 'Polygon',
+                'coordinates' => [[
+                    [106.35, -5.90],
+                    [106.90, -5.95],
+                    [107.50, -6.15],
+                    [108.30, -6.30],
+                    [108.80, -6.75],
+                    [108.85, -7.50],
+                    [108.60, -7.80],
+                    [108.20, -7.75],
+                    [107.50, -7.70],
+                    [106.90, -7.45],
+                    [106.35, -7.05],
+                    [106.35, -5.90],
+                ]],
+            ],
+        ];
+
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                'trip_id' => (string) $itinerary->id,
+                'title' => $itinerary->title,
+                'boundary_geojson' => $boundaryGeojson,
+                'city_center' => $cityCenter,
+                'route_polyline' => $routePolyline,
+                'stops' => $stops,
+            ],
         ]);
     }
 

@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import Image from 'next/image';
 import {
   X,
   MapPin,
@@ -17,6 +16,7 @@ import {
 import { TripItem, DestinationItem } from '@/components/history/historyData';
 import { processMediaFile, revokeMediaUrl } from '@/lib/mediaCompressor';
 import { uploadJournalMedia } from '@/lib/api';
+import { formatDestinationTime } from '@/lib/dateUtils';
 
 export interface UploadedMediaItem {
   id: string;
@@ -36,6 +36,7 @@ export type DestinationJournalUpdate = {
 interface JournalMediaModalProps {
   isOpen: boolean;
   trip: TripItem;
+  initialDestinationId?: string;
   onClose: () => void;
   onSaveJournal: (
     updates: Record<string, DestinationJournalUpdate>
@@ -45,6 +46,7 @@ interface JournalMediaModalProps {
 export default function JournalMediaModal({
   isOpen,
   trip,
+  initialDestinationId,
   onClose,
   onSaveJournal,
 }: JournalMediaModalProps) {
@@ -104,13 +106,19 @@ export default function JournalMediaModal({
       initialNotes[dest.id] = dest.notes || '';
     });
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMediaByDestination(initialMedia);
     setNotesByDestination(initialNotes);
-    setSelectedDestId(destinations[0]?.id || '');
+    const targetDestId =
+      initialDestinationId && destinations.some((d) => d.id === initialDestinationId)
+        ? initialDestinationId
+        : destinations[0]?.id || '';
+    setSelectedDestId(targetDestId);
     setErrorMessage(null);
     setSuccessMessage(null);
     setIsUploadingToSupabase(false);
-  }, [isOpen, trip]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, trip, initialDestinationId]);
 
   if (!isOpen) return null;
 
@@ -182,8 +190,9 @@ export default function JournalMediaModal({
           return item;
         }),
       }));
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Gagal memproses dan mengompres media.');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Gagal memproses dan mengompres media.';
+      setErrorMessage(msg);
       // Remove failed placeholder
       setMediaByDestination((prev) => ({
         ...prev,
@@ -291,8 +300,9 @@ export default function JournalMediaModal({
       setTimeout(() => {
         onClose();
       }, 700);
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Gagal mengunggah media ke brankas Supabase.');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Gagal mengunggah media ke brankas Supabase.';
+      setErrorMessage(msg);
     } finally {
       setIsUploadingToSupabase(false);
     }
@@ -340,7 +350,7 @@ export default function JournalMediaModal({
                 const isSelected = dest.id === selectedDestId;
                 const checkInText = dest.time.includes('Checked-in')
                   ? dest.time
-                  : `Checked-in ${dest.visitTime || dest.time}`;
+                  : formatDestinationTime(dest.time, dest.visitDate);
 
                 return (
                   <button

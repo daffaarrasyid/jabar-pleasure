@@ -693,3 +693,58 @@ export async function rejectSubmission(id: number | string, adminNote?: string):
   }
 }
 
+export interface TimelapseMediaItem {
+  id: string;
+  type: 'image' | 'video';
+  url: string;
+  caption?: string;
+}
+
+export interface TimelapseStop {
+  id: string | number;
+  name: string;
+  category: string;
+  coordinates: [number, number]; // [lng, lat]
+  is_start_point: boolean;
+  media: TimelapseMediaItem[];
+}
+
+export interface TimelapseData {
+  trip_id: string;
+  title: string;
+  boundary_geojson: {
+    type: 'Feature';
+    properties?: Record<string, any>;
+    geometry: {
+      type: 'Polygon' | 'MultiPolygon';
+      coordinates: any;
+    };
+  };
+  city_center: [number, number]; // [lng, lat]
+  route_polyline: {
+    type: 'LineString';
+    coordinates: [number, number][];
+  };
+  stops: TimelapseStop[];
+}
+
+/**
+ * Fetch 3D interactive timelapse replay data for an itinerary / trip
+ */
+export async function getTripTimelapse(tripId: string | number): Promise<TimelapseData | null> {
+  const cleanId = String(tripId).replace('trip-', '');
+  try {
+    const res = await fetchApi<TimelapseData>(`/trips/${cleanId}/timelapse`);
+    return res.data;
+  } catch {
+    try {
+      const res = await fetchApi<TimelapseData>(`/itineraries/${cleanId}/timelapse`);
+      return res.data;
+    } catch (e) {
+      console.warn('Failed to fetch trip timelapse from backend:', e);
+      return null;
+    }
+  }
+}
+
+

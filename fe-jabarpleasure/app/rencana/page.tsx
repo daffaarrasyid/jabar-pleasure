@@ -12,6 +12,7 @@ import ActiveTripScreen from '@/components/itinerary/ActiveTripScreen';
 import { TripItem } from '@/components/history/historyData';
 import Toast from '@/components/ui/Toast';
 import { createItinerary, deleteItinerary, completeItinerary } from '@/lib/api';
+import { fetchRoadRoute } from '@/lib/routing';
 import { getAuthToken, removeAuthToken, getUserTripHistoryKey, getUserActiveTripKey } from '@/lib/auth';
 
 export default function RencanaPage() {
@@ -305,11 +306,41 @@ export default function RencanaPage() {
                   .map((d: any) => parseInt(d.id, 10))
                   .filter((id: number) => !isNaN(id));
 
+                // Pre-calculate real OSRM road route geometry so backend stores exact road network
+                let routeGeojson: any = null;
+                try {
+                  const originCoord: [number, number] = [formDeparture.lat || -6.595, formDeparture.lng || 106.7972];
+                  const destCoords: [number, number][] = formDestinations
+                    .filter((d: any) => (d.latitude || d.lat) && (d.longitude || d.lng))
+                    .map((d: any) => [
+                      parseFloat(d.latitude || d.lat),
+                      parseFloat(d.longitude || d.lng),
+                    ]);
+
+                  if (destCoords.length > 0) {
+                    const roadRes = await fetchRoadRoute([originCoord, ...destCoords]);
+                    if (roadRes?.geojson?.coordinates?.length >= 2) {
+                      routeGeojson = {
+                        type: 'Feature',
+                        properties: {
+                          departure_name: formDeparture.name || 'Titik Keberangkatan',
+                          distance_km: roadRes.distanceKm,
+                          duration_minutes: roadRes.durationMinutes,
+                        },
+                        geometry: roadRes.geojson,
+                      };
+                    }
+                  }
+                } catch (routeErr) {
+                  console.warn('Failed calculating OSRM road route for itinerary save:', routeErr);
+                }
+
                 const created = await createItinerary({
                   title: customTitle || summaryTitle,
                   departure_lat: formDeparture.lat || -6.595,
                   departure_lng: formDeparture.lng || 106.7972,
                   departure_name: formDeparture.name,
+                  route_geojson: routeGeojson,
                   destinations: destIds.length > 0 ? destIds : [1],
                 });
                 setActiveItinerary(created);

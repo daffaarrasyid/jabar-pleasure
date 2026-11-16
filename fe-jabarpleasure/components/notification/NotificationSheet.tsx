@@ -296,7 +296,7 @@ export default function NotificationSheet({
                   <div className="flex-1 min-w-0 pr-3">
                     <div className="flex items-center gap-2 mb-1">
                       <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider ${badgeClass}`}
+                        className={`text-[10px] font-semibold px-2 py-0.5 rounded-md ${badgeClass}`}
                       >
                         {badgeText}
                       </span>

@@ -7,6 +7,7 @@ import AppHeader from '@/components/layout/AppHeader';
 import BottomNav, { NavTabId } from '@/components/layout/BottomNav';
 import { TripItem } from '@/components/history/historyData';
 import FeedbackModal from '@/components/feedback/FeedbackModal';
+import { formatCompletedDayDate } from '@/lib/dateUtils';
 
 function EmptyHistoryVector() {
   return (
@@ -112,39 +113,6 @@ function formatDisplayLocation(loc: string): string {
   return cleaned;
 }
 
-/**
- * Format completed date to ensure day name and date are clearly written
- * (e.g. "Minggu, 8 Nov 2026").
- */
-function formatCompletedDayDate(dateStr: string): string {
-  if (!dateStr) {
-    const now = new Date();
-    return now.toLocaleDateString('id-ID', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
-  }
-
-  const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-  if (days.some((d) => dateStr.includes(d))) {
-    return dateStr;
-  }
-
-  const parsed = new Date(dateStr);
-  if (!isNaN(parsed.getTime())) {
-    return parsed.toLocaleDateString('id-ID', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
-  }
-
-  return dateStr;
-}
-
 export default function TripHistoryScreen({
   trips = [],
   isLoading = false,
@@ -233,13 +201,6 @@ export default function TripHistoryScreen({
                   <div className="h-12 bg-gray-100 rounded-xl" />
                   <div className="h-12 bg-gray-100 rounded-xl" />
                   <div className="h-12 bg-gray-100 rounded-xl" />
-                </div>
-
-                {/* Destination Initials Skeleton */}
-                <div className="flex gap-1.5">
-                  <div className="w-7 h-7 rounded-full bg-gray-200" />
-                  <div className="w-7 h-7 rounded-full bg-gray-200" />
-                  <div className="w-7 h-7 rounded-full bg-gray-200" />
                 </div>
 
                 {/* Footer Row Skeleton */}
@@ -349,32 +310,20 @@ export default function TripHistoryScreen({
                   </div>
                 </div>
 
-                {/* Destination Initials Circles */}
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  {(trip.initials || ['JP']).map((init, idx) => (
-                    <div
-                      key={idx}
-                      className="w-7 h-7 rounded-full bg-[#F1F5F9] text-gray-700 text-[10px] font-bold flex items-center justify-center shrink-0 border border-gray-200"
-                    >
-                      {init}
-                    </div>
-                  ))}
-                </div>
-
                 {/* Footer Row */}
-                <div className="flex items-center justify-between pt-1 mt-0.5 border-t border-gray-100 flex-wrap gap-2">
+                <div className="flex flex-col gap-2.5 pt-2 border-t border-gray-100">
                   <span className="text-xs text-gray-500 font-medium">
                     Selesai {formatCompletedDayDate(trip.completedDate)}
                   </span>
 
-                  <div className="flex items-center gap-2">
+                  <div className="w-full flex items-center gap-2">
                     <button
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         setReviewTrip(trip);
                       }}
-                      className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100/80 active:scale-95 text-emerald-700 font-semibold text-xs rounded-xl border border-emerald-200/80 transition-all cursor-pointer"
+                      className="flex-1 py-2.5 px-3 bg-white hover:bg-gray-50 active:scale-95 text-gray-700 font-semibold text-xs rounded-xl border border-gray-200 shadow-2xs transition-all cursor-pointer text-center"
                     >
                       Ulas Perjalanan
                     </button>
@@ -384,7 +333,7 @@ export default function TripHistoryScreen({
                         e.stopPropagation();
                         onSelectTrip?.(trip);
                       }}
-                      className="px-4 py-2 bg-[#4941EC] hover:bg-[#3D35D9] active:scale-95 text-white font-semibold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
+                      className="flex-[1.5] py-2.5 px-3 bg-[#4941EC] hover:bg-[#3D35D9] active:scale-95 text-white font-semibold text-xs rounded-xl shadow-xs transition-all cursor-pointer text-center"
                     >
                       Lihat Perjalanan
                     </button>

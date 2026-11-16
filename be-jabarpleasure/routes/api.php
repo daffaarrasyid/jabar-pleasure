@@ -36,6 +36,7 @@ Route::get('/destinations/featured', [DestinationController::class, 'featured'])
 Route::get('/destinations/nearby', [DestinationController::class, 'nearby']);
 Route::get('/destinations/search', [DestinationController::class, 'search']);
 Route::get('/destinations/{slug}', [DestinationController::class, 'show']);
+Route::get('/trips/{id}/timelapse', [ItineraryController::class, 'timelapse']);
 
 /*
 |--------------------------------------------------------------------------
@@ -75,6 +76,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/itineraries/reminders/check', [ItineraryController::class, 'checkReminders']);
     Route::post('/itineraries/reminders/check', [ItineraryController::class, 'checkReminders']);
     Route::get('/itineraries/{id}', [ItineraryController::class, 'show']);
+    Route::get('/itineraries/{id}/timelapse', [ItineraryController::class, 'timelapse']);
+    Route::get('/trips/{id}/timelapse', [ItineraryController::class, 'timelapse']);
     Route::put('/itineraries/{id}', [ItineraryController::class, 'update']);
     Route::post('/itineraries/{id}/complete', [ItineraryController::class, 'complete']);
     Route::patch('/itineraries/{id}/complete', [ItineraryController::class, 'complete']);

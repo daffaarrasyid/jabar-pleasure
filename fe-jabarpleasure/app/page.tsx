@@ -29,6 +29,8 @@ import DestinationDetailModal, { DestinationDetailData } from '@/components/ui/D
 import NotificationSheet from '@/components/notification/NotificationSheet';
 import { getAuthToken, removeAuthToken } from '@/lib/auth';
 import { getUnreadNotificationCount, getWishlists, createItinerary, completeItinerary, getItinerary, updateItinerary, deleteItinerary, getItineraries } from '@/lib/api';
+import { fetchRoadRoute } from '@/lib/routing';
+import { formatHumanDate, formatCompletedDayDate, formatDestinationTime } from '@/lib/dateUtils';
 
 type ScreenState =
   | 'splash'
@@ -159,10 +161,13 @@ export default function Home() {
     try {
       const data = await getItineraries('completed');
       const mapped: TripItem[] = (data || []).map((it) => {
+        const rawDate = it.end_date || it.start_date || 'Hari ini';
+        const cleanDate = formatHumanDate(rawDate);
+        const completedDay = formatCompletedDayDate(rawDate);
         const destItems: DestinationItem[] = (it.items || []).map((item, idx) => ({
           id: String(item.id || idx + 1),
           name: item.destination?.name || 'Destinasi Wisata',
-          time: 'Selesai',
+          time: `${cleanDate} • Selesai`,
           status: 'Selesai',
           photoCount: 0,
           image:
@@ -170,7 +175,7 @@ export default function Home() {
             item.destination?.cover_image ||
             '/tugu-kujang.jpg',
           location: item.destination?.address || 'Jawa Barat',
-          visitDate: it.end_date || it.start_date || 'Hari ini',
+          visitDate: cleanDate,
           visitTime: 'Selesai',
           notes: '',
           photos: [],
@@ -187,9 +192,9 @@ export default function Home() {
           category: it.items?.[0]?.destination?.category?.name || 'Wisata Jawa Barat',
           status: 'Selesai' as const,
           duration: `${it.items?.length || destItems.length || 1} destinasi`,
-          dateRange: it.end_date || it.start_date || 'Baru saja',
+          dateRange: cleanDate,
           location: departure,
-          completedDate: it.end_date || it.updated_at || 'Hari ini',
+          completedDate: completedDay,
           stats: {
             destinations: it.items?.length || destItems.length || 1,
             photos: 0,
@@ -219,10 +224,13 @@ export default function Home() {
         .then((data) => {
           if (isCancelled) return;
           const mapped: TripItem[] = (data || []).map((it) => {
+            const rawDate = it.end_date || it.start_date || 'Hari ini';
+            const cleanDate = formatHumanDate(rawDate);
+            const completedDay = formatCompletedDayDate(rawDate);
             const destItems: DestinationItem[] = (it.items || []).map((item, idx) => ({
               id: String(item.id || idx + 1),
               name: item.destination?.name || 'Destinasi Wisata',
-              time: 'Selesai',
+              time: `${cleanDate} • Selesai`,
               status: 'Selesai',
               photoCount: 0,
               image:
@@ -230,7 +238,7 @@ export default function Home() {
                 item.destination?.cover_image ||
                 '/tugu-kujang.jpg',
               location: item.destination?.address || 'Jawa Barat',
-              visitDate: it.end_date || it.start_date || 'Hari ini',
+              visitDate: cleanDate,
               visitTime: 'Selesai',
               notes: '',
               photos: [],
@@ -247,9 +255,9 @@ export default function Home() {
               category: it.items?.[0]?.destination?.category?.name || 'Wisata Jawa Barat',
               status: 'Selesai' as const,
               duration: `${it.items?.length || destItems.length || 1} destinasi`,
-              dateRange: it.end_date || it.start_date || 'Baru saja',
+              dateRange: cleanDate,
               location: departure,
-              completedDate: it.end_date || it.updated_at || 'Hari ini',
+              completedDate: completedDay,
               stats: {
                 destinations: it.items?.length || destItems.length || 1,
                 photos: 0,
@@ -842,12 +850,42 @@ export default function Home() {
                 return isNaN(num) ? 1 : num;
               });
 
+              // Pre-calculate real OSRM road route geometry
+              let routeGeojson: any = null;
+              try {
+                const originCoord: [number, number] = [originData.lat || -6.595, originData.lng || 106.7972];
+                const destCoords: [number, number][] = waypoints
+                  .filter((w) => (w.lat || (w as any).latitude) && (w.lng || (w as any).longitude))
+                  .map((w) => [
+                    parseFloat((w.lat || (w as any).latitude) as any),
+                    parseFloat((w.lng || (w as any).longitude) as any),
+                  ]);
+
+                if (destCoords.length > 0) {
+                  const roadRes = await fetchRoadRoute([originCoord, ...destCoords]);
+                  if (roadRes?.geojson?.coordinates?.length >= 2) {
+                    routeGeojson = {
+                      type: 'Feature',
+                      properties: {
+                        departure_name: originData.name || 'Titik Keberangkatan',
+                        distance_km: roadRes.distanceKm,
+                        duration_minutes: roadRes.durationMinutes,
+                      },
+                      geometry: roadRes.geojson,
+                    };
+                  }
+                }
+              } catch (routeErr) {
+                console.warn('Failed calculating OSRM road route for itinerary save:', routeErr);
+              }
+
               const savedRes = await createItinerary({
                 title: title,
                 start_date: originData.startDate || new Date().toISOString().split('T')[0],
                 departure_name: originData.name,
                 departure_lat: originData.lat,
                 departure_lng: originData.lng,
+                route_geojson: routeGeojson,
                 destinations: destPayload.length > 0 ? destPayload : [1],
               });
 

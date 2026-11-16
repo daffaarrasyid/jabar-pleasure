@@ -61,7 +61,7 @@ export default function Input({
           )}
           {validationTag && (
             <span
-              className={`text-[10px] sm:text-[11px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-full border ${tagColorClasses[validationTagType]}`}
+              className={`text-[10px] sm:text-[11px] font-semibold px-2 py-0.5 rounded-full border ${tagColorClasses[validationTagType]}`}
             >
               {validationTag}
             </span>
