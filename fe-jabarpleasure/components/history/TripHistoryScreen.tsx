@@ -6,6 +6,7 @@ import { Calendar, MapPin } from 'lucide-react';
 import AppHeader from '@/components/layout/AppHeader';
 import BottomNav, { NavTabId } from '@/components/layout/BottomNav';
 import { TripItem } from '@/components/history/historyData';
+import FeedbackModal from '@/components/feedback/FeedbackModal';
 
 function EmptyHistoryVector() {
   return (
@@ -157,6 +158,8 @@ export default function TripHistoryScreen({
   wishlistCount = 0,
   className = '',
 }: TripHistoryScreenProps) {
+  const [reviewTrip, setReviewTrip] = React.useState<TripItem | null>(null);
+
   const handleTabChange = (tab: NavTabId) => {
     if (tab === 'beranda') {
       onNavigateToHome?.();
@@ -359,27 +362,47 @@ export default function TripHistoryScreen({
                 </div>
 
                 {/* Footer Row */}
-                <div className="flex items-center justify-between pt-1 mt-0.5 border-t border-gray-100">
+                <div className="flex items-center justify-between pt-1 mt-0.5 border-t border-gray-100 flex-wrap gap-2">
                   <span className="text-xs text-gray-500 font-medium">
                     Selesai {formatCompletedDayDate(trip.completedDate)}
                   </span>
 
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onSelectTrip?.(trip);
-                    }}
-                    className="px-4 py-2 bg-[#4941EC] hover:bg-[#3D35D9] active:scale-95 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
-                  >
-                    Lihat Perjalanan
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setReviewTrip(trip);
+                      }}
+                      className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100/80 active:scale-95 text-emerald-700 font-semibold text-xs rounded-xl border border-emerald-200/80 transition-all cursor-pointer"
+                    >
+                      Ulas Perjalanan
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSelectTrip?.(trip);
+                      }}
+                      className="px-4 py-2 bg-[#4941EC] hover:bg-[#3D35D9] active:scale-95 text-white font-semibold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
+                    >
+                      Lihat Perjalanan
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
           </div>
         )}
       </main>
+
+      {/* Modal Ulas Perjalanan */}
+      <FeedbackModal
+        isOpen={!!reviewTrip}
+        onClose={() => setReviewTrip(null)}
+        initialCategory="other"
+        initialTripTitle={reviewTrip ? `Perjalanan: ${reviewTrip.title}` : ''}
+      />
 
       {/* 3. Bottom Navigation Bar with Riwayat Active (4th tab) */}
       <div className="absolute bottom-0 left-0 right-0 w-full z-30">

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import MobileShell from '@/components/layout/MobileShell';
-import ItineraryScreen from '@/components/itinerary/ItineraryScreen';
+import ItineraryScreen, { ActiveTripData } from '@/components/itinerary/ItineraryScreen';
 import DepartureLocationScreen from '@/components/itinerary/DepartureLocationScreen';
 import DestinationSelectionScreen from '@/components/itinerary/DestinationSelectionScreen';
 import ItinerarySummaryScreen from '@/components/itinerary/ItinerarySummaryScreen';
@@ -12,7 +12,7 @@ import ActiveTripScreen from '@/components/itinerary/ActiveTripScreen';
 import { TripItem } from '@/components/history/historyData';
 import Toast from '@/components/ui/Toast';
 import { createItinerary, deleteItinerary, completeItinerary } from '@/lib/api';
-import { getAuthToken, removeAuthToken } from '@/lib/auth';
+import { getAuthToken, removeAuthToken, getUserTripHistoryKey, getUserActiveTripKey } from '@/lib/auth';
 
 export default function RencanaPage() {
   const router = useRouter();
@@ -52,7 +52,9 @@ export default function RencanaPage() {
       }
 
       try {
-        const storedHistory = localStorage.getItem('jabarpleasure_trip_history');
+        localStorage.removeItem('jabarpleasure_trip_history');
+        const userKey = getUserTripHistoryKey();
+        const storedHistory = localStorage.getItem(userKey);
         if (storedHistory) {
           const parsed = JSON.parse(storedHistory);
           if (Array.isArray(parsed)) {
@@ -67,6 +69,17 @@ export default function RencanaPage() {
   }, []);
 
   const [activeItinerary, setActiveItinerary] = useState<any>(null);
+  const [activeTrip, setActiveTrip] = useState<ActiveTripData | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem(getUserActiveTripKey());
+        if (saved) return JSON.parse(saved);
+      } catch (e) {
+        console.warn('Failed to parse active trip from storage:', e);
+      }
+    }
+    return null;
+  });
   const [draftTitle, setDraftTitle] = useState<string>('');
   const [tripStartTime, setTripStartTime] = useState<string>('');
   const [formDeparture, setFormDeparture] = useState<{
@@ -200,6 +213,8 @@ export default function RencanaPage() {
       {/* 1. Halaman Utama Rencana */}
       {currentScreen === 'itinerary' && (
         <ItineraryScreen
+          activeTrip={activeTrip}
+          onResumeActiveTrip={() => setCurrentScreen('active-trip')}
           onNavigateToHome={() => router.push('/home')}
           onNavigateToMap={() => router.push('/map')}
           onNavigateToProfile={() => router.push('/profile')}
@@ -309,6 +324,21 @@ export default function RencanaPage() {
             const now = new Date();
             const timeStr = `${now.getHours().toString().padStart(2, '0')}.${now.getMinutes().toString().padStart(2, '0')} WIB`;
             setTripStartTime(timeStr);
+            const newActive: ActiveTripData = {
+              itineraryId: activeItinerary?.id,
+              title: summaryTitle,
+              originName: summaryOriginName,
+              originLat: summaryOriginLat,
+              originLng: summaryOriginLng,
+              startTime: timeStr,
+              waypoints: summaryWaypoints || [],
+              currentStopIndex: 0,
+              status: 'in_progress',
+            };
+            setActiveTrip(newActive);
+            if (typeof window !== 'undefined') {
+              localStorage.setItem(getUserActiveTripKey(), JSON.stringify(newActive));
+            }
             showToast('Memulai perjalanan! Membuka panduan rute...', 'info');
             setCurrentScreen('active-trip');
           }}
@@ -335,6 +365,21 @@ export default function RencanaPage() {
             const now = new Date();
             const timeStr = `${now.getHours().toString().padStart(2, '0')}.${now.getMinutes().toString().padStart(2, '0')} WIB`;
             setTripStartTime(timeStr);
+            const newActive: ActiveTripData = {
+              itineraryId: activeItinerary?.id,
+              title: summaryTitle,
+              originName: summaryOriginName,
+              originLat: summaryOriginLat,
+              originLng: summaryOriginLng,
+              startTime: timeStr,
+              waypoints: summaryWaypoints || [],
+              currentStopIndex: 0,
+              status: 'in_progress',
+            };
+            setActiveTrip(newActive);
+            if (typeof window !== 'undefined') {
+              localStorage.setItem(getUserActiveTripKey(), JSON.stringify(newActive));
+            }
             showToast('Memulai perjalanan! Membuka panduan rute...', 'info');
             setCurrentScreen('active-trip');
           }}
@@ -350,15 +395,38 @@ export default function RencanaPage() {
       {/* 6. Perjalanan Aktif */}
       {currentScreen === 'active-trip' && (
         <ActiveTripScreen
-          originName={summaryOriginName}
-          originLat={summaryOriginLat}
-          originLng={summaryOriginLng}
-          planTitle={summaryTitle}
-          startTime={tripStartTime}
-          waypoints={summaryWaypoints}
-          onBack={() => setCurrentScreen('itinerary-summary')}
+          originName={activeTrip?.originName || summaryOriginName}
+          originLat={activeTrip?.originLat || summaryOriginLat}
+          originLng={activeTrip?.originLng || summaryOriginLng}
+          planTitle={activeTrip?.title || summaryTitle}
+          startTime={activeTrip?.startTime || tripStartTime}
+          waypoints={activeTrip?.waypoints && activeTrip.waypoints.length > 0 ? activeTrip.waypoints : (summaryWaypoints || [])}
+          initialStopIndex={activeTrip?.currentStopIndex || 0}
+          onProgressChange={(stopIndex) => {
+            setActiveTrip((prev) => {
+              if (!prev) return null;
+              const updated: ActiveTripData = { ...prev, currentStopIndex: stopIndex };
+              if (typeof window !== 'undefined') {
+                localStorage.setItem('jabarpleasure_active_trip', JSON.stringify(updated));
+              }
+              return updated;
+            });
+          }}
+          onBack={() => {
+            if (activeTrip?.status === 'completed') {
+              setActiveTrip(null);
+              setActiveItinerary(null);
+              setFormDestinations([]);
+              setDraftTitle('');
+              if (typeof window !== 'undefined') {
+                localStorage.removeItem(getUserActiveTripKey());
+              }
+            }
+            setCurrentScreen('itinerary');
+          }}
           onFinishTrip={async (visitedCount) => {
-            const count = typeof visitedCount === 'number' ? visitedCount : (summaryWaypoints?.length || 1);
+            const currentWps = activeTrip?.waypoints && activeTrip.waypoints.length > 0 ? activeTrip.waypoints : (summaryWaypoints || []);
+            const count = typeof visitedCount === 'number' ? visitedCount : (currentWps?.length || 1);
             const now = new Date();
             const dateStr = now.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
             const completedDateWithDay = now.toLocaleDateString('id-ID', {
@@ -369,29 +437,30 @@ export default function RencanaPage() {
             });
 
             // Clean location: never display "Lokasi GPS Anda", use actual place name
-            let cleanOrigin = summaryOriginName
+            let cleanOrigin = (activeTrip?.originName || summaryOriginName)
               .replace(/lokasi gps anda/gi, '')
               .replace(/titik keberangkatan/gi, '')
               .trim();
             if (!cleanOrigin) {
-              cleanOrigin = summaryWaypoints?.[0]?.name ? `${summaryWaypoints[0].name.split(' ')[0]}` : 'Bogor';
+              cleanOrigin = currentWps?.[0]?.name ? `${currentWps[0].name.split(' ')[0]}` : 'Bogor';
             }
             if (!cleanOrigin.toLowerCase().includes('jawa barat')) {
               cleanOrigin += ', Jawa Barat';
             }
 
-            // Move plan in backend if activeItinerary exists
-            if (activeItinerary?.id) {
+            // Move plan in backend if activeItinerary exists or activeTrip?.itineraryId
+            const itId = activeItinerary?.id || activeTrip?.itineraryId;
+            if (itId) {
               try {
-                await completeItinerary(activeItinerary.id);
+                await completeItinerary(itId);
               } catch (e) {
                 console.warn('Failed to mark itinerary as completed on backend:', e);
               }
             }
 
             const newHistoryItem: TripItem = {
-              id: activeItinerary?.id ? `trip-${activeItinerary.id}` : `trip-${Date.now()}`,
-              title: summaryTitle,
+              id: itId ? `trip-${itId}` : `trip-${Date.now()}`,
+              title: activeTrip?.title || summaryTitle,
               category: 'Rencana Perjalanan',
               status: 'Selesai',
               duration: '1 hari',
@@ -404,8 +473,8 @@ export default function RencanaPage() {
                 video: 0,
               },
               initials: ['JP'],
-              image: (summaryWaypoints && summaryWaypoints[0] && (summaryWaypoints[0] as any).image) || '/tugu-kujang.jpg',
-              destinations: (summaryWaypoints || []).slice(0, count).map((w: any, idx: number) => ({
+              image: (currentWps && currentWps[0] && (currentWps[0] as any).image) || '/tugu-kujang.jpg',
+              destinations: (currentWps || []).slice(0, count).map((w: any, idx: number) => ({
                 id: w.id,
                 name: w.name,
                 time: `${dateStr} • Selesai`,
@@ -415,7 +484,7 @@ export default function RencanaPage() {
                 location: w.address || cleanOrigin,
                 visitDate: dateStr,
                 visitTime: 'Selesai',
-                notes: `Kunjungan ke-${idx + 1} rencana perjalanan ${summaryTitle}`,
+                notes: `Kunjungan ke-${idx + 1} rencana perjalanan ${activeTrip?.title || summaryTitle}`,
                 photos: [],
               })),
             };
@@ -424,7 +493,8 @@ export default function RencanaPage() {
               const updated = [newHistoryItem, ...prev.filter((p) => p.id !== newHistoryItem.id)];
               if (typeof window !== 'undefined') {
                 try {
-                  localStorage.setItem('jabarpleasure_trip_history', JSON.stringify(updated));
+                  const userKey = getUserTripHistoryKey();
+                  localStorage.setItem(userKey, JSON.stringify(updated));
                 } catch (e) {
                   console.warn('Error saving trip history to storage:', e);
                 }
@@ -432,13 +502,13 @@ export default function RencanaPage() {
               return updated;
             });
 
-            // Clear active plan state
-            setActiveItinerary(null);
-            setFormDestinations([]);
-            setDraftTitle('');
+            // Mark activeTrip completed and remove from storage so it won't show in "Sedang Berjalan"
+            setActiveTrip((prev) => (prev ? { ...prev, status: 'completed' } : null));
+            if (typeof window !== 'undefined') {
+              localStorage.removeItem(getUserActiveTripKey());
+            }
 
             showToast(`Perjalanan selesai (${count} destinasi) dan berhasil dipindahkan ke Riwayat!`, 'success');
-            router.push('/riwayat');
           }}
           onNavigateToHome={() => router.push('/home')}
           onNavigateToMap={() => router.push('/map')}

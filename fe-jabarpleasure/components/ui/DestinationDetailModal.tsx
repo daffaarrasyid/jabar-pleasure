@@ -154,7 +154,7 @@ export default function DestinationDetailModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-xs transition-opacity duration-300 p-0 sm:p-4 select-none">
+    <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-xs transition-opacity duration-300 p-0 sm:p-4 select-none">
       {/* Click outside backdrop to close */}
       <div
         className="absolute inset-0"

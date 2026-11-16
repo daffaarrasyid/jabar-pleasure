@@ -20,7 +20,7 @@ import { TripItem, DestinationItem } from '@/components/history/historyData';
 import Toast from '@/components/ui/Toast';
 import DestinationDetailModal, { DestinationDetailData } from '@/components/ui/DestinationDetailModal';
 import { createItinerary, deleteItinerary } from '@/lib/api';
-import { getAuthToken, removeAuthToken } from '@/lib/auth';
+import { getAuthToken, removeAuthToken, getUserTripHistoryKey } from '@/lib/auth';
 
 export default function MapPage() {
   const router = useRouter();
@@ -69,7 +69,9 @@ export default function MapPage() {
       }
 
       try {
-        const storedHistory = localStorage.getItem('jabarpleasure_trip_history');
+        localStorage.removeItem('jabarpleasure_trip_history');
+        const userKey = getUserTripHistoryKey();
+        const storedHistory = localStorage.getItem(userKey);
         if (storedHistory) {
           const parsed = JSON.parse(storedHistory);
           if (Array.isArray(parsed)) {
@@ -415,7 +417,7 @@ export default function MapPage() {
           planTitle={summaryTitle}
           startTime={tripStartTime}
           waypoints={summaryWaypoints}
-          onBack={() => setCurrentScreen('itinerary-summary')}
+          onBack={() => setCurrentScreen('itinerary')}
           onFinishTrip={(visitedCount) => {
             const count = typeof visitedCount === 'number' ? visitedCount : (summaryWaypoints?.length || 1);
             const now = new Date();
@@ -456,7 +458,8 @@ export default function MapPage() {
               const updated = [newHistoryItem, ...prev];
               if (typeof window !== 'undefined') {
                 try {
-                  localStorage.setItem('jabarpleasure_trip_history', JSON.stringify(updated));
+                  const userKey = getUserTripHistoryKey();
+                  localStorage.setItem(userKey, JSON.stringify(updated));
                 } catch (e) {
                   console.warn('Error saving trip history to storage:', e);
                 }
@@ -465,7 +468,6 @@ export default function MapPage() {
             });
 
             showToast(`Perjalanan selesai (${count} destinasi) dan berhasil disimpan ke Riwayat!`, 'success');
-            setCurrentScreen('trip-history');
           }}
           onNavigateToHome={() => router.push('/home')}
           onNavigateToMap={() => setCurrentScreen('map')}

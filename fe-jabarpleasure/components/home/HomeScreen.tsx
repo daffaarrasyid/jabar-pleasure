@@ -8,6 +8,8 @@ import CategoryFilter from '@/components/home/CategoryFilter';
 import FeaturedEntertainment from '@/components/home/FeaturedEntertainment';
 import SuggestDestinationCard from '@/components/home/SuggestDestinationCard';
 import SuggestDestinationModal from '@/components/home/SuggestDestinationModal';
+import FeedbackCard from '@/components/home/FeedbackCard';
+import FeedbackModal from '@/components/feedback/FeedbackModal';
 import NearbyRecommendations, { NearbyItem } from '@/components/home/NearbyRecommendations';
 import TopDestinationsView from '@/components/home/TopDestinationsView';
 import CategoryFilterModal from '@/components/home/CategoryFilterModal';
@@ -79,6 +81,7 @@ export default function HomeScreen({
   const [isSearching, setIsSearching] = useState<boolean>(false);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState<boolean>(false);
   const [isSuggestModalOpen, setIsSuggestModalOpen] = useState<boolean>(false);
+  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState<boolean>(false);
   const [selectedDestinationForDetail, setSelectedDestinationForDetail] = useState<DestinationDetailData | null>(null);
   const [, startTransition] = useTransition();
 
@@ -498,6 +501,11 @@ export default function HomeScreen({
               onViewAll={() => setViewMode('see-all-nearby')}
               onItemClick={(item: NearbyItem) => handleDestinationClick(item)}
             />
+
+            {/* Saran & Masukan Pengguna CTA Card (Harmonized with SuggestDestinationCard) */}
+            <FeedbackCard
+              onOpenFeedback={() => setIsFeedbackModalOpen(true)}
+            />
           </>
         )}
       </main>
@@ -528,6 +536,13 @@ export default function HomeScreen({
         isOpen={isSuggestModalOpen}
         onClose={() => setIsSuggestModalOpen(false)}
         userCoords={userCoords}
+      />
+
+      {/* Form Saran & Masukan Pengguna Modal */}
+      <FeedbackModal
+        isOpen={isFeedbackModalOpen}
+        onClose={() => setIsFeedbackModalOpen(false)}
+        initialCategory="feature"
       />
 
       {/* Detail Destinasi Modal / Bottom Sheet Popup */}

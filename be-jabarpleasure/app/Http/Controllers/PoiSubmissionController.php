@@ -27,7 +27,7 @@ class PoiSubmissionController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
-        $user = $request->user() ?? User::first();
+        $user = $request->user() ?? auth('sanctum')->user();
         if (!$user) {
             return response()->json([
                 'status' => 'error',

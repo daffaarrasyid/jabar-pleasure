@@ -292,13 +292,50 @@ export async function createItinerary(payload: CreateItineraryPayload): Promise<
 }
 
 /**
+ * Update an existing itinerary in database
+ */
+export async function updateItinerary(
+  id: number | string,
+  payload: Partial<CreateItineraryPayload>
+): Promise<ApiItinerary | null> {
+  try {
+    const res = await fetchApi<ApiItinerary>(`/itineraries/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+    return res.data;
+  } catch {
+    try {
+      const res = await fetchApi<ApiItinerary>(`/itineraries-public/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      });
+      return res.data;
+    } catch {
+      return null;
+    }
+  }
+}
+
+/**
  * Delete an itinerary by ID
  */
-export async function deleteItinerary(id: number): Promise<boolean> {
-  const res = await fetchApi(`/itineraries/${id}`, {
-    method: 'DELETE',
-  });
-  return res.status === 'success';
+export async function deleteItinerary(id: number | string): Promise<boolean> {
+  try {
+    const res = await fetchApi(`/itineraries/${id}`, {
+      method: 'DELETE',
+    });
+    return res.status === 'success';
+  } catch {
+    try {
+      const res = await fetchApi(`/itineraries-public/${id}`, {
+        method: 'DELETE',
+      });
+      return res.status === 'success';
+    } catch {
+      return false;
+    }
+  }
 }
 
 /**

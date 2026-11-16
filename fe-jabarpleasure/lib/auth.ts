@@ -39,13 +39,53 @@ export function getStoredUser<T = Record<string, unknown>>(): T | null {
   }
 }
 
+export function getUserTripHistoryKey(): string {
+  if (typeof window === 'undefined') return 'jabarpleasure_trip_history_guest';
+  try {
+    const raw = localStorage.getItem('user');
+    if (raw) {
+      const user = JSON.parse(raw);
+      if (user?.id) return `jabarpleasure_trip_history_u${user.id}`;
+      if (user?.email) return `jabarpleasure_trip_history_u${encodeURIComponent(user.email)}`;
+    }
+  } catch {
+    // ignore
+  }
+  return 'jabarpleasure_trip_history_guest';
+}
+
+export function getUserActiveTripKey(): string {
+  if (typeof window === 'undefined') return 'jabarpleasure_active_trip_guest';
+  try {
+    const raw = localStorage.getItem('user');
+    if (raw) {
+      const user = JSON.parse(raw);
+      if (user?.id) return `jabarpleasure_active_trip_u${user.id}`;
+      if (user?.email) return `jabarpleasure_active_trip_u${encodeURIComponent(user.email)}`;
+    }
+  } catch {
+    // ignore
+  }
+  return 'jabarpleasure_active_trip_guest';
+}
+
 export function removeAuthToken(): void {
   if (typeof window === 'undefined') return;
   try {
+    // Purge user-specific active trip if any
+    const activeKey = getUserActiveTripKey();
+    if (activeKey) localStorage.removeItem(activeKey);
+
     localStorage.removeItem('auth_token');
     localStorage.removeItem('user');
     sessionStorage.removeItem('auth_token');
     sessionStorage.removeItem('user');
+
+    // Purge legacy un-scoped shared keys to prevent cross-account leak
+    localStorage.removeItem('jabarpleasure_trip_history');
+    localStorage.removeItem('jabarpleasure_active_trip');
+    localStorage.removeItem('jabarpleasure_wishlist_ids');
+    sessionStorage.removeItem('jp_cached_wishlists');
 
     // Thoroughly delete the auth_token cookie across potential path and domain variations
     const pastDate = 'Thu, 01 Jan 1970 00:00:00 GMT';

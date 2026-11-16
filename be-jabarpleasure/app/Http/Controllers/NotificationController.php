@@ -14,7 +14,7 @@ class NotificationController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $user = $request->user() ?? User::first();
+        $user = $request->user() ?? auth('sanctum')->user();
         if (!$user) {
             return response()->json([
                 'status' => 'error',
@@ -52,7 +52,7 @@ class NotificationController extends Controller
      */
     public function unreadCount(Request $request): JsonResponse
     {
-        $user = $request->user() ?? User::first();
+        $user = $request->user() ?? auth('sanctum')->user();
         if (!$user) {
             return response()->json([
                 'status' => 'success',
@@ -78,7 +78,7 @@ class NotificationController extends Controller
      */
     public function markAsRead(Request $request, int|string $id): JsonResponse
     {
-        $user = $request->user() ?? User::first();
+        $user = $request->user() ?? auth('sanctum')->user();
         if (!$user) {
             return response()->json([
                 'status' => 'error',
@@ -115,7 +115,7 @@ class NotificationController extends Controller
      */
     public function markAllAsRead(Request $request): JsonResponse
     {
-        $user = $request->user() ?? User::first();
+        $user = $request->user() ?? auth('sanctum')->user();
         if (!$user) {
             return response()->json([
                 'status' => 'error',

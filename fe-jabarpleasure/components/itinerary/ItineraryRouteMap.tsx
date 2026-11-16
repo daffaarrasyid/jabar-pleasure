@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
-import L from 'leaflet';
+import L from '@/lib/leafletSetup';
 import 'leaflet/dist/leaflet.css';
 import { fetchRoadRoute } from '@/lib/routing';
 import { Loader2 } from 'lucide-react';
@@ -41,16 +41,32 @@ function RouteMapBoundsUpdater({
   points: [number, number][];
 }) {
   const map = useMap();
+  const pointsKey = points.map((p) => `${p[0]},${p[1]}`).join(';');
+
   useEffect(() => {
-    if (points && points.length > 0) {
+    if (!map || !points || points.length === 0) return;
+    try {
       if (points.length === 1) {
-        map.setView(points[0], 14, { animate: true });
+        map.setView(points[0], 14, { animate: false });
       } else {
         const bounds = L.latLngBounds(points);
-        map.fitBounds(bounds, { padding: [35, 35], maxZoom: 15, animate: true });
+        if (bounds.isValid()) {
+          map.fitBounds(bounds, { padding: [35, 35], maxZoom: 15, animate: false });
+        }
       }
+    } catch {
+      // ignore
     }
-  }, [points, map]);
+
+    return () => {
+      try {
+        map.stop();
+      } catch {
+        // ignore
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pointsKey, map]);
 
   return null;
 }
@@ -82,12 +98,20 @@ export default function ItineraryRouteMap({
     });
   }, [waypoints]);
 
+  const onRouteCalculatedRef = useRef(onRouteCalculated);
+  useEffect(() => {
+    onRouteCalculatedRef.current = onRouteCalculated;
+  });
+
   // Fetch actual road network segments sequentially
   useEffect(() => {
     let isCancelled = false;
-    setIsLoadingRoute(true);
 
     async function loadSegments() {
+      await Promise.resolve();
+      if (isCancelled) return;
+      setIsLoadingRoute(true);
+
       const allPoints: [number, number][] = [
         normalizedOrigin,
         ...normalizedWaypoints.map((w) => w.coordinates),
@@ -97,7 +121,7 @@ export default function ItineraryRouteMap({
         if (!isCancelled) {
           setSegments([]);
           setIsLoadingRoute(false);
-          onRouteCalculated?.(0, 0);
+          onRouteCalculatedRef.current?.(0, 0);
         }
         return;
       }
@@ -125,7 +149,7 @@ export default function ItineraryRouteMap({
             calculatedSegments.reduce((sum, seg) => sum + seg.distanceKm, 0) * 10
           ) / 10;
           const totalMins = calculatedSegments.reduce((sum, seg) => sum + seg.durationMinutes, 0);
-          onRouteCalculated?.(totalKm, totalMins);
+          onRouteCalculatedRef.current?.(totalKm, totalMins);
         }
       } catch (err) {
         console.warn('Failed to calculate road segments:', err);
@@ -150,26 +174,44 @@ export default function ItineraryRouteMap({
     return points;
   }, [normalizedOrigin, normalizedWaypoints]);
 
-  // Marker DivIcons
+  // Marker DivIcons - Anchored mathematically at (0, 0) to prevent any zoom drift
   const originIcon = useMemo(() => {
     if (typeof window === 'undefined') return undefined;
     return L.divIcon({
-      className: 'itinerary-origin-pin',
+      className: 'itinerary-origin-pin-container',
       html: `
-        <div style="display: flex; flex-direction: column; align-items: center; transform: translate(-50%, -100%);">
-          <div style="background-color: #10B981; color: white; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 6px; box-shadow: 0 2px 6px rgba(0,0,0,0.25); white-space: nowrap; margin-bottom: 2px;">
-            Awal: ${origin.name}
-          </div>
-          <div style="width: 22px; height: 28px; filter: drop-shadow(0 2px 5px rgba(0,0,0,0.3));">
-            <svg viewBox="0 0 24 32" width="22" height="28" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 0C5.373 0 0 5.373 0 12c0 9.5 12 20 12 20s12-10.5 12-20c0-6.627-5.373-12-12-12z" fill="#10B981"/>
-              <circle cx="12" cy="11.5" r="4.5" fill="white"/>
-            </svg>
+        <div style="position: relative; width: 0; height: 0;">
+          <div style="position: absolute; bottom: 0; left: 0; transform: translate(-50%, 0); display: flex; flex-direction: column; align-items: center; pointer-events: none; white-space: nowrap;">
+            <!-- Race Checkered Flag Badge -->
+            <div style="background: linear-gradient(135deg, #059669 0%, #10B981 100%); color: white; font-size: 11px; font-weight: 700; padding: 2.5px 8px; border-radius: 9999px; box-shadow: 0 4px 10px rgba(5,150,105,0.35); margin-bottom: 2px; border: 1.5px solid white; display: flex; align-items: center; gap: 4px;">
+              <span style="font-size: 12px;">🏁</span>
+              <span>Mulai: ${origin.name}</span>
+            </div>
+            <!-- Pin Icon where needle tip touches bottom at y=36 -->
+            <div style="width: 28px; height: 36px; filter: drop-shadow(0 3px 6px rgba(0,0,0,0.3));">
+              <svg viewBox="0 0 28 36" width="28" height="36" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M14 0C6.268 0 0 6.268 0 14c0 10.5 14 22 14 22s14-11.5 14-22C28 6.268 21.732 0 14 0z" fill="#059669"/>
+                <rect x="7" y="7" width="14" height="11" rx="2" fill="white" />
+                <rect x="7" y="7" width="3.5" height="3.6" fill="#0F172A" />
+                <rect x="10.5" y="7" width="3.5" height="3.6" fill="#FFFFFF" />
+                <rect x="14" y="7" width="3.5" height="3.6" fill="#0F172A" />
+                <rect x="17.5" y="7" width="3.5" height="3.6" fill="#FFFFFF" />
+                <rect x="7" y="10.6" width="3.5" height="3.6" fill="#FFFFFF" />
+                <rect x="10.5" y="10.6" width="3.5" height="3.6" fill="#0F172A" />
+                <rect x="14" y="10.6" width="3.5" height="3.6" fill="#FFFFFF" />
+                <rect x="17.5" y="10.6" width="3.5" height="3.6" fill="#0F172A" />
+                <rect x="7" y="14.2" width="3.5" height="3.8" fill="#0F172A" />
+                <rect x="10.5" y="14.2" width="3.5" height="3.8" fill="#FFFFFF" />
+                <rect x="14" y="14.2" width="3.5" height="3.8" fill="#0F172A" />
+                <rect x="17.5" y="14.2" width="3.5" height="3.8" fill="#FFFFFF" />
+                <circle cx="14" cy="35" r="1" fill="#FFFFFF" />
+              </svg>
+            </div>
           </div>
         </div>
       `,
-      iconSize: [22, 28],
-      iconAnchor: [11, 28],
+      iconSize: [0, 0],
+      iconAnchor: [0, 0],
     });
   }, [origin.name]);
 
@@ -183,25 +225,28 @@ export default function ItineraryRouteMap({
       const isCurrent = activeStopIndex !== -1 && idx === activeStopIndex;
 
       const bgColor = isPast ? '#6B7280' : isCurrent ? '#4941EC' : '#4941EC';
-      const badgeText = isPast ? '✓ Selesai' : `${order}. ${wp.name}`;
+      const badgeText = isPast ? `✓ ${order}. ${wp.name}` : `${order}. ${wp.name}`;
 
       icons[wp.id] = L.divIcon({
-        className: 'itinerary-dest-pin',
+        className: 'itinerary-dest-pin-container',
         html: `
-          <div style="display: flex; flex-direction: column; align-items: center; transform: translate(-50%, -100%);">
-            <div style="background-color: ${bgColor}; color: white; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 6px; box-shadow: 0 2px 6px rgba(0,0,0,0.25); white-space: nowrap; margin-bottom: 2px;">
-              ${badgeText}
-            </div>
-            <div style="width: 22px; height: 28px; filter: drop-shadow(0 2px 5px rgba(0,0,0,0.3));">
-              <svg viewBox="0 0 24 32" width="22" height="28" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 0C5.373 0 0 5.373 0 12c0 9.5 12 20 12 20s12-10.5 12-20c0-6.627-5.373-12-12-12z" fill="${bgColor}"/>
-                <circle cx="12" cy="11.5" r="4.5" fill="white"/>
-              </svg>
+          <div style="position: relative; width: 0; height: 0;">
+            <div style="position: absolute; bottom: 0; left: 0; transform: translate(-50%, 0); display: flex; flex-direction: column; align-items: center; pointer-events: none; white-space: nowrap;">
+              <div style="background-color: ${bgColor}; color: white; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 9999px; box-shadow: 0 4px 10px rgba(73,65,236,0.3); margin-bottom: 2px; border: 1.5px solid white;">
+                ${badgeText}
+              </div>
+              <div style="width: 26px; height: 34px; filter: drop-shadow(0 3px 6px rgba(0,0,0,0.3));">
+                <svg viewBox="0 0 24 32" width="26" height="34" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 0C5.373 0 0 5.373 0 12c0 9.5 12 20 12 20s12-10.5 12-20c0-6.627-5.373-12-12-12z" fill="${bgColor}"/>
+                  <circle cx="12" cy="11.5" r="7.5" fill="white"/>
+                  <text x="12" y="15.2" text-anchor="middle" font-size="10" font-weight="800" fill="${bgColor}" font-family="system-ui, -apple-system, sans-serif">${order}</text>
+                </svg>
+              </div>
             </div>
           </div>
         `,
-        iconSize: [22, 28],
-        iconAnchor: [11, 28],
+        iconSize: [0, 0],
+        iconAnchor: [0, 0],
       });
     });
 
@@ -210,7 +255,7 @@ export default function ItineraryRouteMap({
 
   return (
     <div
-      className={`relative w-full aspect-[16/10] sm:aspect-[16/9] rounded-2xl overflow-hidden bg-slate-100 border border-gray-200 shadow-xs ${className}`}
+      className={`relative isolate z-0 w-full aspect-[16/10] sm:aspect-[16/9] rounded-2xl overflow-hidden bg-slate-100 border border-gray-200 shadow-xs ${className}`}
     >
       <MapContainer
         center={normalizedOrigin}

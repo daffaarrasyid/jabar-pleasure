@@ -19,7 +19,7 @@ import TripShowcaseScreen from '@/components/history/TripShowcaseScreen';
 import { TripItem, DestinationItem } from '@/components/history/historyData';
 import Toast from '@/components/ui/Toast';
 import DestinationDetailModal, { DestinationDetailData } from '@/components/ui/DestinationDetailModal';
-import { getAuthToken, removeAuthToken } from '@/lib/auth';
+import { getAuthToken, removeAuthToken, getUserTripHistoryKey } from '@/lib/auth';
 import { createItinerary, deleteItinerary, getWishlists } from '@/lib/api';
 
 type HomeScreenState =
@@ -128,7 +128,9 @@ function HomeContent() {
   React.useEffect(() => {
     const loadStoredHistory = async () => {
       try {
-        const stored = localStorage.getItem('jabarpleasure_trip_history');
+        localStorage.removeItem('jabarpleasure_trip_history');
+        const userKey = getUserTripHistoryKey();
+        const stored = localStorage.getItem(userKey);
         if (stored) {
           const parsed = JSON.parse(stored);
           if (Array.isArray(parsed)) {
@@ -561,7 +563,7 @@ function HomeContent() {
           planTitle={homePlanTitle}
           startTime={tripStartTime}
           waypoints={homeWaypoints}
-          onBack={() => setCurrentScreen('itinerary-summary')}
+          onBack={() => setCurrentScreen('itinerary')}
           onFinishTrip={(visitedCount) => {
             const count = typeof visitedCount === 'number' ? visitedCount : (homeWaypoints?.length || 1);
             const now = new Date();
@@ -602,7 +604,8 @@ function HomeContent() {
               const updated = [newHistoryItem, ...prev];
               if (typeof window !== 'undefined') {
                 try {
-                  localStorage.setItem('jabarpleasure_trip_history', JSON.stringify(updated));
+                  const userKey = getUserTripHistoryKey();
+                  localStorage.setItem(userKey, JSON.stringify(updated));
                 } catch (e) {
                   console.warn('Error saving trip history to storage:', e);
                 }
@@ -611,7 +614,6 @@ function HomeContent() {
             });
 
             showToast(`Perjalanan selesai (${count} destinasi) dan berhasil disimpan ke Riwayat!`, 'success');
-            setCurrentScreen('trip-history');
           }}
           onNavigateToHome={() => setCurrentScreen('home')}
           onNavigateToMap={() => router.push('/map')}

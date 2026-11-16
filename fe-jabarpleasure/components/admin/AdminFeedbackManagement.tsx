@@ -16,7 +16,16 @@ import {
   Calendar,
   Sparkles,
   Paperclip,
+  Star,
 } from 'lucide-react';
+import {
+  UserFeedback,
+  FeedbackCategory,
+  FeedbackStatus,
+  getStoredFeedback,
+  updateFeedback,
+  deleteFeedback,
+} from '@/lib/feedbackStorage';
 
 interface AnimatedNumberProps {
   value: number;
@@ -65,22 +74,7 @@ function AnimatedNumber({
   return <>{formatted}</>;
 }
 
-export type FeedbackCategory = 'bug' | 'feature' | 'question' | 'other';
-export type FeedbackStatus = 'unread' | 'in_progress' | 'resolved';
-
-export interface UserFeedback {
-  id: number;
-  submitterName: string;
-  submitterEmail: string;
-  category: FeedbackCategory;
-  date: string;
-  message: string;
-  attachmentName?: string;
-  attachmentUrl?: string;
-  status: FeedbackStatus;
-  adminReply?: string;
-  repliedAt?: string;
-}
+export type { FeedbackCategory, FeedbackStatus, UserFeedback };
 
 const CATEGORY_CONFIG: Record<
   FeedbackCategory,
@@ -99,8 +93,8 @@ const CATEGORY_CONFIG: Record<
     badgeClass: 'bg-[#EFF6FF] text-[#2563EB]',
   },
   other: {
-    label: 'Lainnya',
-    badgeClass: 'bg-gray-100 text-gray-700',
+    label: 'Ulasan & Masukan',
+    badgeClass: 'bg-emerald-50 text-emerald-700',
   },
 };
 
@@ -118,129 +112,6 @@ const STATUS_CONFIG: Record<
     label: 'Selesai',
   },
 };
-
-// Initial realistic West Java feedback dataset
-const INITIAL_FEEDBACK: UserFeedback[] = [
-  {
-    id: 1,
-    submitterName: '@julyandre',
-    submitterEmail: 'julyandre@example.com',
-    category: 'bug',
-    date: '12/10/2026, 14:30 WIB',
-    message:
-      'Peta tidak merender marker saat koneksi lambat di Lembang. Mohon diperbaiki optimasi loading tile layer Leaflet.js nya agar peta tidak blank.',
-    attachmentName: 'Tangkapan_Layar_Bug.jpg',
-    status: 'unread',
-    adminReply:
-      'Terima kasih atas laporannya! Tim developer sedang mengoptimalkan kueri spasial dan caching tile peta agar lebih ringan di koneksi lambat.',
-  },
-  {
-    id: 2,
-    submitterName: '@daffa_dev',
-    submitterEmail: 'daffa_dev@example.com',
-    category: 'feature',
-    date: '11/10/2026, 16:45 WIB',
-    message:
-      'Mohon tambahkan filter khusus jalur rute sepeda dan tracking elevasi kontur perbukitan Jawa Barat di menu Itinerary.',
-    attachmentName: 'Usulan_Fitur_Sepeda.png',
-    status: 'in_progress',
-    adminReply:
-      'Usulan menarik! Tim GIS sedang mengkaji integrasi layer kontur SRTM dan kurasi jalur rute gowes populer Bandung Raya.',
-  },
-  {
-    id: 3,
-    submitterName: '@rifaldi_pm',
-    submitterEmail: 'rifaldi_pm@example.com',
-    category: 'question',
-    date: '10/10/2026, 10:15 WIB',
-    message:
-      'Bagaimana cara memperbarui data destinasi yang sudah di-approve oleh admin jika jam operasional tempatnya berubah?',
-    status: 'resolved',
-    adminReply:
-      'Halo! Pengguna dapat mengajukan pembaruan informasi melalui tombol "Laporkan Perubahan Info" pada halaman detail destinasi publik.',
-    repliedAt: '10/10/2026, 11:30 WIB',
-  },
-  {
-    id: 4,
-    submitterName: '@bintang_gis',
-    submitterEmail: 'bintang_gis@example.com',
-    category: 'bug',
-    date: '09/10/2026, 08:20 WIB',
-    message:
-      'Bottom sheet detail destinasi di layar iPhone 13 mini terkadang tertutup oleh bilah navigasi bawah saat mode landscape.',
-    attachmentName: 'Screen_Landscape_Issue.jpg',
-    status: 'resolved',
-    adminReply:
-      'Masalah safe-area-inset-bottom telah diperbaiki pada pembaruan tata letak antarmuka mobile v2.4.',
-    repliedAt: '09/10/2026, 09:15 WIB',
-  },
-  {
-    id: 5,
-    submitterName: '@citra_lestari',
-    submitterEmail: 'citra.lestari@example.com',
-    category: 'feature',
-    date: '08/10/2026, 13:40 WIB',
-    message:
-      'Apakah bisa ditambahkan fitur export daftar rencana perjalanan ke format PDF ringkas atau kalender iCal agar mudah dibagikan ke teman grup wisata?',
-    status: 'unread',
-  },
-  {
-    id: 6,
-    submitterName: '@eko_prasetyo',
-    submitterEmail: 'eko.p@example.com',
-    category: 'question',
-    date: '07/10/2026, 17:05 WIB',
-    message:
-      'Apakah aplikasi JabarPleasure sudah mendukung unduh peta offline ketika kami sedang berkunjung ke area blank spot di Ciwidey bagian selatan?',
-    status: 'unread',
-  },
-  {
-    id: 7,
-    submitterName: '@maya_safitri',
-    submitterEmail: 'maya.s@example.com',
-    category: 'bug',
-    date: '06/10/2026, 11:12 WIB',
-    message:
-      'GPS geolocation di browser Chrome seluler meminta izin berulang kali setiap kali halaman peta utama di-refresh.',
-    status: 'unread',
-  },
-  {
-    id: 8,
-    submitterName: '@hendra_wicaksono',
-    submitterEmail: 'hendra.w@example.com',
-    category: 'feature',
-    date: '05/10/2026, 19:30 WIB',
-    message:
-      'Saran untuk menambahkan filter ramah disabilitas dan fasilitas kursi roda pada POI destinasi wisata ramah keluarga.',
-    attachmentName: 'Saran_Fasilitas_Disabilitas.pdf',
-    status: 'in_progress',
-    adminReply:
-      'Kategori fasilitas aksesibilitas ramah disabilitas sedang diinput ke atribut database POI untuk rilis berikutnya.',
-  },
-  {
-    id: 9,
-    submitterName: '@rani_kurnia',
-    submitterEmail: 'rani.kurnia@example.com',
-    category: 'other',
-    date: '04/10/2026, 15:22 WIB',
-    message:
-      'Terima kasih banyak atas platform WebGIS ini! Sangat membantu keluarga kami saat liburan keliling Garut dan Tasikmalaya.',
-    status: 'resolved',
-    adminReply:
-      'Terima kasih atas apresiasinya! Selamat menikmati keindahan wisata alam dan budaya Jawa Barat!',
-    repliedAt: '04/10/2026, 16:00 WIB',
-  },
-  {
-    id: 10,
-    submitterName: '@fajar_sidik',
-    submitterEmail: 'fajar.s@example.com',
-    category: 'question',
-    date: '03/10/2026, 09:10 WIB',
-    message:
-      'Apakah data koordinat lokasi wisata di JabarPleasure sudah terverifikasi dengan data resmi Dinas Pariwisata dan Kebudayaan Provinsi Jawa Barat?',
-    status: 'unread',
-  },
-];
 
 // Quick response templates for admin productivity
 const QUICK_TEMPLATES = [
@@ -266,12 +137,24 @@ function getPageNumbers(currentPage: number, totalPages: number): (number | stri
 }
 
 export default function AdminFeedbackManagement() {
-  const [feedbackList, setFeedbackList] = useState<UserFeedback[]>(INITIAL_FEEDBACK);
+  const [feedbackList, setFeedbackList] = useState<UserFeedback[]>(() => getStoredFeedback());
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [itemsPerPage, setItemsPerPage] = useState<number>(5);
+
+  // Sync feedbackList from shared localStorage
+  useEffect(() => {
+    const handleSync = () => {
+      setFeedbackList(getStoredFeedback());
+    };
+
+    window.addEventListener('jabarpleasure_feedback_updated', handleSync);
+    return () => {
+      window.removeEventListener('jabarpleasure_feedback_updated', handleSync);
+    };
+  }, []);
 
   // Custom Dropdown open states
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
@@ -387,6 +270,12 @@ export default function AdminFeedbackManagement() {
       repliedAt: replyMessage.trim() ? nowStr : selectedFeedback.repliedAt,
     };
 
+    updateFeedback(selectedFeedback.id, {
+      status: editStatus,
+      adminReply: replyMessage.trim() || undefined,
+      repliedAt: replyMessage.trim() ? nowStr : selectedFeedback.repliedAt,
+    });
+
     setFeedbackList((prev) =>
       prev.map((f) => (f.id === selectedFeedback.id ? updatedItem : f))
     );
@@ -400,6 +289,7 @@ export default function AdminFeedbackManagement() {
     const target = feedbackList.find((f) => f.id === id);
     if (!target) return;
 
+    deleteFeedback(id);
     setLastAction({ type: 'delete', item: target });
     setFeedbackList((prev) => prev.filter((f) => f.id !== id));
     setSelectedFeedback(null);
@@ -748,11 +638,19 @@ export default function AdminFeedbackManagement() {
 
                     {/* Kategori */}
                     <td className="py-3.5 px-3 whitespace-nowrap">
-                      <span
-                        className={`px-2.5 py-1 rounded-full text-[10px] font-semibold ${categoryConf.badgeClass}`}
-                      >
-                        {categoryConf.label}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className={`px-2.5 py-1 rounded-full text-[10px] font-semibold ${categoryConf.badgeClass}`}
+                        >
+                          {item.rating ? 'Ulasan' : categoryConf.label}
+                        </span>
+                        {typeof item.rating === 'number' && (
+                          <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-amber-600 bg-amber-50 border border-amber-200/60 px-1.5 py-0.5 rounded-full">
+                            <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400" />
+                            <span>{item.rating}</span>
+                          </span>
+                        )}
+                      </div>
                     </td>
 
                     {/* Isi Pesan / Catatan */}
@@ -988,14 +886,28 @@ export default function AdminFeedbackManagement() {
                     </span>
                   </div>
 
-                  <span
-                    className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold self-start sm:self-auto ${
-                      CATEGORY_CONFIG[selectedFeedback.category].badgeClass
-                    }`}
-                  >
-                    {CATEGORY_CONFIG[selectedFeedback.category].label}
-                  </span>
+                  <div className="flex items-center gap-2 self-start sm:self-auto">
+                    {typeof selectedFeedback.rating === 'number' && (
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200/80 px-2.5 py-1 rounded-full">
+                        <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                        <span>Rating: {selectedFeedback.rating}/5</span>
+                      </span>
+                    )}
+                    <span
+                      className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
+                        CATEGORY_CONFIG[selectedFeedback.category].badgeClass
+                      }`}
+                    >
+                      {CATEGORY_CONFIG[selectedFeedback.category].label}
+                    </span>
+                  </div>
                 </div>
+                {selectedFeedback.tripTitle && (
+                  <div className="pt-1 border-t border-gray-100 flex items-center gap-1.5 text-xs text-emerald-700 font-medium">
+                    <span>Konteks Perjalanan:</span>
+                    <strong className="font-semibold text-gray-900">{selectedFeedback.tripTitle}</strong>
+                  </div>
+                )}
               </div>
 
               {/* 2. Isi Pesan Pengguna */}

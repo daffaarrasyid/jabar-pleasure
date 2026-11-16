@@ -223,25 +223,6 @@ export default function AdminSidebar({
             })}
           </nav>
         </div>
-
-        {/* Footer info in sidebar */}
-        <div className="pt-3 border-t border-gray-100/90 text-gray-400">
-          {isCollapsed ? (
-            <div className="hidden lg:flex items-center justify-center text-[10px] font-mono tracking-wider">
-              <span>v2.4</span>
-            </div>
-          ) : (
-            <div className="flex items-center justify-between text-[11px] px-1 font-medium">
-              <span>JabarPleasure WebGIS</span>
-              <span className="font-mono text-gray-400">v2.4</span>
-            </div>
-          )}
-          {/* Mobile view footer */}
-          <div className="lg:hidden flex items-center justify-between text-[11px] px-1 font-medium">
-            <span>JabarPleasure WebGIS</span>
-            <span className="font-mono text-gray-400">v2.4</span>
-          </div>
-        </div>
       </aside>
     </>
   );

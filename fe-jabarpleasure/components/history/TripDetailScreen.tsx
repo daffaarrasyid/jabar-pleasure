@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Image from 'next/image';
 import {
   ArrowLeft,
@@ -17,6 +17,8 @@ import AppHeader from '@/components/layout/AppHeader';
 import BottomNav, { NavTabId } from '@/components/layout/BottomNav';
 import { TripItem, DestinationItem } from '@/components/history/historyData';
 import JournalMediaModal from '@/components/history/JournalMediaModal';
+import FeedbackModal from '@/components/feedback/FeedbackModal';
+import { getUserTripHistoryKey } from '@/lib/auth';
 
 const DEFAULT_TRIP: TripItem = {
   id: '',
@@ -84,13 +86,16 @@ export default function TripDetailScreen({
   className = '',
 }: TripDetailScreenProps) {
   const [currentTrip, setCurrentTrip] = useState<TripItem>(trip);
+  const [prevTrip, setPrevTrip] = useState<TripItem>(trip);
   const [isJournalModalOpen, setIsJournalModalOpen] = useState(false);
+  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
   const [downloadFeedback, setDownloadFeedback] = useState<string | null>(null);
 
-  // Keep state synced with trip prop if it changes
-  useEffect(() => {
+  // Sync state if trip prop changes (official React pattern without effect)
+  if (trip !== prevTrip) {
+    setPrevTrip(trip);
     setCurrentTrip(trip);
-  }, [trip]);
+  }
 
   const handleTabChange = (tab: NavTabId) => {
     if (tab === 'beranda') {
@@ -192,11 +197,12 @@ export default function TripDetailScreen({
 
     if (typeof window !== 'undefined') {
       try {
-        const stored = localStorage.getItem('jabarpleasure_trip_history');
+        const userKey = getUserTripHistoryKey();
+        const stored = localStorage.getItem(userKey);
         if (stored) {
           const list: TripItem[] = JSON.parse(stored);
           const nextList = list.map((item) => (item.id === nextTrip.id ? nextTrip : item));
-          localStorage.setItem('jabarpleasure_trip_history', JSON.stringify(nextList));
+          localStorage.setItem(userKey, JSON.stringify(nextList));
         }
       } catch (e) {
         console.warn('Failed saving trip update to localStorage:', e);
@@ -424,12 +430,29 @@ export default function TripDetailScreen({
           ))}
         </div>
 
-        {/* Footer Completion Message */}
-        <div className="flex items-center gap-2 text-xs text-gray-500 font-medium px-1">
-          <CheckCircle2 className="w-4 h-4 text-emerald-500 stroke-[2.2] shrink-0" />
-          <span>Semua destinasi selesai. Kenanganmu tersimpan di sini.</span>
+        {/* Footer Completion Message & Ulas Button */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3.5 bg-white rounded-2xl border border-gray-100 shadow-xs mt-2">
+          <div className="flex items-center gap-2 text-xs text-gray-600 font-medium">
+            <CheckCircle2 className="w-4 h-4 text-emerald-500 stroke-[2.2] shrink-0" />
+            <span>Semua destinasi selesai. Kenanganmu tersimpan di sini.</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsFeedbackModalOpen(true)}
+            className="w-full sm:w-auto px-4 py-2 bg-emerald-50 hover:bg-emerald-100/80 active:scale-95 text-emerald-700 font-semibold text-xs rounded-xl border border-emerald-200/80 transition-all cursor-pointer text-center"
+          >
+            Ulas Perjalanan
+          </button>
         </div>
       </main>
+
+      {/* Modal Ulas Perjalanan */}
+      <FeedbackModal
+        isOpen={isFeedbackModalOpen}
+        onClose={() => setIsFeedbackModalOpen(false)}
+        initialCategory="other"
+        initialTripTitle={`Perjalanan: ${currentTrip.title}`}
+      />
 
       {/* Jurnal Media Perjalanan Modal Popup */}
       <JournalMediaModal

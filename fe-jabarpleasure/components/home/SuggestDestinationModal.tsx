@@ -242,7 +242,7 @@ export default function SuggestDestinationModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-xs transition-opacity duration-300 p-0 sm:p-4">
+    <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-xs transition-opacity duration-300 p-0 sm:p-4">
       {/* Click outside backdrop to dismiss */}
       <div
         className="absolute inset-0"

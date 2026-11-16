@@ -12,6 +12,7 @@ import {
   LogOut,
   ChevronRight,
   CheckCircle2,
+  MessageSquare,
 } from 'lucide-react';
 import AppHeader from '@/components/layout/AppHeader';
 import BottomNav, { NavTabId } from '@/components/layout/BottomNav';
@@ -21,6 +22,7 @@ import EditProfileBottomSheet from './EditProfileBottomSheet';
 import TravelPreferencesModal from './TravelPreferencesModal';
 import PrivacySecurityModal from './PrivacySecurityModal';
 import HelpCenterModal from './HelpCenterModal';
+import FeedbackModal from '@/components/feedback/FeedbackModal';
 
 export interface UserProfileData {
   id?: number;
@@ -86,6 +88,7 @@ export default function ProfileScreen({
   const [isTravelPrefsOpen, setIsTravelPrefsOpen] = useState(false);
   const [isPrivacySecurityOpen, setIsPrivacySecurityOpen] = useState(false);
   const [isHelpCenterOpen, setIsHelpCenterOpen] = useState(false);
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const [showNotificationConfirm, setShowNotificationConfirm] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
@@ -543,7 +546,8 @@ export default function ProfileScreen({
                 Bantuan
               </h2>
 
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-[0_2px_10px_rgba(0,0,0,0.03)] overflow-hidden">
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-[0_2px_10px_rgba(0,0,0,0.03)] divide-y divide-gray-50 overflow-hidden">
+                {/* Item 1: Pusat bantuan */}
                 <button
                   type="button"
                   onClick={() => {
@@ -562,6 +566,31 @@ export default function ProfileScreen({
                       </h3>
                       <p className="text-[11px] text-gray-400 mt-0.5">
                         Pertanyaan umum dan hubungi kami
+                      </p>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
+                </button>
+
+                {/* Item 2: Saran & Masukan Aplikasi */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    onItemClick?.('Saran & masukan');
+                    setIsFeedbackOpen(true);
+                  }}
+                  className="w-full flex items-center justify-between p-3.5 hover:bg-gray-50/80 active:bg-gray-100/70 transition-colors text-left cursor-pointer"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-[#EEF2FF] text-[#4941EC] flex items-center justify-center shrink-0">
+                      <MessageSquare className="w-4 h-4 stroke-[2]" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-xs text-gray-900 leading-snug">
+                        Saran & masukan aplikasi
+                      </h3>
+                      <p className="text-[11px] text-gray-400 mt-0.5">
+                        Laporkan kendala, usulkan fitur, atau beri ulasan
                       </p>
                     </div>
                   </div>
@@ -736,6 +765,17 @@ export default function ProfileScreen({
           onClose={() => setIsHelpCenterOpen(false)}
         />
       )}
+
+      {/* Saran & Masukan Modal */}
+      <FeedbackModal
+        isOpen={isFeedbackOpen}
+        onClose={() => setIsFeedbackOpen(false)}
+        defaultUserName={currentUser?.name ? `@${currentUser.name.toLowerCase().replace(/\s+/g, '_')}` : '@julyandre'}
+        defaultUserEmail={currentUser?.email || 'julyandre@example.com'}
+        onSuccess={() => {
+          showToast('Masukan berhasil dikirim. Terima kasih!');
+        }}
+      />
 
       {/* 7. Fixed Bottom Navigation Bar */}
       <div className="shrink-0 w-full z-30">

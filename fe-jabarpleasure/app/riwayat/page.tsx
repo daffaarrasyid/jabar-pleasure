@@ -7,7 +7,7 @@ import MobileShell from '@/components/layout/MobileShell';
 import { TripItem, DestinationItem } from '@/components/history/historyData';
 import Toast from '@/components/ui/Toast';
 import { getItineraries } from '@/lib/api';
-import { getAuthToken, removeAuthToken } from '@/lib/auth';
+import { getAuthToken, removeAuthToken, getUserTripHistoryKey } from '@/lib/auth';
 
 const TripHistoryScreen = dynamic(() => import('@/components/history/TripHistoryScreen'), { ssr: false });
 const TripDetailScreen = dynamic(() => import('@/components/history/TripDetailScreen'), { ssr: false });
@@ -48,14 +48,20 @@ export default function RiwayatPage() {
     }, 3500);
   };
 
-  // Check and merge completed itineraries from backend on mount (Stale-While-Revalidate)
+  // Check and sync completed itineraries from backend on mount (Strictly User-Scoped)
   useEffect(() => {
     let isCancelled = false;
 
     const loadHistory = async () => {
-      // 1. Read cached trips from localStorage on client mount
+      const userKey = getUserTripHistoryKey();
+      let cachedTrips: TripItem[] = [];
+
+      // 1. Read cached trips strictly for the current authenticated user
       if (typeof window !== 'undefined') {
         try {
+          // Permanently purge legacy shared key that caused cross-account leaks
+          localStorage.removeItem('jabarpleasure_trip_history');
+
           const storedWishlist = sessionStorage.getItem('jp_cached_wishlists');
           if (storedWishlist) {
             const parsedW = JSON.parse(storedWishlist);
@@ -66,16 +72,19 @@ export default function RiwayatPage() {
         }
 
         try {
-          const stored = localStorage.getItem('jabarpleasure_trip_history');
+          const stored = localStorage.getItem(userKey);
           if (stored) {
             const parsed = JSON.parse(stored);
-            if (Array.isArray(parsed) && parsed.length > 0 && !isCancelled) {
-              setHistoryTrips(parsed.filter((item: TripItem) => item.id !== 'bandung-trip'));
-              setIsLoading(false);
+            if (Array.isArray(parsed) && !isCancelled) {
+              cachedTrips = parsed.filter((item: TripItem) => item.id !== 'bandung-trip');
+              setHistoryTrips(cachedTrips);
+              if (cachedTrips.length > 0) {
+                setIsLoading(false);
+              }
             }
           }
         } catch (e) {
-          console.warn('Error reading trip history from storage:', e);
+          console.warn('Error reading user trip history from storage:', e);
         }
       }
 
@@ -83,71 +92,77 @@ export default function RiwayatPage() {
         const completedData = await getItineraries('completed');
         if (isCancelled) return;
 
-        setHistoryTrips((prev) => {
-          const currentClean = prev.filter((p) => p.id !== 'bandung-trip');
-          const newItems: TripItem[] = [];
+        const cachedMap = new Map<string, TripItem>(cachedTrips.map((t) => [t.id, t]));
 
-          (completedData || []).forEach((itin) => {
-            const itinId = `trip-${itin.id}`;
-            // If already exists in local state, do not overwrite
-            if (currentClean.some((p) => p.id === itinId)) return;
+        const backendTrips: TripItem[] = (completedData || []).map((itin) => {
+          const itinId = `trip-${itin.id}`;
+          const localTrip = cachedMap.get(itinId);
 
-            const dateStr = itin.end_date || itin.start_date || 'Hari ini';
-            const originName =
-              itin.route_geojson?.properties?.departure_name ||
-              itin.route_geojson?.departure_name ||
-              'Bogor, Jawa Barat';
+          const dateStr = itin.end_date || itin.start_date || 'Hari ini';
+          const originName =
+            itin.route_geojson?.properties?.departure_name ||
+            itin.route_geojson?.departure_name ||
+            'Bogor, Jawa Barat';
 
-            const firstImage =
-              itin.items?.[0]?.destination?.cover_image_url ||
-              itin.items?.[0]?.destination?.cover_image ||
-              '/tugu-kujang.jpg';
+          const firstImage =
+            itin.items?.[0]?.destination?.cover_image_url ||
+            itin.items?.[0]?.destination?.cover_image ||
+            localTrip?.image ||
+            '/tugu-kujang.jpg';
 
-            newItems.push({
-              id: itinId,
-              title: itin.title,
-              category: 'Rencana Perjalanan',
-              status: 'Selesai',
-              duration:
-                itin.start_date && itin.end_date && itin.start_date !== itin.end_date
-                  ? '2 hari 1 malam'
-                  : '1 hari',
-              dateRange: dateStr,
-              location: originName,
-              completedDate: dateStr,
-              stats: {
-                destinations: itin.items?.length || 1,
-                photos: 0,
-                video: 0,
-              },
-              initials: ['JP'],
-              image: firstImage,
-              destinations: (itin.items || []).map((it, idx) => ({
+          return {
+            id: itinId,
+            title: itin.title,
+            category: 'Rencana Perjalanan',
+            status: 'Selesai',
+            duration:
+              itin.start_date && itin.end_date && itin.start_date !== itin.end_date
+                ? '2 hari 1 malam'
+                : '1 hari',
+            dateRange: dateStr,
+            location: originName,
+            completedDate: dateStr,
+            stats: {
+              destinations: itin.items?.length || 1,
+              photos: localTrip?.stats?.photos || 0,
+              video: localTrip?.stats?.video || 0,
+            },
+            initials: ['JP'],
+            image: firstImage,
+            destinations: (itin.items || []).map((it, idx) => {
+              const localDest = localTrip?.destinations?.[idx];
+              return {
                 id: String(it.destination_id || idx + 1),
                 name: it.destination?.name || `Destinasi ${idx + 1}`,
                 time: `${dateStr} • Selesai`,
                 status: 'Sudah dikunjungi',
-                photoCount: 0,
+                photoCount: localDest?.photoCount || 0,
                 image: it.destination?.cover_image_url || it.destination?.cover_image || firstImage,
                 location: it.destination?.address || originName,
                 visitDate: dateStr,
                 visitTime: 'Selesai',
-                notes: `Kunjungan ke-${idx + 1} rencana perjalanan ${itin.title}`,
-                photos: [],
-              })),
-            });
-          });
-
-          const merged = [...newItems, ...currentClean];
-          if (typeof window !== 'undefined') {
-            try {
-              localStorage.setItem('jabarpleasure_trip_history', JSON.stringify(merged));
-            } catch (e) {
-              console.warn('Failed saving merged history to localStorage:', e);
-            }
-          }
-          return merged;
+                notes: localDest?.notes || `Kunjungan ke-${idx + 1} rencana perjalanan ${itin.title}`,
+                photos: localDest?.photos || [],
+              };
+            }),
+          };
         });
+
+        // Only retain local trips that explicitly match this user's scoped storage and are not yet in backend
+        const remainingLocalTrips = cachedTrips.filter(
+          (lt) => !backendTrips.some((bt) => bt.id === lt.id)
+        );
+
+        const verifiedUserHistory = [...backendTrips, ...remainingLocalTrips];
+        setHistoryTrips(verifiedUserHistory);
+
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem(userKey, JSON.stringify(verifiedUserHistory));
+          } catch (e) {
+            console.warn('Failed saving user history to localStorage:', e);
+          }
+        }
       } catch (err) {
         console.warn('Failed to fetch completed itineraries:', err);
         showToast('Gagal menyinkronkan data riwayat terbaru.', 'error');

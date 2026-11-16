@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, Heart, Calendar, Navigation, Users, Trash2 } from 'lucide-react';
+import { ArrowLeft, Calendar, Navigation, Users, Trash2 } from 'lucide-react';
 import AppHeader from '@/components/layout/AppHeader';
 import BottomNav, { NavTabId } from '@/components/layout/BottomNav';
 import { getWishlists, deleteWishlist, ApiWishlist } from '@/lib/api';

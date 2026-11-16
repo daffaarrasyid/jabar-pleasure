@@ -2,7 +2,7 @@
 
 import React, { useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
-import L from 'leaflet';
+import L from '@/lib/leafletSetup';
 import 'leaflet/dist/leaflet.css';
 
 // Custom iOS style pin icon

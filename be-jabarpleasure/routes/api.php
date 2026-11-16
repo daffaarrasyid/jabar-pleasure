@@ -72,7 +72,10 @@ Route::middleware('auth:sanctum')->group(function () {
     */
     Route::get('/itineraries', [ItineraryController::class, 'index']);
     Route::post('/itineraries', [ItineraryController::class, 'store']);
+    Route::get('/itineraries/reminders/check', [ItineraryController::class, 'checkReminders']);
+    Route::post('/itineraries/reminders/check', [ItineraryController::class, 'checkReminders']);
     Route::get('/itineraries/{id}', [ItineraryController::class, 'show']);
+    Route::put('/itineraries/{id}', [ItineraryController::class, 'update']);
     Route::post('/itineraries/{id}/complete', [ItineraryController::class, 'complete']);
     Route::patch('/itineraries/{id}/complete', [ItineraryController::class, 'complete']);
     Route::delete('/itineraries/{id}', [ItineraryController::class, 'destroy']);
@@ -118,8 +121,12 @@ Route::middleware('auth:sanctum')->group(function () {
 // Direct fallback routes for development or token recovery
 Route::get('/itineraries-public', [ItineraryController::class, 'index']);
 Route::post('/itineraries-public', [ItineraryController::class, 'store']);
+Route::get('/itineraries-public/reminders/check', [ItineraryController::class, 'checkReminders']);
+Route::post('/itineraries-public/reminders/check', [ItineraryController::class, 'checkReminders']);
 Route::post('/itineraries-public/{id}/complete', [ItineraryController::class, 'complete']);
 Route::patch('/itineraries-public/{id}/complete', [ItineraryController::class, 'complete']);
+Route::put('/itineraries-public/{id}', [ItineraryController::class, 'update']);
+Route::delete('/itineraries-public/{id}', [ItineraryController::class, 'destroy']);
 Route::get('/itineraries-public/{id}/journal', [JournalMediaController::class, 'getByItinerary']);
 Route::get('/wishlists-public', [WishlistController::class, 'index']);
 Route::post('/wishlists-public/toggle', [WishlistController::class, 'toggle']);
