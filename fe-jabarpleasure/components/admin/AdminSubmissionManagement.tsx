@@ -20,6 +20,11 @@ import {
   ShieldCheck,
   ImageIcon,
 } from 'lucide-react';
+import {
+  getAdminSubmissions,
+  approveSubmission,
+  rejectSubmission,
+} from '@/lib/api';
 
 // Dynamic import for interactive Leaflet Map Picker to prevent SSR mismatches and minimize initial load latency
 const AdminPoiMapPicker = dynamic(
@@ -243,12 +248,65 @@ function getPageNumbers(currentPage: number, totalPages: number): (number | stri
 }
 
 export default function AdminSubmissionManagement() {
-  const [submissions, setSubmissions] = useState<DestinationSubmission[]>(INITIAL_SUBMISSIONS);
+  const [submissions, setSubmissions] = useState<DestinationSubmission[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedMethod, setSelectedMethod] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [itemsPerPage, setItemsPerPage] = useState<number>(5);
+
+  // Load submissions from backend API
+  const loadSubmissions = React.useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const data = await getAdminSubmissions();
+      if (Array.isArray(data) && data.length > 0) {
+        const mapped: DestinationSubmission[] = data.map((sub: any) => {
+          const lat = Number(sub.latitude ?? (sub.proposed_location?.coordinates ? sub.proposed_location.coordinates[1] : -6.9175));
+          const lng = Number(sub.longitude ?? (sub.proposed_location?.coordinates ? sub.proposed_location.coordinates[0] : 107.6191));
+          const rawDate = sub.created_at ? new Date(sub.created_at) : new Date();
+          const formattedDate = rawDate.toLocaleDateString('id-ID', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          }) + ' WIB';
+
+          return {
+            id: sub.id,
+            name: sub.name,
+            submitter: sub.user?.name ? `@${sub.user.name}` : '@pengguna',
+            category: sub.category?.name || 'Wisata Alam & Terbuka',
+            date: formattedDate,
+            method: sub.evidence_image?.startsWith('http') ? 'maps_link' : 'gps',
+            locationDetail: sub.evidence_image?.startsWith('http') ? sub.evidence_image : `Lat: ${lat.toFixed(4)}, Long: ${lng.toFixed(4)}`,
+            latitude: lat,
+            longitude: lng,
+            detectedDistrict: 'Jawa Barat',
+            photoFileName: sub.evidence_image ? sub.evidence_image.split('/').pop() : undefined,
+            status: sub.status || 'pending',
+            adminNotes: sub.admin_note,
+          };
+        });
+        setSubmissions(mapped);
+      } else if (Array.isArray(data) && data.length === 0) {
+        setSubmissions([]);
+      } else {
+        setSubmissions(INITIAL_SUBMISSIONS);
+      }
+    } catch (err) {
+      console.error('Failed to load submissions:', err);
+      setSubmissions(INITIAL_SUBMISSIONS);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadSubmissions();
+  }, [loadSubmissions]);
 
   // Custom Dropdown states
   const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
@@ -291,11 +349,11 @@ export default function AdminSubmissionManagement() {
     }, 4000);
   };
 
-  // KPI Counts (seeded totals matching Image 1: Pending: 3, Disetujui: 42, Ditolak: 8, Total: 53)
+  // Real Dynamic KPI Counts from submissions
   const pendingCount = submissions.filter((s) => s.status === 'pending').length;
-  const approvedCount = 42 + (submissions.filter((s) => s.status === 'approved').length - 3);
-  const rejectedCount = 8 + (submissions.filter((s) => s.status === 'rejected').length - 2);
-  const totalCount = pendingCount + approvedCount + rejectedCount;
+  const approvedCount = submissions.filter((s) => s.status === 'approved').length;
+  const rejectedCount = submissions.filter((s) => s.status === 'rejected').length;
+  const totalCount = submissions.length;
 
   // Filtered submissions
   const filteredSubmissions = useMemo(() => {
@@ -339,61 +397,73 @@ export default function AdminSubmissionManagement() {
     setShowMapPreview(true);
   };
 
-  // Approve Submission
-  const handleApprove = (id: number) => {
+  // Approve Submission via Backend
+  const handleApprove = async (id: number) => {
     const target = submissions.find((s) => s.id === id);
     if (!target) return;
 
     setLastAction({ id, prevStatus: target.status, name: target.name });
-    setSubmissions((prev) =>
-      prev.map((s) =>
-        s.id === id
-          ? {
-              ...s,
-              status: 'approved',
-              latitude: editLat,
-              longitude: editLng,
-              processedAt: new Date().toLocaleDateString('id-ID', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-              }) + ' WIB',
-            }
-          : s
-      )
-    );
-    setInspectingSub(null);
-    showToast(`Pengajuan "${target.name}" disetujui & dimasukkan ke basis data publik.`);
+    try {
+      await approveSubmission(id, adminNoteInput.trim() || undefined);
+      setSubmissions((prev) =>
+        prev.map((s) =>
+          s.id === id
+            ? {
+                ...s,
+                status: 'approved',
+                latitude: editLat,
+                longitude: editLng,
+                processedAt: new Date().toLocaleDateString('id-ID', {
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                }) + ' WIB',
+              }
+            : s
+        )
+      );
+      setInspectingSub(null);
+      showToast(`Pengajuan "${target.name}" disetujui & dimasukkan ke basis data publik.`);
+      loadSubmissions();
+    } catch (err: any) {
+      showToast(err.message || 'Gagal menyetujui pengajuan.');
+    }
   };
 
-  // Reject Submission
-  const handleReject = (id: number) => {
+  // Reject Submission via Backend
+  const handleReject = async (id: number) => {
     const target = submissions.find((s) => s.id === id);
     if (!target) return;
 
     setLastAction({ id, prevStatus: target.status, name: target.name });
-    setSubmissions((prev) =>
-      prev.map((s) =>
-        s.id === id
-          ? {
-              ...s,
-              status: 'rejected',
-              adminNotes: adminNoteInput.trim() || 'Lokasi tidak memenuhi kriteria verifikasi spasial.',
-              processedAt: new Date().toLocaleDateString('id-ID', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-              }) + ' WIB',
-            }
-          : s
-      )
-    );
-    setInspectingSub(null);
-    showToast(`Pengajuan "${target.name}" ditolak.`);
+    try {
+      await rejectSubmission(id, adminNoteInput.trim() || undefined);
+      setSubmissions((prev) =>
+        prev.map((s) =>
+          s.id === id
+            ? {
+                ...s,
+                status: 'rejected',
+                adminNotes: adminNoteInput.trim() || 'Lokasi tidak memenuhi kriteria verifikasi spasial.',
+                processedAt: new Date().toLocaleDateString('id-ID', {
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                }) + ' WIB',
+              }
+            : s
+        )
+      );
+      setInspectingSub(null);
+      showToast(`Pengajuan "${target.name}" ditolak.`);
+      loadSubmissions();
+    } catch (err: any) {
+      showToast(err.message || 'Gagal menolak pengajuan.');
+    }
   };
 
   // Undo Last Action
@@ -833,7 +903,16 @@ export default function AdminSubmissionManagement() {
                 </tr>
               ))}
 
-              {paginatedSubmissions.length === 0 && (
+              {isLoading && (
+                <tr>
+                  <td colSpan={6} className="py-12 text-center text-gray-400">
+                    <Loader2 className="w-6 h-6 animate-spin text-[#4941EC] mx-auto mb-2" />
+                    <span className="text-xs">Memuat antrean pengajuan dari database...</span>
+                  </td>
+                </tr>
+              )}
+
+              {!isLoading && paginatedSubmissions.length === 0 && (
                 <tr>
                   <td colSpan={6} className="py-12 text-center text-gray-400">
                     <div className="flex flex-col items-center justify-center gap-2">

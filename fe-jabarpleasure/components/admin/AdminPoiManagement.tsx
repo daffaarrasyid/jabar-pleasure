@@ -19,6 +19,19 @@ import {
   RotateCcw,
   Check,
 } from 'lucide-react';
+import {
+  getAdminDestinations,
+  createAdminDestination,
+  updateAdminDestination,
+  deleteAdminDestination,
+} from '@/lib/api';
+
+const CATEGORY_ID_MAP: Record<string, number> = {
+  'Wisata Alam & Terbuka': 1,
+  'Modern & Lifestyle': 2,
+  'Publik & Edukasi': 3,
+  'Rekreasi Keluarga': 4,
+};
 
 // Dynamic import for interactive Leaflet Map Picker to prevent SSR mismatches and minimize initial load latency
 const AdminPoiMapPicker = dynamic(
@@ -418,12 +431,55 @@ function getPageNumbers(currentPage: number, totalPages: number): (number | stri
 }
 
 export default function AdminPoiManagement() {
-  const [poiList, setPoiList] = useState<AdminPoiItem[]>(INITIAL_POI_DATA);
+  const [poiList, setPoiList] = useState<AdminPoiItem[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedRegency, setSelectedRegency] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [itemsPerPage, setItemsPerPage] = useState<number>(10);
+
+  // Load destinations from backend API
+  const loadDestinations = React.useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const catId = selectedCategory !== 'all' ? CATEGORY_ID_MAP[selectedCategory] : undefined;
+      const res = await getAdminDestinations({
+        search: searchQuery.trim() || undefined,
+        category_id: catId,
+        per_page: 50,
+      });
+      if (res && Array.isArray(res.data) && res.data.length > 0) {
+        const mapped: AdminPoiItem[] = res.data.map((d: any) => ({
+          id: d.id,
+          name: d.name,
+          category: d.category?.name || 'Wisata Alam & Terbuka',
+          regency: d.regency?.name || 'Jawa Barat',
+          latitude: Number(d.latitude ?? (d.location?.coordinates ? d.location.coordinates[1] : -6.9175)),
+          longitude: Number(d.longitude ?? (d.location?.coordinates ? d.location.coordinates[0] : 107.6191)),
+          address: d.address || '',
+          status: 'published',
+          coverImageUrl: d.cover_image || d.image_url,
+        }));
+        setPoiList(mapped);
+      } else if (res && Array.isArray(res.data) && res.data.length === 0) {
+        setPoiList([]);
+      } else {
+        // Fallback to initial seed if backend is unreachable
+        setPoiList(INITIAL_POI_DATA);
+      }
+    } catch (err) {
+      console.error('Failed to load destinations:', err);
+      setPoiList(INITIAL_POI_DATA);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [searchQuery, selectedCategory]);
+
+  useEffect(() => {
+    loadDestinations();
+  }, [loadDestinations]);
 
   // Custom Dropdown Open States
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
@@ -568,8 +624,8 @@ export default function AdminPoiManagement() {
     setFormImagePreview(objectUrl);
   };
 
-  // Submit Add / Edit Form
-  const handleFormSubmit = (e: React.FormEvent) => {
+  // Submit Add / Edit Form to Database
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!formName.trim()) {
@@ -577,53 +633,80 @@ export default function AdminPoiManagement() {
       return;
     }
 
-    if (editingPoi) {
-      // Update
-      setPoiList((prev) =>
-        prev.map((item) =>
-          item.id === editingPoi.id
-            ? {
-                ...item,
-                name: formName.trim(),
-                category: formCategory,
-                regency: formRegency,
-                latitude: formLat,
-                longitude: formLng,
-                address: formAddress.trim(),
-                status: formStatus,
-                coverImageUrl: formImagePreview || item.coverImageUrl,
-              }
-            : item
-        )
-      );
-      showToast(`POI "${formName.trim()}" berhasil diperbarui.`);
-    } else {
-      // Create
-      const newPoi: AdminPoiItem = {
-        id: Date.now(),
-        name: formName.trim(),
-        category: formCategory,
-        regency: formRegency,
-        latitude: formLat,
-        longitude: formLng,
-        address: formAddress.trim(),
-        status: formStatus,
-        coverImageUrl: formImagePreview || undefined,
-      };
-      setPoiList((prev) => [newPoi, ...prev]);
-      showToast(`POI "${formName.trim()}" berhasil ditambahkan.`);
+    setIsSaving(true);
+    try {
+      const catId = CATEGORY_ID_MAP[formCategory] || 1;
+      if (editingPoi) {
+        // Update in backend
+        await updateAdminDestination(editingPoi.id, {
+          name: formName.trim(),
+          category_id: catId,
+          address: formAddress.trim(),
+          latitude: formLat,
+          longitude: formLng,
+        });
+        setPoiList((prev) =>
+          prev.map((item) =>
+            item.id === editingPoi.id
+              ? {
+                  ...item,
+                  name: formName.trim(),
+                  category: formCategory,
+                  regency: formRegency,
+                  latitude: formLat,
+                  longitude: formLng,
+                  address: formAddress.trim(),
+                  status: formStatus,
+                  coverImageUrl: formImagePreview || item.coverImageUrl,
+                }
+              : item
+          )
+        );
+        showToast(`POI "${formName.trim()}" berhasil diperbarui di database.`);
+      } else {
+        // Create in backend
+        const created = await createAdminDestination({
+          name: formName.trim(),
+          category_id: catId,
+          address: formAddress.trim(),
+          latitude: formLat,
+          longitude: formLng,
+        });
+        const newPoi: AdminPoiItem = {
+          id: created?.id || Date.now(),
+          name: formName.trim(),
+          category: formCategory,
+          regency: formRegency,
+          latitude: formLat,
+          longitude: formLng,
+          address: formAddress.trim(),
+          status: formStatus,
+          coverImageUrl: formImagePreview || undefined,
+        };
+        setPoiList((prev) => [newPoi, ...prev]);
+        showToast(`POI "${formName.trim()}" berhasil ditambahkan ke database.`);
+      }
+      setIsFormModalOpen(false);
+      loadDestinations();
+    } catch (err: any) {
+      showToast(err.message || 'Gagal menyimpan POI ke database.');
+    } finally {
+      setIsSaving(false);
     }
-
-    setIsFormModalOpen(false);
   };
 
-  // Confirm Delete
-  const handleConfirmDelete = () => {
+  // Confirm Delete in Database
+  const handleConfirmDelete = async () => {
     if (!deletingPoi) return;
-    setLastDeletedPoi(deletingPoi);
-    setPoiList((prev) => prev.filter((item) => item.id !== deletingPoi.id));
-    setDeletingPoi(null);
-    showToast(`POI "${deletingPoi.name}" telah dihapus.`);
+    try {
+      await deleteAdminDestination(deletingPoi.id);
+      setLastDeletedPoi(deletingPoi);
+      setPoiList((prev) => prev.filter((item) => item.id !== deletingPoi.id));
+      showToast(`POI "${deletingPoi.name}" telah dihapus dari database.`);
+      setDeletingPoi(null);
+    } catch (err: any) {
+      showToast(err.message || 'Gagal menghapus destinasi dari database.');
+    }
   };
 
   // Undo Delete
@@ -977,7 +1060,16 @@ export default function AdminPoiManagement() {
                 </tr>
               ))}
 
-              {paginatedPois.length === 0 && (
+              {isLoading && (
+                <tr>
+                  <td colSpan={6} className="py-12 text-center text-gray-400">
+                    <Loader2 className="w-6 h-6 animate-spin text-[#4941EC] mx-auto mb-2" />
+                    <span className="text-xs">Memuat destinasi dari database spasial...</span>
+                  </td>
+                </tr>
+              )}
+
+              {!isLoading && paginatedPois.length === 0 && (
                 <tr>
                   <td colSpan={6} className="py-12 text-center text-gray-400">
                     <div className="flex flex-col items-center justify-center gap-2">

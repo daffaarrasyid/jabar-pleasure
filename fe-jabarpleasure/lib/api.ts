@@ -756,6 +756,22 @@ export interface AdminOverviewMetrics {
     percentage: number;
     color: string;
   }>;
+  top_spatial_regions?: Array<{
+    rank: number;
+    name: string;
+    checkIns: number;
+    itineraries: number;
+    status: 'Sangat Tinggi' | 'Tinggi' | 'Sedang' | 'Berkembang';
+    destinations_count?: number;
+  }>;
+  live_behavioral_logs?: Array<{
+    id: number | string;
+    username: string;
+    actionPrefix: string;
+    target: string;
+    timeAgo: string;
+    type: 'checkin' | 'itinerary' | 'journal' | 'wishlist';
+  }>;
 }
 
 /**
@@ -837,7 +853,7 @@ export async function getAdminDestinationsPaginated(params: {
   search?: string;
   category_id?: number | string;
   regency_id?: number | string;
-}): Promise<{ data: ApiDestination[]; pagination?: { current_page: number; last_page: number; per_page: number; total: number } }> {
+} = {}): Promise<{ data: ApiDestination[]; pagination?: { current_page: number; last_page: number; per_page: number; total: number } }> {
   const query = new URLSearchParams();
   if (params.page) query.set('page', String(params.page));
   if (params.per_page) query.set('per_page', String(params.per_page));
@@ -976,7 +992,7 @@ export async function getAdminUsersPaginated(params: {
   search?: string;
   role?: string;
   status?: string;
-}): Promise<{ data: ApiAdminUser[]; pagination?: { current_page: number; last_page: number; per_page: number; total: number } }> {
+} = {}): Promise<{ data: ApiAdminUser[]; pagination?: { current_page: number; last_page: number; per_page: number; total: number } }> {
   const query = new URLSearchParams();
   if (params.page) query.set('page', String(params.page));
   if (params.per_page) query.set('per_page', String(params.per_page));
@@ -1022,7 +1038,7 @@ export async function getAdminMediaPaginated(params: {
   page?: number;
   per_page?: number;
   type?: string;
-}): Promise<{ data: ApiAdminMedia[]; pagination?: { current_page: number; last_page: number; per_page: number; total: number } }> {
+} = {}): Promise<{ data: ApiAdminMedia[]; pagination?: { current_page: number; last_page: number; per_page: number; total: number } }> {
   const query = new URLSearchParams();
   if (params.page) query.set('page', String(params.page));
   if (params.per_page) query.set('per_page', String(params.per_page));
@@ -1076,7 +1092,7 @@ export interface ApiAdminFeedback {
 export async function getAdminFeedbacksPaginated(params: {
   page?: number;
   per_page?: number;
-}): Promise<{ data: ApiAdminFeedback[]; pagination?: { current_page: number; last_page: number; per_page: number; total: number } }> {
+} = {}): Promise<{ data: ApiAdminFeedback[]; pagination?: { current_page: number; last_page: number; per_page: number; total: number } }> {
   const query = new URLSearchParams();
   if (params.page) query.set('page', String(params.page));
   if (params.per_page) query.set('per_page', String(params.per_page));
@@ -1094,4 +1110,24 @@ export async function getAdminFeedbacksPaginated(params: {
     }
   }
 }
+
+// Aliases for unified admin dashboard integrations
+export const getAdminDestinations = getAdminDestinationsPaginated;
+export const getAdminUsers = async (params: any = {}) => {
+  const res = await getAdminUsersPaginated(params);
+  return res.data;
+};
+export const toggleAdminUserStatus = toggleBlockUser;
+export const getAdminMedia = async (params: any = {}) => {
+  const res = await getAdminMediaPaginated(params);
+  return res.data;
+};
+export const getAdminFeedback = async (params: any = {}) => {
+  const res = await getAdminFeedbacksPaginated(params);
+  return res.data;
+};
+export const updateAdminFeedbackStatus = async (id: number | string, status: string) => {
+  return { id, status };
+};
+
 

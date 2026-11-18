@@ -317,6 +317,12 @@ export default function AdminOverview() {
   };
 
   const kpi = metrics.kpi;
+  const spatialRegions = metrics.top_spatial_regions && metrics.top_spatial_regions.length > 0
+    ? metrics.top_spatial_regions
+    : TOP_SPATIAL_REGIONS;
+  const liveLogs = metrics.live_behavioral_logs && metrics.live_behavioral_logs.length > 0
+    ? metrics.live_behavioral_logs
+    : LIVE_BEHAVIORAL_LOGS;
 
   return (
     <div className="space-y-6">
@@ -645,7 +651,7 @@ export default function AdminOverview() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {TOP_SPATIAL_REGIONS.map((item) => (
+                  {spatialRegions.map((item) => (
                     <tr
                       key={item.name}
                       className="hover:bg-gray-50/70 transition-colors"
@@ -726,7 +732,7 @@ export default function AdminOverview() {
             </div>
 
             <div className="space-y-3">
-              {LIVE_BEHAVIORAL_LOGS.map((log) => (
+              {liveLogs.map((log) => (
                 <div
                   key={log.id}
                   className="flex items-start gap-3 p-2.5 rounded-xl hover:bg-gray-50/70 transition-colors group/item"

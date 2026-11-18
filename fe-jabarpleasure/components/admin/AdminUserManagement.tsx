@@ -16,7 +16,9 @@ import {
   User,
   Calendar,
   AlertTriangle,
+  Loader2,
 } from 'lucide-react';
+import { getAdminUsers, toggleAdminUserStatus } from '@/lib/api';
 
 interface AnimatedNumberProps {
   value: number;
@@ -214,12 +216,56 @@ function getPageNumbers(currentPage: number, totalPages: number): (number | stri
 }
 
 export default function AdminUserManagement() {
-  const [users, setUsers] = useState<UserAccount[]>(INITIAL_USERS);
+  const [users, setUsers] = useState<UserAccount[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRole, setSelectedRole] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [itemsPerPage, setItemsPerPage] = useState<number>(5);
+
+  // Load real users from backend API
+  const loadUsers = React.useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const data = await getAdminUsers();
+      if (Array.isArray(data) && data.length > 0) {
+        const mapped: UserAccount[] = data.map((u: any) => {
+          const rawDate = u.created_at ? new Date(u.created_at) : new Date();
+          const formattedDate = rawDate.toLocaleDateString('id-ID', {
+            day: '2-digit',
+            month: 'long',
+            year: 'numeric',
+          });
+          return {
+            id: u.id,
+            userId: `USR-${u.id.toString().padStart(4, '0')}`,
+            username: `@${(u.name || 'user').toLowerCase().replace(/\s+/g, '_')}`,
+            fullName: u.name || 'Pengguna',
+            email: u.email || 'user@example.com',
+            role: (u.role === 'admin' ? 'admin' : 'user') as UserRole,
+            status: (u.is_blocked ? 'banned' : 'active') as UserStatus,
+            registeredDate: formattedDate,
+            lastActive: u.is_blocked ? 'Diblokir' : 'Aktif',
+          };
+        });
+        setUsers(mapped);
+      } else if (Array.isArray(data) && data.length === 0) {
+        setUsers([]);
+      } else {
+        setUsers(INITIAL_USERS);
+      }
+    } catch (err) {
+      console.error('Failed to load admin users:', err);
+      setUsers(INITIAL_USERS);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadUsers();
+  }, [loadUsers]);
 
   // Custom Dropdown open states
   const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false);
@@ -271,11 +317,11 @@ export default function AdminUserManagement() {
     return () => window.removeEventListener('click', handleOutsideClick);
   }, []);
 
-  // Compute KPI metrics dynamically (baseline 4.820 for total ecosystem)
+  // Compute KPI metrics dynamically from real users
   const metrics = useMemo(() => {
-    const totalUsers = 4820 + (users.length - INITIAL_USERS.length);
+    const totalUsers = users.length;
     const bannedUsers = users.filter((u) => u.status === 'banned').length;
-    const activeUsers = totalUsers - bannedUsers;
+    const activeUsers = users.filter((u) => u.status === 'active').length;
     const adminCount = users.filter((u) => u.role === 'admin').length;
     return { totalUsers, activeUsers, bannedUsers, adminCount };
   }, [users]);
@@ -355,31 +401,36 @@ export default function AdminUserManagement() {
     showToast(`Perubahan data akun ${updatedItem.username} berhasil disimpan.`);
   };
 
-  // Quick Ban / Unban Toggle
-  const handleQuickToggleBan = (id: number) => {
+  // Quick Ban / Unban Toggle in Backend
+  const handleQuickToggleBan = async (id: number) => {
     const target = users.find((u) => u.id === id);
     if (!target) return;
 
     const previousItem = { ...target };
     const nextStatus: UserStatus = target.status === 'active' ? 'banned' : 'active';
 
-    setUsers((prev) =>
-      prev.map((u) =>
-        u.id === id
-          ? {
-              ...u,
-              status: nextStatus,
-              banReason: nextStatus === 'banned' ? 'Diblokir oleh administrator.' : undefined,
-            }
-          : u
-      )
-    );
-    setLastAction({ type: 'ban_toggle', item: previousItem });
-    showToast(
-      nextStatus === 'banned'
-        ? `Akun ${target.username} berhasil di-ban.`
-        : `Akun ${target.username} berhasil di-unban (diaktifkan kembali).`
-    );
+    try {
+      await toggleAdminUserStatus(id);
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === id
+            ? {
+                ...u,
+                status: nextStatus,
+                banReason: nextStatus === 'banned' ? 'Diblokir oleh administrator.' : undefined,
+              }
+            : u
+        )
+      );
+      setLastAction({ type: 'ban_toggle', item: previousItem });
+      showToast(
+        nextStatus === 'banned'
+          ? `Akun ${target.username} berhasil di-ban di server.`
+          : `Akun ${target.username} berhasil di-unban (diaktifkan kembali).`
+      );
+    } catch (err: any) {
+      showToast(err.message || 'Gagal mengubah status akun di server.');
+    }
   };
 
   // Reset Password Action
@@ -863,7 +914,16 @@ export default function AdminUserManagement() {
                 </tr>
               ))}
 
-              {paginatedUsers.length === 0 && (
+              {isLoading && (
+                <tr>
+                  <td colSpan={6} className="py-12 text-center text-gray-400">
+                    <Loader2 className="w-6 h-6 animate-spin text-[#4941EC] mx-auto mb-2" />
+                    <span className="text-xs">Memuat data akun pengguna dari database...</span>
+                  </td>
+                </tr>
+              )}
+
+              {!isLoading && paginatedUsers.length === 0 && (
                 <tr>
                   <td colSpan={6} className="py-12 text-center text-gray-400">
                     <div className="flex flex-col items-center justify-center gap-2">

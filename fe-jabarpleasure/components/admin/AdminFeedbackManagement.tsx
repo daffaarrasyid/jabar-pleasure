@@ -18,6 +18,7 @@ import {
   Paperclip,
   Star,
 } from 'lucide-react';
+import { getAdminFeedback, updateAdminFeedbackStatus } from '@/lib/api';
 import {
   UserFeedback,
   FeedbackCategory,
@@ -138,23 +139,86 @@ function getPageNumbers(currentPage: number, totalPages: number): (number | stri
 
 export default function AdminFeedbackManagement() {
   const [feedbackList, setFeedbackList] = useState<UserFeedback[]>(() => getStoredFeedback());
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [itemsPerPage, setItemsPerPage] = useState<number>(5);
 
+  // Load feedback from backend API
+  const loadFeedback = React.useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const data = await getAdminFeedback();
+      if (Array.isArray(data) && data.length > 0) {
+        const mapped: UserFeedback[] = data.map((f: any) => {
+          let cat: FeedbackCategory = 'other';
+          const c = (f.category || '').toLowerCase();
+          if (c.includes('bug') || c.includes('error')) cat = 'bug';
+          else if (c.includes('fitur') || c.includes('usulan')) cat = 'feature';
+          else if (c.includes('tanya') || c.includes('informasi')) cat = 'question';
+
+          let st: FeedbackStatus = 'unread';
+          if (f.status === 'Ditanggapi') st = 'in_progress';
+          else if (f.status === 'Selesai') st = 'resolved';
+
+          const rawDate = f.created_at ? new Date(f.created_at) : new Date();
+          const formattedDate = rawDate.toLocaleDateString('id-ID', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          }) + ' WIB';
+
+          return {
+            id: f.id,
+            submitterName: f.user_name || '@pengguna',
+            submitterEmail: f.user_email || 'pengguna@jabarpleasure.id',
+            category: cat,
+            date: formattedDate,
+            message: f.message || f.subject,
+            status: st,
+            tripTitle: f.subject,
+          };
+        });
+
+        // Merge with local stored feedback if any
+        const local = getStoredFeedback();
+        const merged = [...mapped];
+        for (const loc of local) {
+          if (!merged.some((m) => m.id === loc.id)) {
+            merged.push(loc);
+          }
+        }
+        setFeedbackList(merged);
+      } else {
+        setFeedbackList(getStoredFeedback());
+      }
+    } catch (err) {
+      console.error('Failed to load admin feedback:', err);
+      setFeedbackList(getStoredFeedback());
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadFeedback();
+  }, [loadFeedback]);
+
   // Sync feedbackList from shared localStorage
   useEffect(() => {
     const handleSync = () => {
-      setFeedbackList(getStoredFeedback());
+      loadFeedback();
     };
 
     window.addEventListener('jabarpleasure_feedback_updated', handleSync);
     return () => {
       window.removeEventListener('jabarpleasure_feedback_updated', handleSync);
     };
-  }, []);
+  }, [loadFeedback]);
 
   // Custom Dropdown open states
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);

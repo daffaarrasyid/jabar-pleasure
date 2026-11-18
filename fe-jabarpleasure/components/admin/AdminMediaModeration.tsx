@@ -18,7 +18,9 @@ import {
   Camera,
   Layers,
   Clock,
+  Loader2,
 } from 'lucide-react';
+import { getAdminMedia, deleteAdminMedia } from '@/lib/api';
 
 /* -------------------------------------------------------------------------- */
 /*                                ANIMATED NUMBER                             */
@@ -313,21 +315,77 @@ function getPageNumbers(currentPage: number, totalPages: number): (number | stri
 /*                            MAIN ADMIN COMPONENT                            */
 /* -------------------------------------------------------------------------- */
 export default function AdminMediaModeration() {
-  // 1. Data states with local storage persistence
-  const [tripList, setTripList] = useState<TripModerationItem[]>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem('jp_admin_trip_moderation');
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+  const [tripList, setTripList] = useState<TripModerationItem[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  // Load real media from backend API
+  const loadMedia = React.useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const data = await getAdminMedia();
+      if (Array.isArray(data) && data.length > 0) {
+        const tripsMap: Record<string, TripModerationItem> = {};
+        data.forEach((m: any, index: number) => {
+          const tripKey = m.check_in_id ? `Trip-${m.check_in_id}` : `Trip-${m.id}`;
+          const tripName = m.check_in?.destination?.name
+            ? `Dokumentasi di ${m.check_in.destination.name}`
+            : (m.caption || 'Dokumentasi Perjalanan Wisata');
+          const user = m.check_in?.user;
+          const userName = user?.name || 'Pengguna Komunitas';
+          const userHandle = `@${(user?.name || 'pengguna').toLowerCase().replace(/\s+/g, '_')}`;
+          const rawDate = m.created_at ? new Date(m.created_at) : new Date();
+          const timestamp = rawDate.toLocaleDateString('id-ID', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          }) + ' WIB';
+
+          if (!tripsMap[tripKey]) {
+            tripsMap[tripKey] = {
+              id: tripKey,
+              tripName,
+              userId: `Usr-${user?.id || index + 1}`,
+              userName,
+              userHandle,
+              timestamp,
+              status: 'pending',
+              mediaList: [],
+            };
+          }
+
+          tripsMap[tripKey].mediaList.push({
+            id: String(m.id),
+            type: m.media_type === 'video' ? 'video' : 'photo',
+            fileName: m.file_path ? m.file_path.split('/').pop() : `media_${m.id}.jpg`,
+            url: m.url || m.file_path || '/tangkuban-parahu.jpg',
+            size: m.file_size_kb ? `${(m.file_size_kb / 1024).toFixed(1)} MB` : '1.2 MB',
+            caption: m.caption,
+            isDeleted: false,
+          });
+        });
+
+        const tripArray = Object.values(tripsMap);
+        if (tripArray.length > 0) {
+          setTripList(tripArray);
+        } else {
+          setTripList(INITIAL_TRIP_MODERATION);
         }
-      } catch {
-        // fallback
+      } else {
+        setTripList(INITIAL_TRIP_MODERATION);
       }
+    } catch (err) {
+      console.error('Failed to load admin media:', err);
+      setTripList(INITIAL_TRIP_MODERATION);
+    } finally {
+      setIsLoading(false);
     }
-    return INITIAL_TRIP_MODERATION;
-  });
+  }, []);
+
+  useEffect(() => {
+    loadMedia();
+  }, [loadMedia]);
 
   // 2. Filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -803,7 +861,16 @@ export default function AdminMediaModeration() {
                 </tr>
               ))}
 
-              {paginatedTrips.length === 0 && (
+              {isLoading && (
+                <tr>
+                  <td colSpan={6} className="py-12 text-center text-gray-400">
+                    <Loader2 className="w-6 h-6 animate-spin text-[#4941EC] mx-auto mb-2" />
+                    <span className="text-xs">Memuat berkas media dokumentasi dari database...</span>
+                  </td>
+                </tr>
+              )}
+
+              {!isLoading && paginatedTrips.length === 0 && (
                 <tr>
                   <td colSpan={6} className="py-12 text-center text-gray-400">
                     <div className="flex flex-col items-center justify-center gap-2">
