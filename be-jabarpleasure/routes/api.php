@@ -31,6 +31,18 @@ Route::post('/user/preferences', [AuthController::class, 'savePreferences']);
 
 /*
 |--------------------------------------------------------------------------
+| Public Destination Endpoints (Visitor & Authenticated)
+|--------------------------------------------------------------------------
+*/
+Route::get('/destinations', [DestinationController::class, 'index']);
+Route::get('/destinations/featured', [DestinationController::class, 'featured']);
+Route::get('/destinations/nearby', [DestinationController::class, 'nearby']);
+Route::get('/destinations/search', [DestinationController::class, 'search']);
+Route::get('/destinations/{slug}', [DestinationController::class, 'show']);
+Route::get('/trips/{id}/timelapse', [ItineraryController::class, 'timelapse']);
+
+/*
+|--------------------------------------------------------------------------
 | Profile & Protected Routes (Sanctum Authenticated)
 |--------------------------------------------------------------------------
 */
@@ -59,23 +71,17 @@ Route::middleware('auth:sanctum')->group(function () {
 
     /*
     |--------------------------------------------------------------------------
-    | Destination Endpoints (Authenticated)
-    |--------------------------------------------------------------------------
-    */
-    Route::get('/destinations', [DestinationController::class, 'index']);
-    Route::get('/destinations/featured', [DestinationController::class, 'featured']);
-    Route::get('/destinations/nearby', [DestinationController::class, 'nearby']);
-    Route::get('/destinations/search', [DestinationController::class, 'search']);
-    Route::get('/destinations/{slug}', [DestinationController::class, 'show']);
-
-    /*
-    |--------------------------------------------------------------------------
     | Itinerary Endpoints (Authenticated)
     |--------------------------------------------------------------------------
     */
     Route::get('/itineraries', [ItineraryController::class, 'index']);
     Route::post('/itineraries', [ItineraryController::class, 'store']);
+    Route::get('/itineraries/reminders/check', [ItineraryController::class, 'checkReminders']);
+    Route::post('/itineraries/reminders/check', [ItineraryController::class, 'checkReminders']);
     Route::get('/itineraries/{id}', [ItineraryController::class, 'show']);
+    Route::get('/itineraries/{id}/timelapse', [ItineraryController::class, 'timelapse']);
+    Route::get('/trips/{id}/timelapse', [ItineraryController::class, 'timelapse']);
+    Route::put('/itineraries/{id}', [ItineraryController::class, 'update']);
     Route::post('/itineraries/{id}/complete', [ItineraryController::class, 'complete']);
     Route::patch('/itineraries/{id}/complete', [ItineraryController::class, 'complete']);
     Route::delete('/itineraries/{id}', [ItineraryController::class, 'destroy']);
@@ -144,8 +150,12 @@ Route::get('/admin/media-public', [AdminMediaController::class, 'index']);
 Route::delete('/admin/media-public/{id}', [AdminMediaController::class, 'destroy']);
 Route::get('/itineraries-public', [ItineraryController::class, 'index']);
 Route::post('/itineraries-public', [ItineraryController::class, 'store']);
+Route::get('/itineraries-public/reminders/check', [ItineraryController::class, 'checkReminders']);
+Route::post('/itineraries-public/reminders/check', [ItineraryController::class, 'checkReminders']);
 Route::post('/itineraries-public/{id}/complete', [ItineraryController::class, 'complete']);
 Route::patch('/itineraries-public/{id}/complete', [ItineraryController::class, 'complete']);
+Route::put('/itineraries-public/{id}', [ItineraryController::class, 'update']);
+Route::delete('/itineraries-public/{id}', [ItineraryController::class, 'destroy']);
 Route::get('/itineraries-public/{id}/journal', [JournalMediaController::class, 'getByItinerary']);
 Route::get('/wishlists-public', [WishlistController::class, 'index']);
 Route::post('/wishlists-public/toggle', [WishlistController::class, 'toggle']);

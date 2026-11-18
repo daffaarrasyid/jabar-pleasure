@@ -2,84 +2,91 @@
 
 import React, { useState } from 'react';
 import Button from '@/components/ui/Button';
+import { Check } from 'lucide-react';
 
 interface InterestSelectionProps {
   onContinue?: (selectedInterests: string[]) => Promise<void> | void;
 }
 
-// Crisp vector icons matching the design mockup precisely
-function NatureTentIcon({ className = 'w-4 h-4' }: { className?: string }) {
+// 2D Vector: Modern & Lifestyle
+function ModernLifestyleVector({ className = 'w-14 h-14' }: { className?: string }) {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.3"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="M19 20 12 4 5 20" />
-      <path d="M12 4v16" />
-      <path d="m9 20 3-7 3 7" />
-      <path d="M3 20h18" />
+    <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+      <circle cx="32" cy="32" r="28" fill="#F3E8FF" />
+      {/* Shopping Bag */}
+      <rect x="18" y="24" width="28" height="26" rx="4" fill="#A855F7" />
+      <path
+        d="M26 24V18C26 14.6863 28.6863 12 32 12C35.3137 12 38 14.6863 38 18V24"
+        stroke="#7E22CE"
+        strokeWidth="3"
+        strokeLinecap="round"
+      />
+      {/* Star sparkle accent */}
+      <path
+        d="M32 31L33.5 35L37.5 36.5L33.5 38L32 42L30.5 38L26.5 36.5L30.5 35L32 31Z"
+        fill="#FDE047"
+      />
+      <circle cx="44" cy="20" r="3" fill="#EC4899" />
     </svg>
   );
 }
 
-function ModernLifestyleIcon({ className = 'w-4 h-4' }: { className?: string }) {
+// 2D Vector: Wisata Alam & Terbuka
+function NatureVector({ className = 'w-14 h-14' }: { className?: string }) {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.3"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="m13 11-8.5 8.5a2.12 2.12 0 1 0 3 3L16 14" />
-      <circle cx="17" cy="7" r="4.5" />
-      <path d="m19 5 2-2" />
-      <path d="m21 9 2-1" />
-      <path d="m15 3 1-2" />
+    <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+      <circle cx="32" cy="32" r="28" fill="#DCFCE7" />
+      {/* Golden Sun */}
+      <circle cx="42" cy="20" r="8" fill="#FBBF24" />
+      {/* Back Mountain */}
+      <path d="M12 50L28 26C29.5 24 32.5 24 34 26L52 50H12Z" fill="#34D399" />
+      {/* Front Mountain */}
+      <path d="M26 50L38 32C39 30.5 41 30.5 42 32L56 50H26Z" fill="#10B981" />
+      {/* Pine tree */}
+      <path d="M20 50L24 42H16L20 36H18L20 32L22 36H20L24 42H22L26 50H20Z" fill="#047857" />
     </svg>
   );
 }
 
-function EducationIcon({ className = 'w-4 h-4' }: { className?: string }) {
+// 2D Vector: Publik & Edukasi
+function EducationVector({ className = 'w-14 h-14' }: { className?: string }) {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.3"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z" />
-      <path d="M6 6h10" />
-      <path d="M6 10h10" />
+    <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+      <circle cx="32" cy="32" r="28" fill="#E0E7FF" />
+      {/* Classic Museum / Library roof */}
+      <path d="M16 26L32 16L48 26H16Z" fill="#4941EC" />
+      {/* Columns */}
+      <rect x="18" y="27" width="5" height="17" rx="1.5" fill="#6366F1" />
+      <rect x="26" y="27" width="5" height="17" rx="1.5" fill="#6366F1" />
+      <rect x="33" y="27" width="5" height="17" rx="1.5" fill="#6366F1" />
+      <rect x="41" y="27" width="5" height="17" rx="1.5" fill="#6366F1" />
+      {/* Foundation plinth */}
+      <rect x="14" y="44" width="36" height="5" rx="1.5" fill="#3730A3" />
+      <circle cx="32" cy="21" r="2.5" fill="#FDE047" />
     </svg>
   );
 }
 
-function FamilyRecreationIcon({ className = 'w-4 h-4' }: { className?: string }) {
+// 2D Vector: Rekreasi Keluarga
+function FamilyRecreationVector({ className = 'w-14 h-14' }: { className?: string }) {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.3"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-      <circle cx="9" cy="7" r="4" />
-      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+      <circle cx="32" cy="32" r="28" fill="#FEF3C7" />
+      {/* Ferris Wheel rim */}
+      <circle cx="32" cy="30" r="16" stroke="#F59E0B" strokeWidth="2.5" strokeDasharray="3 3" />
+      <circle cx="32" cy="30" r="3" fill="#B45309" />
+      {/* Ferris wheel spokes */}
+      <line x1="32" y1="14" x2="32" y2="46" stroke="#D97706" strokeWidth="2" />
+      <line x1="16" y1="30" x2="48" y2="30" stroke="#D97706" strokeWidth="2" />
+      <line x1="21" y1="19" x2="43" y2="41" stroke="#D97706" strokeWidth="2" />
+      <line x1="43" y1="19" x2="21" y2="41" stroke="#D97706" strokeWidth="2" />
+      {/* Colorful Pods */}
+      <circle cx="32" cy="14" r="3" fill="#EF4444" />
+      <circle cx="48" cy="30" r="3" fill="#3B82F6" />
+      <circle cx="32" cy="46" r="3" fill="#10B981" />
+      <circle cx="16" cy="30" r="3" fill="#8B5CF6" />
+      {/* Stand Base */}
+      <path d="M24 50L32 32L40 50" stroke="#78350F" strokeWidth="2.5" strokeLinecap="round" />
     </svg>
   );
 }
@@ -101,8 +108,8 @@ export default function InterestSelection({ onContinue }: InterestSelectionProps
     { id: 'rekreasi-keluarga', type: 'keluarga', label: 'Rekreasi Keluarga' },
   ];
 
-  // Pre-select 'wisata-alam-terbuka' initially to match the mockup visual
-  const [selectedIds, setSelectedIds] = useState<string[]>(['wisata-alam-terbuka']);
+  // Default selection is EMPTY per requirement
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -126,27 +133,24 @@ export default function InterestSelection({ onContinue }: InterestSelectionProps
       if (onContinue) {
         await onContinue(selectedIds);
       }
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Gagal menyimpan minat. Silakan coba kembali.');
+    } catch (err: unknown) {
+      const errObj = err as { message?: string } | null;
+      setErrorMessage(errObj?.message || 'Gagal menyimpan minat. Silakan coba kembali.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const renderIcon = (type: InterestType, isSelected: boolean) => {
-    const iconClass = `w-4 h-4 shrink-0 transition-colors ${
-      isSelected ? 'text-white' : 'text-[#4941EC]'
-    }`;
-
+  const renderVector = (type: InterestType) => {
     switch (type) {
       case 'alam':
-        return <NatureTentIcon className={iconClass} />;
+        return <NatureVector className="w-14 h-14 sm:w-16 sm:h-16" />;
       case 'modern':
-        return <ModernLifestyleIcon className={iconClass} />;
+        return <ModernLifestyleVector className="w-14 h-14 sm:w-16 sm:h-16" />;
       case 'edukasi':
-        return <EducationIcon className={iconClass} />;
+        return <EducationVector className="w-14 h-14 sm:w-16 sm:h-16" />;
       case 'keluarga':
-        return <FamilyRecreationIcon className={iconClass} />;
+        return <FamilyRecreationVector className="w-14 h-14 sm:w-16 sm:h-16" />;
     }
   };
 
@@ -154,13 +158,13 @@ export default function InterestSelection({ onContinue }: InterestSelectionProps
     <div className="relative w-full h-full flex-1 flex flex-col justify-center items-center overflow-y-auto select-none px-5 sm:px-7 py-6 sm:py-8">
       {/* Centered Main Content Wrapper */}
       <div className="w-full max-w-[390px] mx-auto my-auto flex flex-col items-center justify-center">
-        {/* Screen Title matching Mockup */}
-        <h1 className="text-2xl sm:text-[26px] font-bold text-center text-gray-900 mb-6 sm:mb-7 tracking-tight font-sans">
+        {/* Screen Title */}
+        <h1 className="text-2xl sm:text-[26px] font-semibold text-center text-gray-900 mb-6 sm:mb-7 tracking-tight font-sans">
           Pilih minat kamu apa?
         </h1>
 
-        {/* 2-Column Grid for the 4 Categories, Preserving Original Chip Styling */}
-        <div className="grid grid-cols-2 gap-2.5 sm:gap-3 w-full mb-8 sm:mb-9">
+        {/* 2x2 Square Cards Grid for the 4 Categories */}
+        <div className="grid grid-cols-2 gap-3.5 sm:gap-4 w-full mb-8">
           {options.map((item) => {
             const isSelected = selectedIds.includes(item.id);
 
@@ -169,14 +173,22 @@ export default function InterestSelection({ onContinue }: InterestSelectionProps
                 key={item.id}
                 type="button"
                 onClick={() => toggleInterest(item.id)}
-                className={`h-[48px] rounded-xl flex items-center justify-center gap-1.5 px-2.5 transition-all duration-150 active:scale-95 cursor-pointer font-sans text-xs sm:text-[13px] font-semibold border ${
+                className={`relative h-36 sm:h-40 rounded-2xl flex flex-col items-center justify-center p-3.5 text-center gap-3 transition-all duration-200 active:scale-95 cursor-pointer border-2 select-none ${
                   isSelected
-                    ? 'bg-[#4941EC] border-[#4941EC] text-white shadow-xs'
-                    : 'bg-white border-gray-100 text-gray-800 hover:bg-slate-50/80 hover:border-gray-200'
+                    ? 'bg-[#EEF2FF] border-[#4941EC] shadow-md ring-2 ring-[#4941EC]/20 text-[#4941EC]'
+                    : 'bg-white border-gray-100 shadow-2xs hover:border-gray-200 hover:bg-slate-50 text-gray-800'
                 }`}
               >
-                {renderIcon(item.type, isSelected)}
-                <span className="truncate">{item.label}</span>
+                {/* Active check pill */}
+                {isSelected && (
+                  <span className="absolute top-2.5 right-2.5 w-5 h-5 rounded-full bg-[#4941EC] text-white flex items-center justify-center shadow-xs">
+                    <Check className="w-3 h-3 stroke-[3]" />
+                  </span>
+                )}
+                {renderVector(item.type)}
+                <span className="text-xs sm:text-[13px] font-semibold leading-tight line-clamp-2 px-1">
+                  {item.label}
+                </span>
               </button>
             );
           })}
@@ -186,13 +198,12 @@ export default function InterestSelection({ onContinue }: InterestSelectionProps
           <p className="text-xs text-red-500 font-sans mb-3 text-center">{errorMessage}</p>
         )}
 
-        {/* Primary Action Button: Lanjutkan -> */}
+        {/* Primary Action Button: Lanjutkan (No Icon) */}
         <div className="w-full">
           <Button
             variant="primary"
             onClick={handleContinue}
             isLoading={isLoading}
-            rightIcon={<span className="text-lg leading-none font-medium">→</span>}
             className="w-full h-[50px] text-base font-semibold shadow-xs rounded-xl"
           >
             Lanjutkan

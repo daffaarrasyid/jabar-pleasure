@@ -21,13 +21,11 @@ export default function RegisterForm({
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [errors, setErrors] = useState<{
     name?: string;
     email?: string;
     password?: string;
-    confirmPassword?: string;
     agreeTerms?: string;
     general?: string;
   }>({});
@@ -53,12 +51,6 @@ export default function RegisterForm({
       newErrors.password = 'Kata sandi tidak boleh kosong';
     } else if (password.length < 8) {
       newErrors.password = 'Kata sandi minimal 8 karakter';
-    }
-
-    if (!confirmPassword) {
-      newErrors.confirmPassword = 'Konfirmasi kata sandi wajib diisi';
-    } else if (password !== confirmPassword) {
-      newErrors.confirmPassword = 'Kata sandi tidak cocok';
     }
 
     if (!agreeTerms) {
@@ -156,7 +148,7 @@ export default function RegisterForm({
       <div className="w-full max-w-[380px] mx-auto my-auto flex flex-col items-center justify-center">
 
         {/* Title "Daftar" */}
-        <h1 className="text-2xl sm:text-[26px] font-bold text-center text-gray-900 mb-5 tracking-tight font-sans">
+        <h1 className="text-2xl sm:text-[26px] font-semibold text-center text-gray-900 mb-5 tracking-tight font-sans">
           Daftar
         </h1>
 
@@ -176,50 +168,59 @@ export default function RegisterForm({
             autoComplete="name"
           />
 
-          <Input
-            label="Email"
-            type="email"
-            placeholder="Masukkan alamat email"
-            value={email}
-            onChange={(e) => {
-              setEmail(e.target.value);
-              if (errors.email) setErrors({ ...errors, email: undefined });
-            }}
-            error={errors.email}
-            borderVariant="primary"
-            leftIcon={<Mail className="w-5 h-5 text-gray-400" />}
-            autoComplete="email"
-          />
+          <div className="flex flex-col gap-1">
+            <Input
+              label="Email"
+              type="email"
+              placeholder="Masukkan alamat email"
+              value={email}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                if (errors.email) setErrors({ ...errors, email: undefined });
+              }}
+              error={errors.email}
+              borderVariant="primary"
+              leftIcon={<Mail className="w-5 h-5 text-gray-400" />}
+              autoComplete="email"
+            />
+            {/* Dynamic Email Format Hint */}
+            <p
+              className={`text-[11px] font-sans px-1 transition-colors ${
+                isValidEmail(email) ? 'text-emerald-600 font-medium' : 'text-gray-400'
+              }`}
+            >
+              {isValidEmail(email)
+                ? '✓ Format email valid'
+                : 'Gunakan format email valid (contoh: nama@domain.com)'}
+            </p>
+          </div>
 
-          <Input
-            label="Kata Sandi"
-            type="password"
-            placeholder="Masukkan kata sandi (min. 8 karakter)"
-            value={password}
-            onChange={(e) => {
-              setPassword(e.target.value);
-              if (errors.password) setErrors({ ...errors, password: undefined });
-            }}
-            error={errors.password}
-            borderVariant="primary"
-            leftIcon={<Lock className="w-5 h-5 text-gray-400" />}
-            autoComplete="new-password"
-          />
-
-          <Input
-            label="Konfirmasi Kata Sandi"
-            type="password"
-            placeholder="Ulangi kata sandi"
-            value={confirmPassword}
-            onChange={(e) => {
-              setConfirmPassword(e.target.value);
-              if (errors.confirmPassword) setErrors({ ...errors, confirmPassword: undefined });
-            }}
-            error={errors.confirmPassword}
-            borderVariant="primary"
-            leftIcon={<Lock className="w-5 h-5 text-gray-400" />}
-            autoComplete="new-password"
-          />
+          <div className="flex flex-col gap-1">
+            <Input
+              label="Kata Sandi"
+              type="password"
+              placeholder="Masukkan kata sandi (min. 8 karakter)"
+              value={password}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                if (errors.password) setErrors({ ...errors, password: undefined });
+              }}
+              error={errors.password}
+              borderVariant="primary"
+              leftIcon={<Lock className="w-5 h-5 text-gray-400" />}
+              autoComplete="new-password"
+            />
+            {/* Dynamic Password Length Hint */}
+            <p
+              className={`text-[11px] font-sans px-1 transition-colors ${
+                password.length >= 8 ? 'text-emerald-600 font-medium' : 'text-gray-400'
+              }`}
+            >
+              {password.length >= 8
+                ? '✓ Kata sandi memenuhi syarat'
+                : 'Minimal 8 karakter'}
+            </p>
+          </div>
 
           {/* Terms Agreement Checkbox */}
           <div className="flex items-start gap-2.5 mt-0.5">
@@ -260,12 +261,11 @@ export default function RegisterForm({
             </div>
           )}
 
-          {/* Action Button: Daftar -> */}
+          {/* Action Button: Daftar */}
           <Button
             type="submit"
             variant="primary"
             isLoading={isLoading}
-            rightIcon={<span className="text-lg leading-none font-medium">→</span>}
             className="mt-3 text-base font-semibold shadow-xs rounded-xl h-[50px]"
           >
             Daftar
@@ -278,7 +278,7 @@ export default function RegisterForm({
           <button
             type="button"
             onClick={onNavigateToLogin}
-            className="font-bold text-[#4941EC] hover:underline"
+            className="font-semibold text-[#4941EC] hover:underline"
           >
             Masuk Sekarang
           </button>

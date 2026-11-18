@@ -1,12 +1,73 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, Heart, Calendar, Navigation, Users, Trash2, Compass } from 'lucide-react';
+import { ArrowLeft, Calendar, Navigation, Users, Trash2 } from 'lucide-react';
 import AppHeader from '@/components/layout/AppHeader';
 import BottomNav, { NavTabId } from '@/components/layout/BottomNav';
 import { getWishlists, deleteWishlist, ApiWishlist } from '@/lib/api';
 import { getCategoryMeta } from '@/lib/categoryMeta';
 import { DestinationDetailData } from '@/components/ui/DestinationDetailModal';
+
+function EmptyWishlistVector() {
+  return (
+    <svg
+      width="130"
+      height="110"
+      viewBox="0 0 130 110"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className="drop-shadow-xs"
+    >
+      <defs>
+        <linearGradient id="bookGrad" x1="25" y1="20" x2="105" y2="85" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#EEF2FF" />
+          <stop stopColor="#E0E7FF" />
+        </linearGradient>
+        <linearGradient id="heartGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop stopColor="#EF4444" />
+          <stop stopColor="#DC2626" />
+        </linearGradient>
+      </defs>
+      {/* Book / Album Base */}
+      <rect
+        x="28"
+        y="25"
+        width="74"
+        height="64"
+        rx="8"
+        fill="url(#bookGrad)"
+        stroke="#CBD5E1"
+        strokeWidth="1.5"
+      />
+      {/* Spine highlight */}
+      <path d="M28 25V89" stroke="#94A3B8" strokeWidth="3" strokeLinecap="round" />
+
+      {/* Album Bookmark Ribbon */}
+      <path
+        d="M52 25V60L60 54L68 60V25"
+        fill="#6366F1"
+        opacity="0.85"
+      />
+
+      {/* Heart Badge in Center */}
+      <g transform="translate(65, 52)">
+        <circle cx="0" cy="0" r="16" fill="white" stroke="#E2E8F0" strokeWidth="1.5" />
+        <path
+          d="M0 6C-7 -1 -10 -6 -10 -9C-10 -13 -6.5 -15 -3 -15C-1 -15 0 -13 0 -13C0 -13 1 -15 3 -15C6.5 -15 10 -13 10 -9C10 -6 7 -1 0 6Z"
+          fill="url(#heartGrad)"
+        />
+      </g>
+
+      {/* Photo Frame Placeholder */}
+      <rect x="76" y="32" width="18" height="14" rx="3" fill="#C7D2FE" opacity="0.6" />
+
+      {/* Decorative Stars & Dots */}
+      <circle cx="20" cy="38" r="2.5" fill="#60CE9F" />
+      <circle cx="110" cy="30" r="2" fill="#F59E0B" />
+      <circle cx="108" cy="74" r="1.5" fill="#4941EC" />
+    </svg>
+  );
+}
 
 export interface WishlistItem {
   id: string | number;
@@ -51,27 +112,28 @@ export default function WishlistScreen({
   activeTab,
   className = '',
 }: WishlistScreenProps) {
-  const [wishlists, setWishlists] = useState<ApiWishlist[]>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const stored = sessionStorage.getItem('jp_cached_wishlists');
-        if (stored) return JSON.parse(stored);
-      } catch {
-        // ignore
-      }
-    }
-    return [];
-  });
-  const [isLoading, setIsLoading] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      return !sessionStorage.getItem('jp_cached_wishlists');
-    }
-    return true;
-  });
+  const [wishlists, setWishlists] = useState<ApiWishlist[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // Fetch real wishlist data from database on mount (SWR)
   useEffect(() => {
     let isMounted = true;
+
+    const loadCached = async () => {
+      try {
+        const stored = sessionStorage.getItem('jp_cached_wishlists');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && isMounted) {
+            setWishlists(parsed);
+            setIsLoading(false);
+          }
+        }
+      } catch {
+        // ignore
+      }
+    };
+    loadCached();
 
     getWishlists()
       .then((data) => {
@@ -156,46 +218,18 @@ export default function WishlistScreen({
             >
               <ArrowLeft className="w-6 h-6 stroke-[2.4]" />
             </button>
-            <h1 className="text-[22px] font-bold text-gray-900 tracking-tight leading-tight">
+            <h1 className="text-[22px] font-semibold text-gray-900 tracking-tight leading-tight">
               Wishlist Perjalanan
             </h1>
           </div>
           <p className="text-xs text-gray-500 pl-0.5 leading-relaxed">
             Destinasi yang kamu simpan untuk dibawa ke itinerary perjalananmu.
           </p>
-        </div>
-
-        {/* Info Card: Gunakan wishlist sebagai keranjang destinasi */}
-        <section
-          aria-label="Panduan Wishlist"
-          className="bg-white rounded-2xl p-4 border border-gray-100 shadow-[0_2px_12px_rgba(0,0,0,0.03)] mt-4"
-        >
-          <div className="flex items-start gap-3.5">
-            <div className="w-10 h-10 rounded-full bg-[#EEF2FF] flex items-center justify-center text-[#4941EC] shrink-0 mt-0.5">
-              <Heart className="w-5 h-5 text-[#4941EC] stroke-[2.2]" />
-            </div>
-            <div className="flex-1">
-              <h2 className="font-bold text-[14px] text-gray-900 leading-snug">
-                Gunakan wishlist sebagai keranjang destinasi
-              </h2>
-              <p className="text-xs text-gray-500 mt-1 leading-relaxed">
-                Pilih destinasi yang sudah kamu simpan, lalu masukkan ke itinerary untuk menyusun rencana perjalananmu.
-              </p>
-            </div>
-          </div>
-
-          {/* Status Pills */}
-          <div className="flex items-center gap-2 mt-3.5 flex-wrap">
-            <span className="px-3 py-1 bg-[#EEF2FF] text-[#4941EC] font-semibold text-[11px] rounded-full">
-              {isLoading ? 'Memuat wishlist...' : `${totalCount} destinasi tersimpan`}
-            </span>
-          </div>
-        </section>
-
+        </div>      
         {/* Section: Destinasi Tersimpan */}
         <section aria-label="Destinasi Tersimpan" className="mt-6">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="font-bold text-[15px] text-gray-900">
+            <h2 className="font-semibold text-[15px] text-gray-900">
               Destinasi Tersimpan
             </h2>
             <span className="font-semibold text-xs text-[#4941EC]">
@@ -224,21 +258,19 @@ export default function WishlistScreen({
               ))}
             </div>
           ) : totalCount === 0 ? (
-            /* EMPTY STATE KETIKA BELUM ADA WISHLIST */
-            <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-xs flex flex-col items-center justify-center text-center my-3">
-              <div className="w-16 h-16 rounded-full bg-[#EEF2FF] text-[#4941EC] flex items-center justify-center mb-3.5 shadow-xs">
-                <Compass className="w-8 h-8 stroke-[1.8]" />
-              </div>
-              <h3 className="text-base font-bold text-gray-900 tracking-tight">
+            /* EMPTY STATE KETIKA BELUM ADA WISHLIST (No fill container, 2D vector) */
+            <div className="py-8 sm:py-12 flex flex-col items-center justify-center text-center my-3 select-none animate-in fade-in duration-300">
+              <EmptyWishlistVector />
+              <h3 className="text-base font-semibold text-gray-900 tracking-tight mt-2">
                 Belum ada destinasi favorit
               </h3>
-              <p className="text-xs text-gray-500 mt-1.5 max-w-[260px] leading-relaxed">
+              <p className="text-xs text-gray-500 mt-1 max-w-[260px] leading-relaxed">
                 Jelajahi halaman beranda dan tambahkan destinasi wisata menarik ke dalam wishlist Anda!
               </p>
               <button
                 type="button"
                 onClick={onNavigateToHome}
-                className="mt-5 px-5 py-2.5 bg-[#4941EC] hover:bg-[#3C35C7] text-white text-xs font-bold rounded-xl shadow-md shadow-[#4941EC]/20 transition-all active:scale-95 cursor-pointer"
+                className="mt-4 px-5 py-2.5 bg-[#4941EC] hover:bg-[#3C35C7] text-white text-xs font-semibold rounded-xl shadow-md shadow-[#4941EC]/20 transition-all active:scale-95 cursor-pointer"
               >
                 Jelajahi Destinasi Sekarang
               </button>

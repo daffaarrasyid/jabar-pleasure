@@ -1,14 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import dynamic from 'next/dynamic';
 import {
   ArrowLeft,
   Pencil,
-  Trash2,
-  Bookmark,
-  Navigation,
-  GripVertical,
   Check,
   AlertTriangle,
 } from 'lucide-react';
@@ -43,10 +39,11 @@ interface ItinerarySummaryScreenProps {
   originLat?: number;
   originLng?: number;
   waypoints?: RouteWaypoint[];
+  isAlreadySaved?: boolean;
   onBack?: () => void;
   onEditDestinations?: () => void;
   onDeleteTrip?: () => void;
-  onSaveTrip?: (title: string, waypoints: RouteWaypoint[]) => void;
+  onSaveTrip?: (title: string, waypoints: RouteWaypoint[], totalKm?: number) => void;
   onStartTrip?: () => void;
   onNotificationClick?: () => void;
   onWishlistClick?: () => void;
@@ -94,6 +91,7 @@ export default function ItinerarySummaryScreen({
   originLat = -6.595,
   originLng = 106.7972,
   waypoints = DEFAULT_WAYPOINTS,
+  isAlreadySaved = false,
   onBack,
   onEditDestinations,
   onDeleteTrip,
@@ -105,25 +103,29 @@ export default function ItinerarySummaryScreen({
   onNavigateToMap,
   onNavigateToProfile,
   onNavigateToRiwayat,
-  wishlistCount = 3,
+  wishlistCount = 0,
   className = '',
 }: ItinerarySummaryScreenProps) {
   const [title, setTitle] = useState(planTitle);
+  const [prevPlanTitle, setPrevPlanTitle] = useState(planTitle);
+  if (planTitle !== prevPlanTitle) {
+    setPrevPlanTitle(planTitle);
+    if (planTitle) setTitle(planTitle);
+  }
+
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [routeList, setRouteList] = useState<RouteWaypoint[]>(waypoints);
-  const [totalKm, setTotalKm] = useState<number>(3.1);
-  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
-  const [showDeleteModal, setShowDeleteModal] = useState<boolean>(false);
-
-  useEffect(() => {
-    if (planTitle) setTitle(planTitle);
-  }, [planTitle]);
-
-  useEffect(() => {
+  const [prevWaypoints, setPrevWaypoints] = useState(waypoints);
+  if (waypoints !== prevWaypoints) {
+    setPrevWaypoints(waypoints);
     if (waypoints && waypoints.length > 0) {
       setRouteList(waypoints);
     }
-  }, [waypoints]);
+  }
+  const [totalKm, setTotalKm] = useState<number>(3.1);
+  const [showDeleteModal, setShowDeleteModal] = useState<boolean>(false);
+  const [showSaveModal, setShowSaveModal] = useState<boolean>(false);
+  const [showStartModal, setShowStartModal] = useState<boolean>(false);
 
   const handleTabChange = (tab: NavTabId) => {
     if (tab === 'beranda') {
@@ -137,60 +139,6 @@ export default function ItinerarySummaryScreen({
     } else if (tab === 'rencana') {
       onBack?.();
     }
-  };
-
-  // Drag and Drop reordering handlers
-  const handleDragStart = (e: React.DragEvent, index: number) => {
-    setDraggedIndex(index);
-    e.dataTransfer.setData('text/plain', String(index));
-    e.dataTransfer.effectAllowed = 'move';
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-  };
-
-  const handleDrop = (e: React.DragEvent, targetIndex: number) => {
-    e.preventDefault();
-    if (draggedIndex === null || draggedIndex === targetIndex) return;
-
-    setRouteList((prev) => {
-      const copy = [...prev];
-      const [draggedItem] = copy.splice(draggedIndex, 1);
-      copy.splice(targetIndex, 0, draggedItem);
-      return copy.map((item, idx) => ({
-        ...item,
-        orderNumber: idx + 1,
-        role:
-          idx === 0
-            ? 'Destinasi pertama'
-            : idx === 1
-            ? 'Destinasi kedua'
-            : `Destinasi ke-${idx + 1}`,
-      }));
-    });
-    setDraggedIndex(null);
-  };
-
-  const handleMoveUp = (index: number) => {
-    if (index === 0) return;
-    setRouteList((prev) => {
-      const copy = [...prev];
-      const temp = copy[index - 1];
-      copy[index - 1] = copy[index];
-      copy[index] = temp;
-      return copy.map((item, idx) => ({
-        ...item,
-        orderNumber: idx + 1,
-        role:
-          idx === 0
-            ? 'Destinasi pertama'
-            : idx === 1
-            ? 'Destinasi kedua'
-            : `Destinasi ke-${idx + 1}`,
-      }));
-    });
   };
 
   return (
@@ -218,7 +166,7 @@ export default function ItinerarySummaryScreen({
             <ArrowLeft className="w-5 h-5 stroke-[2.2]" />
           </button>
           <div className="flex-1 min-w-0">
-            <h1 className="text-base sm:text-lg font-bold text-gray-900 tracking-tight">
+            <h1 className="text-base sm:text-lg font-semibold text-gray-900 tracking-tight">
               Ringkasan rencana
             </h1>
             <p className="text-xs text-gray-500 mt-0.5">
@@ -241,7 +189,7 @@ export default function ItinerarySummaryScreen({
             <span className="text-xs font-medium text-gray-400">
               Destinasi
             </span>
-            <span className="text-xs font-bold text-[#4941EC]">
+            <span className="text-xs font-semibold text-[#4941EC]">
               Ringkasan
             </span>
           </div>
@@ -311,7 +259,7 @@ export default function ItinerarySummaryScreen({
               Rute perjalanan
             </h3>
             <span className="text-[11px] text-gray-400 font-medium">
-              Tarik atau drag tombol grip untuk urutan
+              {routeList.length} destinasi
             </span>
           </div>
 
@@ -320,39 +268,31 @@ export default function ItinerarySummaryScreen({
             {/* Vertical connector line */}
             <div className="absolute left-3.5 top-5 bottom-4 w-0.5 bg-gray-200 -z-0" />
 
-            {/* Titik Keberangkatan */}
+            {/* Titik Keberangkatan (Race Checkered Flag) */}
             <div className="relative flex items-center justify-between gap-3 z-10">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-7 h-7 rounded-full bg-[#E6F8F0] border border-[#60CE9F] flex items-center justify-center shrink-0">
-                  <div className="w-2 h-2 rounded-full bg-[#10B981]" />
+                <div className="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center shrink-0 text-sm shadow-2xs">
+                  🏁
                 </div>
                 <div className="min-w-0">
-                  <h4 className="text-xs sm:text-sm font-bold text-gray-900 truncate">
+                  <h4 className="text-xs sm:text-sm font-semibold text-gray-900 truncate">
                     {originName}
                   </h4>
                   <p className="text-[11px] text-gray-500 truncate">
-                    Titik keberangkatan awal
+                    Titik awal keberangkatan (Mulai)
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* Reorderable Destinations */}
+            {/* Destinations */}
             {routeList.map((stop, index) => {
               const isFirstStop = index === 0;
 
               return (
                 <div
                   key={stop.id}
-                  draggable
-                  onDragStart={(e) => handleDragStart(e, index)}
-                  onDragOver={handleDragOver}
-                  onDrop={(e) => handleDrop(e, index)}
-                  className={`relative flex items-center justify-between gap-3 z-10 p-1.5 -mx-1.5 rounded-xl transition-all ${
-                    draggedIndex === index
-                      ? 'bg-[#EEF2FF] border-2 border-dashed border-[#4941EC] opacity-60'
-                      : 'hover:bg-gray-50'
-                  }`}
+                  className="relative flex items-center justify-between gap-3 z-10 p-1.5 -mx-1.5 rounded-xl transition-all hover:bg-gray-50"
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     {/* Badge 1, 2, 3... */}
@@ -374,17 +314,6 @@ export default function ItinerarySummaryScreen({
                       </p>
                     </div>
                   </div>
-
-                  {/* Grip Vertical Drag Button */}
-                  <button
-                    type="button"
-                    onClick={() => handleMoveUp(index)}
-                    className="text-gray-400 hover:text-[#4941EC] active:text-[#4941EC] cursor-grab active:cursor-grabbing p-1.5 shrink-0 rounded-lg hover:bg-gray-100 transition-colors"
-                    title="Drag atau klik untuk mengubah urutan"
-                    aria-label={`Ubah urutan ${stop.name}`}
-                  >
-                    <GripVertical className="w-4 h-4 stroke-[2.2]" />
-                  </button>
                 </div>
               );
             })}
@@ -397,9 +326,8 @@ export default function ItinerarySummaryScreen({
           <button
             type="button"
             onClick={onEditDestinations || onBack}
-            className="py-2.5 px-3 bg-white hover:bg-gray-50 border border-[#4941EC] text-[#4941EC] font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+            className="py-2.5 px-3 bg-white hover:bg-gray-50 border border-[#4941EC] text-[#4941EC] font-semibold text-xs rounded-xl flex items-center justify-center transition-colors cursor-pointer shadow-2xs"
           >
-            <Pencil className="w-3.5 h-3.5 stroke-[2.2]" />
             <span>Edit destinasi</span>
           </button>
 
@@ -407,50 +335,127 @@ export default function ItinerarySummaryScreen({
           <button
             type="button"
             onClick={() => setShowDeleteModal(true)}
-            className="py-2.5 px-3 bg-white hover:bg-red-50 border-2 border-red-500 text-red-600 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+            className="py-2.5 px-3 bg-white hover:bg-red-50 border-2 border-red-500 text-red-600 font-semibold text-xs rounded-xl flex items-center justify-center transition-colors cursor-pointer shadow-2xs"
           >
-            <Trash2 className="w-3.5 h-3.5 stroke-[2.2]" />
             <span>Hapus perjalanan</span>
           </button>
         </div>
 
         {/* Primary Action Buttons */}
         <div className="flex flex-col gap-2.5">
-          {/* Simpan Perjalanan Button */}
-          <button
-            type="button"
-            onClick={() => onSaveTrip?.(title, routeList)}
-            className="w-full py-3 bg-white hover:bg-gray-50 border-2 border-[#4941EC] text-[#4941EC] font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs active:scale-[0.99]"
-          >
-            <Bookmark className="w-4 h-4 stroke-[2.2]" />
-            <span>Simpan perjalanan</span>
-          </button>
+          {/* Simpan Perjalanan Button (Hanya tampil jika belum pernah disimpan sebelumnya) */}
+          {!isAlreadySaved && (
+            <button
+              type="button"
+              onClick={() => setShowSaveModal(true)}
+              className="w-full py-3 bg-white hover:bg-gray-50 border-2 border-[#4941EC] text-[#4941EC] font-semibold text-xs sm:text-sm rounded-xl flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-[0.99]"
+            >
+              <span>Simpan perjalanan</span>
+            </button>
+          )}
 
           {/* Lakukan Perjalanan Button */}
           <button
             type="button"
-            onClick={onStartTrip}
-            className="w-full py-3.5 bg-[#4941EC] hover:bg-[#3D35D9] active:scale-[0.99] text-white font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2 shadow-md shadow-[#4941EC]/25 transition-all cursor-pointer"
+            onClick={() => setShowStartModal(true)}
+            className="w-full py-3.5 bg-[#4941EC] hover:bg-[#3D35D9] active:scale-[0.99] text-white font-semibold text-xs sm:text-sm rounded-xl flex items-center justify-center shadow-md shadow-[#4941EC]/25 transition-all cursor-pointer"
           >
-            <Navigation className="w-4 h-4 fill-white stroke-[1.5]" />
             <span>Lakukan perjalanan</span>
           </button>
 
           <p className="text-[11px] text-gray-500 text-center font-medium mt-0.5">
-            Simpan untuk nanti atau mulai perjalanan sekarang.
+            {isAlreadySaved
+              ? 'Rencana ini sudah tersimpan. Klik "Lakukan perjalanan" saat kamu siap berangkat.'
+              : 'Simpan untuk nanti atau mulai perjalanan sekarang.'}
           </p>
         </div>
       </main>
 
+      {/* Confirmation Modal: Simpan Perjalanan */}
+      {showSaveModal && (
+        <div className="fixed inset-0 z-[9999] bg-black/50 backdrop-blur-2xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-5 max-w-xs w-full shadow-xl flex flex-col gap-3 animate-in zoom-in-95 duration-150">
+            <div className="w-10 h-10 rounded-full bg-indigo-50 text-[#4941EC] flex items-center justify-center mx-auto">
+              <Check className="w-5 h-5 stroke-[2.4]" />
+            </div>
+            <div className="text-center">
+              <h3 className="text-sm font-semibold text-gray-900">
+                Simpan Rencana Perjalanan?
+              </h3>
+              <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+                Apakah kamu yakin ingin menyimpan rencana &ldquo;{title}&rdquo; ke akunmu?
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              <button
+                type="button"
+                onClick={() => setShowSaveModal(false)}
+                className="py-2.5 px-3 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs transition-colors cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSaveModal(false);
+                  onSaveTrip?.(title, routeList, totalKm);
+                }}
+                className="py-2.5 px-3 rounded-xl bg-[#4941EC] hover:bg-[#3D35D9] text-white font-semibold text-xs transition-colors cursor-pointer shadow-xs"
+              >
+                Ya, Simpan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal: Mulai Lakukan Perjalanan */}
+      {showStartModal && (
+        <div className="fixed inset-0 z-[9999] bg-black/50 backdrop-blur-2xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-5 max-w-xs w-full shadow-xl flex flex-col gap-3 animate-in zoom-in-95 duration-150">
+            <div className="w-10 h-10 rounded-full bg-emerald-50 text-[#10B981] flex items-center justify-center mx-auto">
+              <Check className="w-5 h-5 stroke-[2.4]" />
+            </div>
+            <div className="text-center">
+              <h3 className="text-sm font-semibold text-gray-900">
+                Mulai Perjalanan Sekarang?
+              </h3>
+              <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+                Apakah kamu yakin ingin memulai perjalanan ini? Perjalanan akan aktif dan dapat dipantau langsung.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              <button
+                type="button"
+                onClick={() => setShowStartModal(false)}
+                className="py-2.5 px-3 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs transition-colors cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowStartModal(false);
+                  onStartTrip?.();
+                }}
+                className="py-2.5 px-3 rounded-xl bg-[#4941EC] hover:bg-[#3D35D9] text-white font-semibold text-xs transition-colors cursor-pointer shadow-xs"
+              >
+                Ya, Mulai
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Confirmation Modal: Hapus Perjalanan */}
       {showDeleteModal && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-2xs flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[9999] bg-black/50 backdrop-blur-2xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-5 max-w-xs w-full shadow-xl flex flex-col gap-3 animate-in zoom-in-95 duration-150">
             <div className="w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto">
               <AlertTriangle className="w-5 h-5 stroke-[2.2]" />
             </div>
             <div className="text-center">
-              <h3 className="text-sm font-bold text-gray-900">
+              <h3 className="text-sm font-semibold text-gray-900">
                 Hapus Rencana Perjalanan?
               </h3>
               <p className="text-xs text-gray-500 mt-1 leading-relaxed">
@@ -461,7 +466,7 @@ export default function ItinerarySummaryScreen({
               <button
                 type="button"
                 onClick={() => setShowDeleteModal(false)}
-                className="py-2 px-3 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs transition-colors cursor-pointer"
+                className="py-2.5 px-3 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs transition-colors cursor-pointer"
               >
                 Batal
               </button>
@@ -471,7 +476,7 @@ export default function ItinerarySummaryScreen({
                   setShowDeleteModal(false);
                   onDeleteTrip?.();
                 }}
-                className="py-2 px-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs transition-colors cursor-pointer"
+                className="py-2.5 px-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-semibold text-xs transition-colors cursor-pointer"
               >
                 Ya, Hapus
               </button>

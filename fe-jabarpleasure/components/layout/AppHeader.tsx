@@ -1,10 +1,16 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useSyncExternalStore } from 'react';
+import { useRouter } from 'next/navigation';
 import BrandLogo from '@/components/ui/BrandLogo';
 import { Bell, Heart } from 'lucide-react';
 import { getUnreadNotificationCount } from '@/lib/api';
 import NotificationSheet, { NOTIFICATION_EVENT } from '@/components/notification/NotificationSheet';
+
+const emptySubscribe = () => () => {};
+function useIsClient() {
+  return useSyncExternalStore(emptySubscribe, () => true, () => false);
+}
 
 interface AppHeaderProps {
   unreadNotifications?: number;
@@ -23,15 +29,10 @@ export default function AppHeader({
   onProfileClick,
   className = '',
 }: AppHeaderProps) {
+  const router = useRouter();
   const [liveUnreadCount, setLiveUnreadCount] = useState<number>(unreadNotifications ?? 0);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
-
-  // Sync if unreadNotifications prop is explicitly passed
-  useEffect(() => {
-    if (typeof unreadNotifications === 'number') {
-      setLiveUnreadCount(unreadNotifications);
-    }
-  }, [unreadNotifications]);
+  const isClientMounted = useIsClient();
 
   // Fetch unread count on mount and listen to real-time notification events
   useEffect(() => {
@@ -105,7 +106,7 @@ export default function AppHeader({
             className="relative w-10 h-10 rounded-full bg-gray-100/80 hover:bg-[#EEF0FF] active:scale-95 text-gray-700 hover:text-[#4941EC] flex items-center justify-center transition-all shrink-0 cursor-pointer group shadow-2xs hover:shadow-xs"
           >
             <Bell className="w-5 h-5 stroke-[1.9] group-hover:rotate-12 transition-transform duration-200" />
-            {displayUnread > 0 && (
+            {isClientMounted && displayUnread > 0 && (
               <span
                 className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-[#EF4444] text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white shadow-xs leading-none animate-in fade-in zoom-in-75"
                 aria-label={`${displayUnread} notifikasi belum dibaca`}
@@ -123,7 +124,7 @@ export default function AppHeader({
             className="relative w-10 h-10 rounded-full bg-[#4941EC] hover:bg-[#3D35D9] active:scale-95 text-white flex items-center justify-center shadow-md shadow-[#4941EC]/30 hover:shadow-lg transition-all shrink-0 cursor-pointer"
           >
             <Heart className="w-5 h-5 stroke-[2.2] text-white" />
-            {wishlistCount > 0 && (
+            {isClientMounted && wishlistCount > 0 && (
               <span
                 className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-[#EF4444] text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white shadow-xs leading-none animate-in fade-in zoom-in-75"
                 aria-label={`${wishlistCount} destinasi di wishlist`}
@@ -142,9 +143,7 @@ export default function AppHeader({
         onUnreadCountChange={(count) => setLiveUnreadCount(count)}
         onSelectDestination={() => {
           setIsSheetOpen(false);
-          if (typeof window !== 'undefined') {
-            window.location.href = '/map';
-          }
+          router.push('/map');
         }}
       />
     </>

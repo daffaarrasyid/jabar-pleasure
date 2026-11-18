@@ -54,28 +54,10 @@ export default function ProfilePage() {
 
       const token = getAuthToken();
 
-      // If no token, check if user session exists or redirect
+      // If no token, user session is expired / missing -> land on /auth
       if (!token) {
-        if (typeof window !== 'undefined') {
-          const cachedUser = localStorage.getItem('user');
-          if (cachedUser) {
-            try {
-              const parsed = JSON.parse(cachedUser);
-              if (isMounted) {
-                setUser(parsed);
-                setIsLoading(false);
-              }
-            } catch (e) {
-              console.warn('Failed to parse cached user:', e);
-            }
-          } else {
-            showToast('Silakan masuk terlebih dahulu untuk melihat profil Anda.', 'info');
-            setTimeout(() => {
-              if (isMounted) router.push('/login');
-            }, 800);
-          }
-        }
-        if (isMounted) setIsLoading(false);
+        removeAuthToken();
+        if (isMounted) router.replace('/auth');
         return;
       }
 

@@ -23,7 +23,7 @@ export default function MobileShell({
           aria-label="Screen View Controls"
           className="hidden md:flex items-center gap-1.5 mb-4 px-3 py-1.5 bg-white/90 backdrop-blur-md rounded-full shadow-xs border border-gray-200 text-xs text-gray-600 select-none z-50 flex-wrap justify-center"
         >
-          <span className="font-semibold text-gray-400 mr-1 text-[11px] uppercase tracking-wider">
+          <span className="font-semibold text-gray-400 mr-1 text-[11px]">
             Preview Mode:
           </span>
           <button

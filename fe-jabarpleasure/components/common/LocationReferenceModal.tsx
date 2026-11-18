@@ -23,6 +23,7 @@ export interface LocationReferenceModalProps {
   onSelectPresetCity: (city: { name: string; lat: number; lng: number }) => void;
   onManualAddressSubmit: (address: string) => Promise<boolean | void> | void;
   isGeocoding?: boolean;
+  errorMessage?: string | null;
 }
 
 export default function LocationReferenceModal({
@@ -34,6 +35,7 @@ export default function LocationReferenceModal({
   onSelectPresetCity,
   onManualAddressSubmit,
   isGeocoding = false,
+  errorMessage,
 }: LocationReferenceModalProps) {
   const [manualInput, setManualInput] = useState<string>('');
 
@@ -112,12 +114,20 @@ export default function LocationReferenceModal({
           <ChevronRight className="w-4 h-4 text-[#4941EC] shrink-0 ml-2" />
         </button>
 
+        {/* GPS Error / Info Feedback */}
+        {errorMessage && (
+          <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 text-[11px] leading-relaxed animate-in fade-in">
+            <span className="font-bold block mb-0.5">⚠️ Kendala Deteksi GPS:</span>
+            {errorMessage}
+          </div>
+        )}
+
         {/* Divider */}
         <div className="relative flex items-center justify-center my-0.5">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t border-gray-200" />
           </div>
-          <span className="relative px-3 bg-white text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+          <span className="relative px-3 bg-white text-[11px] font-medium text-gray-400">
             Atau Masukkan Lokasi Manual
           </span>
         </div>

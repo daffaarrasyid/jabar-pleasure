@@ -64,6 +64,23 @@ export default function NearbyRecommendations({
     }
 
     const limit = isExpanded ? 10 : 5;
+    const cacheKey = `jp_cached_nearby_${userCoords?.lat || 'default'}_${userCoords?.lng || 'default'}_${selectedCategory}`;
+
+    const loadCached = async () => {
+      try {
+        const stored = sessionStorage.getItem(cacheKey);
+        if (stored && isMounted) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setDestinations(parsed.slice(0, limit));
+            setIsLoading(false);
+          }
+        }
+      } catch {
+        // ignore
+      }
+    };
+    loadCached();
 
     getNearbyDestinations({
       category: selectedCategory !== 'Semua' ? selectedCategory : undefined,
@@ -95,7 +112,7 @@ export default function NearbyRecommendations({
           setDestinations(mapped);
           if (typeof window !== 'undefined') {
             try {
-              sessionStorage.setItem('jp_cached_nearby', JSON.stringify(mapped));
+              sessionStorage.setItem(cacheKey, JSON.stringify(mapped));
             } catch {
               // ignore
             }

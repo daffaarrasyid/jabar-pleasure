@@ -20,6 +20,7 @@ interface FeaturedEntertainmentProps {
   items?: FeaturedItem[];
   selectedCategory?: string;
   userCoords?: { lat: number; lng: number } | null;
+  regency?: string;
   onViewAll?: () => void;
   onItemClick?: (item: FeaturedItem) => void;
   className?: string;
@@ -29,6 +30,7 @@ export default function FeaturedEntertainment({
   items: initialItems,
   selectedCategory = 'Semua',
   userCoords,
+  regency,
   onViewAll,
   onItemClick,
   className = '',
@@ -47,24 +49,28 @@ export default function FeaturedEntertainment({
     }
 
     let isMounted = true;
-
-    try {
-      const stored = sessionStorage.getItem('jp_cached_featured');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setDestinations(parsed.slice(0, isExpanded ? 10 : 5));
-          setIsLoading(false);
-        }
-      }
-    } catch {
-      // ignore
-    }
-
     const limit = isExpanded ? 10 : 5;
+    const cacheKey = `jp_cached_featured_${userCoords?.lat || 'default'}_${userCoords?.lng || 'default'}_${regency || ''}_${selectedCategory}`;
+
+    const loadCached = async () => {
+      try {
+        const stored = sessionStorage.getItem(cacheKey);
+        if (stored && isMounted) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setDestinations(parsed.slice(0, limit));
+            setIsLoading(false);
+          }
+        }
+      } catch {
+        // ignore
+      }
+    };
+    loadCached();
 
     getFeaturedDestinations({
       category: selectedCategory !== 'Semua' ? selectedCategory : undefined,
+      regency: regency || undefined,
       lat: userCoords?.lat ?? -6.9175,
       lng: userCoords?.lng ?? 107.6191,
       limit,
@@ -91,7 +97,7 @@ export default function FeaturedEntertainment({
           setDestinations(mapped);
           if (typeof window !== 'undefined') {
             try {
-              sessionStorage.setItem('jp_cached_featured', JSON.stringify(mapped));
+              sessionStorage.setItem(cacheKey, JSON.stringify(mapped));
             } catch {
               // ignore
             }
@@ -110,7 +116,7 @@ export default function FeaturedEntertainment({
     return () => {
       isMounted = false;
     };
-  }, [initialItems, selectedCategory, userCoords?.lat, userCoords?.lng, isExpanded]);
+  }, [initialItems, selectedCategory, userCoords?.lat, userCoords?.lng, regency, isExpanded]);
 
   const handleToggleExpand = () => {
     if (onViewAll) {

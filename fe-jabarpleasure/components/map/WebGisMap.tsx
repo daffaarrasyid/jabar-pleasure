@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Circle, Polyline, useMap } from 'react-leaflet';
 import { Locate } from 'lucide-react';
-import L from 'leaflet';
+import L from '@/lib/leafletSetup';
 import 'leaflet/dist/leaflet.css';
 
 export interface MarkerData {
@@ -43,7 +43,9 @@ function MapRouteBoundsUpdater({ routeCoordinates }: { routeCoordinates?: [numbe
   useEffect(() => {
     if (routeCoordinates && routeCoordinates.length >= 2) {
       const bounds = L.latLngBounds(routeCoordinates);
-      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15, animate: true });
+      if (bounds.isValid()) {
+        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15, animate: false });
+      }
     }
   }, [routeCoordinates, map]);
   return null;
@@ -109,7 +111,7 @@ export default function WebGisMap({
   }, [markers, selectedMarkerId]);
 
   return (
-    <div className={`relative w-full h-full ${className}`}>
+    <div className={`relative isolate z-0 w-full h-full ${className}`}>
       <MapContainer
         center={center}
         zoom={zoom}

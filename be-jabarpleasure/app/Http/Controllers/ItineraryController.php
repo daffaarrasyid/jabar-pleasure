@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CheckIn;
 use App\Models\Destination;
 use App\Models\Itinerary;
 use App\Models\ItineraryItem;
+use App\Models\JournalMedia;
+use App\Models\Notification;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,7 +21,7 @@ class ItineraryController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $user = $request->user() ?? User::first();
+        $user = $request->user() ?? auth('sanctum')->user();
 
         if (!$user) {
             return response()->json([
@@ -79,7 +82,7 @@ class ItineraryController extends Controller
             ], 422);
         }
 
-        $user = $request->user() ?? User::first();
+        $user = $request->user() ?? auth('sanctum')->user();
 
         if (!$user) {
             return response()->json([
@@ -124,6 +127,35 @@ class ItineraryController extends Controller
             }
 
             $itinerary->save();
+
+            // Create notification record for this newly saved itinerary
+            try {
+                $hasScheduledDate = $request->filled('start_date') && $request->input('start_date') !== now()->toDateString();
+                $dateFormatted = date('d M Y', strtotime($startDate));
+                $notifTitle = $hasScheduledDate
+                    ? 'Rencana Dijadwalkan: ' . $itinerary->title
+                    : 'Rencana Tersimpan: ' . $itinerary->title;
+                $notifMessage = $hasScheduledDate
+                    ? "Rencana petualangan Anda dijadwalkan berangkat pada {$dateFormatted} dari titik awal \"{$departureName}\". Pengingat akan dikirim H-1 dan Hari-H."
+                    : "Rencana perjalanan Anda dari \"{$departureName}\" berhasil disimpan dan siap dimulai kapan saja.";
+
+                Notification::create([
+                    'user_id' => $user->id,
+                    'type' => $hasScheduledDate ? 'itinerary_scheduled' : 'itinerary_saved',
+                    'title' => $notifTitle,
+                    'message' => $notifMessage,
+                    'data' => [
+                        'itinerary_id' => $itinerary->id,
+                        'title' => $itinerary->title,
+                        'start_date' => $startDate,
+                        'departure_name' => $departureName,
+                        'destination_count' => count($destinations),
+                    ],
+                    'read_at' => null,
+                ]);
+            } catch (\Throwable $notifErr) {
+                // Non-blocking notification error
+            }
 
             // Insert itinerary items
             $order = 1;
@@ -181,7 +213,9 @@ class ItineraryController extends Controller
      */
     public function show(Request $request, $id): JsonResponse
     {
-        $itinerary = Itinerary::where('id', $id)
+        $user = $request->user() ?? auth('sanctum')->user();
+
+        $query = Itinerary::where('id', $id)
             ->select([
                 'itineraries.*',
                 DB::raw('ST_Y(departure_location::geometry) as departure_lat'),
@@ -191,8 +225,13 @@ class ItineraryController extends Controller
                 'items.destination' => function ($q) {
                     $q->withCoordinates()->withCount('checkIns');
                 },
-            ])
-            ->first();
+            ]);
+
+        if ($user) {
+            $query->where('user_id', $user->id);
+        }
+
+        $itinerary = $query->first();
 
         if (!$itinerary) {
             return response()->json([
@@ -208,15 +247,203 @@ class ItineraryController extends Controller
     }
 
     /**
+     * Get 3D interactive timelapse replay data for an itinerary / trip.
+     */
+    public function timelapse(Request $request, $id): JsonResponse
+    {
+        $rawId = str_replace('trip-', '', (string) $id);
+        $user = $request->user() ?? auth('sanctum')->user();
+
+        $query = Itinerary::select([
+            'itineraries.*',
+            DB::raw('ST_Y(departure_location::geometry) as departure_lat'),
+            DB::raw('ST_X(departure_location::geometry) as departure_lng'),
+        ])->with([
+            'items.destination' => function ($q) {
+                $q->withCoordinates()->with('category');
+            },
+        ]);
+
+        if (is_numeric($rawId)) {
+            $query->where('id', (int) $rawId);
+        } else {
+            if ($user) {
+                $query->where('user_id', $user->id);
+            }
+        }
+
+        $itinerary = $query->first();
+
+        // Fallback: If not found by given ID, retrieve latest completed itinerary
+        if (!$itinerary) {
+            $fallbackQuery = Itinerary::select([
+                'itineraries.*',
+                DB::raw('ST_Y(departure_location::geometry) as departure_lat'),
+                DB::raw('ST_X(departure_location::geometry) as departure_lng'),
+            ])->with([
+                'items.destination' => function ($q) {
+                    $q->withCoordinates()->with('category');
+                },
+            ])->latest();
+
+            if ($user) {
+                $fallbackQuery->where('user_id', $user->id);
+            }
+            $itinerary = $fallbackQuery->first();
+        }
+
+        if (!$itinerary) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Data perjalanan tidak ditemukan.',
+            ], 404);
+        }
+
+        // Fetch user journal media for this itinerary
+        $journalMediaMap = [];
+        $checkIns = CheckIn::where('itinerary_id', $itinerary->id)->pluck('id', 'destination_id')->toArray();
+        if (!empty($checkIns)) {
+            $mediaRecords = JournalMedia::whereIn('check_in_id', array_values($checkIns))->get();
+            $checkInToDest = array_flip($checkIns);
+            foreach ($mediaRecords as $media) {
+                $destId = $checkInToDest[$media->check_in_id] ?? null;
+                if ($destId) {
+                    $journalMediaMap[$destId][] = [
+                        'id' => (string) $media->id,
+                        'type' => $media->media_type === 'video' ? 'video' : 'image',
+                        'url' => $media->url,
+                        'caption' => $media->caption ?: '',
+                    ];
+                }
+            }
+        }
+
+        // Extract departure coordinates
+        $depLat = $itinerary->departure_lat ? (float) $itinerary->departure_lat : -6.5950;
+        $depLng = $itinerary->departure_lng ? (float) $itinerary->departure_lng : 106.7972;
+        $depName = $itinerary->route_geojson['properties']['departure_name']
+            ?? $itinerary->route_geojson['departure_name']
+            ?? 'Titik Keberangkatan';
+
+        // Extract route polyline from route_geojson
+        $routePolyline = null;
+        if (!empty($itinerary->route_geojson['geometry'])) {
+            $routePolyline = $itinerary->route_geojson['geometry'];
+        } elseif (!empty($itinerary->route_geojson['features'][0]['geometry'])) {
+            $routePolyline = $itinerary->route_geojson['features'][0]['geometry'];
+        } elseif (!empty($itinerary->route_geojson['coordinates'])) {
+            $routePolyline = [
+                'type' => 'LineString',
+                'coordinates' => $itinerary->route_geojson['coordinates'],
+            ];
+        }
+
+        // Build stops array
+        $stops = [];
+
+        // Stop 0: Departure / Start Point
+        $stops[] = [
+            'id' => 'start-point',
+            'name' => $depName,
+            'category' => 'Titik Keberangkatan',
+            'coordinates' => [$depLng, $depLat],
+            'is_start_point' => true,
+            'media' => [],
+        ];
+
+        // Stops 1..N: Visited Destinations
+        $cityCenter = [$depLng, $depLat];
+        $items = $itinerary->items ?? collect();
+        foreach ($items as $idx => $item) {
+            $dest = $item->destination;
+            if (!$dest) continue;
+
+            $dLat = (float) ($dest->latitude ?? $dest->lat ?? -6.6009);
+            $dLng = (float) ($dest->longitude ?? $dest->lng ?? 106.8058);
+
+            if ($idx === 0) {
+                $cityCenter = [$dLng, $dLat];
+            }
+
+            $destMedia = $journalMediaMap[$dest->id] ?? [];
+
+            $stops[] = [
+                'id' => (string) $dest->id,
+                'name' => $dest->name,
+                'category' => $dest->category ? $dest->category->name : 'Wisata Jawa Barat',
+                'coordinates' => [$dLng, $dLat],
+                'is_start_point' => false,
+                'media' => $destMedia,
+            ];
+        }
+
+        // If routePolyline was not stored in DB, construct fallback LineString through the stops
+        if (!$routePolyline || empty($routePolyline['coordinates'])) {
+            $coords = array_map(function ($s) {
+                return $s['coordinates'];
+            }, $stops);
+
+            $routePolyline = [
+                'type' => 'LineString',
+                'coordinates' => $coords,
+            ];
+        }
+
+        // Standard West Java boundary polygon Feature for INTRO_JABAR
+        $boundaryGeojson = [
+            'type' => 'Feature',
+            'properties' => [
+                'name' => 'Provinsi Jawa Barat',
+                'prov_code' => '32',
+            ],
+            'geometry' => [
+                'type' => 'Polygon',
+                'coordinates' => [[
+                    [106.35, -5.90],
+                    [106.90, -5.95],
+                    [107.50, -6.15],
+                    [108.30, -6.30],
+                    [108.80, -6.75],
+                    [108.85, -7.50],
+                    [108.60, -7.80],
+                    [108.20, -7.75],
+                    [107.50, -7.70],
+                    [106.90, -7.45],
+                    [106.35, -7.05],
+                    [106.35, -5.90],
+                ]],
+            ],
+        ];
+
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                'trip_id' => (string) $itinerary->id,
+                'title' => $itinerary->title,
+                'boundary_geojson' => $boundaryGeojson,
+                'city_center' => $cityCenter,
+                'route_polyline' => $routePolyline,
+                'stops' => $stops,
+            ],
+        ]);
+    }
+
+    /**
      * Mark an itinerary as completed.
      */
     public function complete(Request $request, $id): JsonResponse
     {
-        $user = $request->user() ?? User::first();
+        $user = $request->user() ?? auth('sanctum')->user();
+
+        if (!$user) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'User tidak ditemukan atau belum diautentikasi.',
+            ], 401);
+        }
+
         $itinerary = Itinerary::where('id', $id)
-            ->when($user, function ($q) use ($user) {
-                $q->where('user_id', $user->id);
-            })
+            ->where('user_id', $user->id)
             ->first();
 
         if (!$itinerary) {
@@ -238,11 +465,154 @@ class ItineraryController extends Controller
     }
 
     /**
+     * Update an existing itinerary (destinations, route, etc.)
+     */
+    public function update(Request $request, $id): JsonResponse
+    {
+        $user = $request->user() ?? auth('sanctum')->user();
+
+        if (!$user) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'User tidak ditemukan atau belum diautentikasi.',
+            ], 401);
+        }
+
+        $itinerary = Itinerary::where('id', $id)
+            ->where('user_id', $user->id)
+            ->first();
+
+        if (!$itinerary) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Rencana perjalanan tidak ditemukan.',
+            ], 404);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'title' => 'nullable|string|max:150',
+            'start_date' => 'nullable|date',
+            'end_date' => 'nullable|date',
+            'departure_lat' => 'nullable|numeric',
+            'departure_lng' => 'nullable|numeric',
+            'departure_name' => 'nullable|string|max:150',
+            'route_geojson' => 'nullable|array',
+            'status' => 'nullable|string|max:30',
+            'destinations' => 'nullable|array',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Validasi pembaruan rencana perjalanan gagal.',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        DB::beginTransaction();
+        try {
+            if ($request->filled('title')) {
+                $itinerary->title = $request->input('title');
+            }
+            if ($request->filled('start_date')) {
+                $itinerary->start_date = $request->input('start_date');
+            }
+            if ($request->filled('end_date')) {
+                $itinerary->end_date = $request->input('end_date');
+            }
+            if ($request->filled('status')) {
+                $itinerary->status = $request->input('status');
+            }
+
+            $departureLat = $request->input('departure_lat');
+            $departureLng = $request->input('departure_lng');
+            if (is_numeric($departureLat) && is_numeric($departureLng)) {
+                $itinerary->departure_location = DB::raw(
+                    "ST_SetSRID(ST_MakePoint(" . (float) $departureLng . ", " . (float) $departureLat . "), 4326)"
+                );
+            }
+
+            if ($request->has('route_geojson')) {
+                $routeGeojson = $request->input('route_geojson');
+                if ($routeGeojson && is_array($routeGeojson) && $request->filled('departure_name')) {
+                    $routeGeojson['properties'] = array_merge(
+                        $routeGeojson['properties'] ?? [],
+                        ['departure_name' => $request->input('departure_name')]
+                    );
+                }
+                $itinerary->route_geojson = $routeGeojson;
+            }
+
+            $itinerary->save();
+
+            if ($request->has('destinations')) {
+                $destinations = $request->input('destinations', []);
+                ItineraryItem::where('itinerary_id', $itinerary->id)->delete();
+
+                $order = 1;
+                foreach ($destinations as $item) {
+                    $destId = is_array($item) ? ($item['id'] ?? null) : $item;
+                    $eta = is_array($item) ? ($item['estimated_time_arrival'] ?? null) : null;
+
+                    if (!$destId) continue;
+                    $exists = Destination::where('id', $destId)->exists();
+                    if (!$exists) continue;
+
+                    ItineraryItem::create([
+                        'itinerary_id' => $itinerary->id,
+                        'destination_id' => $destId,
+                        'visit_order' => $order++,
+                        'estimated_time_arrival' => $eta,
+                    ]);
+                }
+            }
+
+            DB::commit();
+
+            $updatedItinerary = Itinerary::where('id', $itinerary->id)
+                ->select([
+                    'itineraries.*',
+                    DB::raw('ST_Y(departure_location::geometry) as departure_lat'),
+                    DB::raw('ST_X(departure_location::geometry) as departure_lng'),
+                ])
+                ->with([
+                    'items.destination' => function ($q) {
+                        $q->withCoordinates()->withCount('checkIns');
+                    },
+                ])
+                ->first();
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Rencana perjalanan berhasil diperbarui.',
+                'data' => $updatedItinerary,
+            ]);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Gagal memperbarui rencana perjalanan: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * Delete an itinerary.
      */
     public function destroy(Request $request, $id): JsonResponse
     {
-        $itinerary = Itinerary::find($id);
+        $user = $request->user() ?? auth('sanctum')->user();
+
+        if (!$user) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'User tidak ditemukan atau belum diautentikasi.',
+            ], 401);
+        }
+
+        $itinerary = Itinerary::where('id', $id)
+            ->where('user_id', $user->id)
+            ->first();
 
         if (!$itinerary) {
             return response()->json([
@@ -256,6 +626,81 @@ class ItineraryController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Rencana perjalanan berhasil dihapus.',
+        ]);
+    }
+
+    /**
+     * Check upcoming itineraries and generate H-1 & Hari-H reminder notifications.
+     */
+    public function checkReminders(Request $request): JsonResponse
+    {
+        $today = now()->toDateString();
+        $tomorrow = now()->addDay()->toDateString();
+
+        $remindersCreated = 0;
+
+        // 1. Check H-1 (Tomorrow)
+        $h1Itineraries = Itinerary::where('start_date', $tomorrow)
+            ->where('status', 'planned')
+            ->get();
+
+        foreach ($h1Itineraries as $itin) {
+            $alreadyNotified = Notification::where('user_id', $itin->user_id)
+                ->where('type', 'itinerary_reminder_h1')
+                ->whereJsonContains('data->itinerary_id', $itin->id)
+                ->exists();
+
+            if (!$alreadyNotified) {
+                Notification::create([
+                    'user_id' => $itin->user_id,
+                    'type' => 'itinerary_reminder_h1',
+                    'title' => 'Pengingat H-1: ' . $itin->title,
+                    'message' => 'Besok adalah hari keberangkatan rencana "' . $itin->title . '"! Pastikan persiapan perjalananmu sudah lengkap.',
+                    'data' => [
+                        'itinerary_id' => $itin->id,
+                        'title' => $itin->title,
+                        'start_date' => $itin->start_date,
+                    ],
+                    'read_at' => null,
+                ]);
+                $remindersCreated++;
+            }
+        }
+
+        // 2. Check Hari-H (Today)
+        $todayItineraries = Itinerary::where('start_date', $today)
+            ->where('status', 'planned')
+            ->get();
+
+        foreach ($todayItineraries as $itin) {
+            $alreadyNotified = Notification::where('user_id', $itin->user_id)
+                ->where('type', 'itinerary_reminder_today')
+                ->whereJsonContains('data->itinerary_id', $itin->id)
+                ->exists();
+
+            if (!$alreadyNotified) {
+                Notification::create([
+                    'user_id' => $itin->user_id,
+                    'type' => 'itinerary_reminder_today',
+                    'title' => 'Hari Ini Waktunya Berangkat!',
+                    'message' => 'Rencana petualangan "' . $itin->title . '" dimulai hari ini! Buka panduan navigasi dan mulai perjalananmu sekarang.',
+                    'data' => [
+                        'itinerary_id' => $itin->id,
+                        'title' => $itin->title,
+                        'start_date' => $itin->start_date,
+                    ],
+                    'read_at' => null,
+                ]);
+                $remindersCreated++;
+            }
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'message' => "Pengecekan pengingat selesai. {$remindersCreated} notifikasi baru dibuat.",
+            'reminders_created' => $remindersCreated,
+            'today' => $today,
+            'tomorrow' => $tomorrow,
         ]);
     }
 }

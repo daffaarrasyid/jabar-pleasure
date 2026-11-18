@@ -150,13 +150,13 @@ export default function AdminLoginForm({
               alt="JabarPleasure Logo"
               className="w-9 h-10 object-contain"
             />
-            <span className="text-2xl font-bold text-gray-900 tracking-tight">
+            <span className="text-2xl font-semibold text-gray-900 tracking-tight">
               JabarPleasure
             </span>
           </div>
 
           {/* Title */}
-          <h1 className="text-3xl font-extrabold text-gray-900 text-center mb-8">
+          <h1 className="text-3xl font-semibold text-gray-900 text-center mb-8">
             Login
           </h1>
 
@@ -201,7 +201,7 @@ export default function AdminLoginForm({
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full mt-4 py-3.5 rounded-full bg-[#4941EC] hover:bg-[#3D35DA] active:scale-[0.99] text-white font-bold text-sm shadow-[0_4px_16px_rgba(73,65,236,0.3)] transition-all flex items-center justify-center cursor-pointer disabled:opacity-60"
+              className="w-full mt-4 py-3.5 rounded-full bg-[#4941EC] hover:bg-[#3D35DA] active:scale-[0.99] text-white font-semibold text-sm shadow-[0_4px_16px_rgba(73,65,236,0.3)] transition-all flex items-center justify-center cursor-pointer disabled:opacity-60"
             >
               {isLoading ? (
                 <Loader2 className="w-5 h-5 animate-spin" />

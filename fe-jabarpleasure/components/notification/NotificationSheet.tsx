@@ -137,7 +137,7 @@ export default function NotificationSheet({
       : notifications;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-xs transition-opacity p-0 sm:p-4">
+    <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-xs transition-opacity p-0 sm:p-4">
       {/* Backdrop */}
       <div className="absolute inset-0" onClick={onClose} aria-hidden="true" />
 
@@ -296,7 +296,7 @@ export default function NotificationSheet({
                   <div className="flex-1 min-w-0 pr-3">
                     <div className="flex items-center gap-2 mb-1">
                       <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider ${badgeClass}`}
+                        className={`text-[10px] font-semibold px-2 py-0.5 rounded-md ${badgeClass}`}
                       >
                         {badgeText}
                       </span>

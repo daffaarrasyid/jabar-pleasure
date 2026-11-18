@@ -52,7 +52,7 @@ export default function CategoryFilterModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-xs transition-opacity duration-300">
+    <div className="fixed inset-0 z-[9999] flex items-end justify-center bg-black/40 backdrop-blur-xs transition-opacity duration-300">
       {/* Click outside backdrop to dismiss */}
       <div
         className="absolute inset-0"

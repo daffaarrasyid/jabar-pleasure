@@ -6,14 +6,15 @@ import {
   ArrowLeft,
   Search,
   Plus,
-  Check,
-  CheckCircle2,
-  Heart,
   MapPin,
   Users,
-  SlidersHorizontal,
   X,
   Loader2,
+  GripVertical,
+  ChevronUp,
+  ChevronDown,
+  Flag,
+  Check,
 } from 'lucide-react';
 import AppHeader from '@/components/layout/AppHeader';
 import BottomNav, { NavTabId } from '@/components/layout/BottomNav';
@@ -132,7 +133,7 @@ export default function DestinationSelectionScreen({
   onNavigateToMap,
   onNavigateToProfile,
   onNavigateToRiwayat,
-  wishlistCount = 3,
+  wishlistCount = 0,
   initialMode = 'popular',
   className = '',
 }: DestinationSelectionScreenProps) {
@@ -158,35 +159,50 @@ export default function DestinationSelectionScreen({
   const [selectedDestinations, setSelectedDestinations] = useState<DestinationOption[]>(
     initialSelectedDestinations && initialSelectedDestinations.length > 0 ? initialSelectedDestinations : []
   );
-
-  useEffect(() => {
+  const [prevInitSelected, setPrevInitSelected] = useState<DestinationOption[] | undefined>(
+    initialSelectedDestinations
+  );
+  if (initialSelectedDestinations !== prevInitSelected) {
+    setPrevInitSelected(initialSelectedDestinations);
     if (initialSelectedDestinations && initialSelectedDestinations.length > 0) {
       setSelectedDestinations(initialSelectedDestinations);
     }
-  }, [initialSelectedDestinations]);
+  }
 
   // 10 Rekomendasi di wilayah destinasi yang baru saja dipilih (lastAdded)
   const lastAdded = selectedDestinations[selectedDestinations.length - 1];
   const [nearbySuggestions, setNearbySuggestions] = useState<DestinationOption[]>([]);
+  const [prevLastAddedId, setPrevLastAddedId] = useState<string | undefined>(undefined);
+  const currentLastAddedId = lastAdded?.id;
+  if (currentLastAddedId !== prevLastAddedId) {
+    setPrevLastAddedId(currentLastAddedId);
+    if (!currentLastAddedId) {
+      setNearbySuggestions([]);
+    }
+  }
   const [isLoadingNearby, setIsLoadingNearby] = useState<boolean>(false);
 
   useEffect(() => {
     if (!lastAdded) {
-      setNearbySuggestions([]);
       return;
     }
 
     let isCancelled = false;
-    setIsLoadingNearby(true);
 
-    const targetRegion = detectRegionName(lastAdded.name, lastAdded.description, lastAdded.popularityTag);
+    async function loadNearby() {
+      await Promise.resolve();
+      if (isCancelled) return;
+      setIsLoadingNearby(true);
 
-    getDestinations({
-      regency: targetRegion,
-      sort_by: 'visitors',
-      per_page: 30,
-    })
-      .then((res) => {
+      const targetRegion = detectRegionName(lastAdded.name, lastAdded.description, lastAdded.popularityTag);
+
+      try {
+        const res = await getDestinations({
+          regency: targetRegion,
+          sort_by: 'visitors',
+          per_page: 30,
+        });
+
         if (isCancelled) return;
         const items = res.data || [];
         const mapped: DestinationOption[] = items
@@ -217,8 +233,7 @@ export default function DestinationSelectionScreen({
 
         mapped.sort((a, b) => (b.visitorsCount || 0) - (a.visitorsCount || 0));
         setNearbySuggestions(mapped.slice(0, 10));
-      })
-      .catch((err) => {
+      } catch (err) {
         console.warn('Could not load nearby suggestions for lastAdded:', err);
         if (!isCancelled) {
           setNearbySuggestions(
@@ -227,20 +242,21 @@ export default function DestinationSelectionScreen({
               .slice(0, 10)
           );
         }
-      })
-      .finally(() => {
+      } finally {
         if (!isCancelled) setIsLoadingNearby(false);
-      });
+      }
+    }
+
+    loadNearby();
 
     return () => {
       isCancelled = true;
     };
-  }, [lastAdded?.id, selectedDestinations.length, destinationOptions]);
+  }, [lastAdded, selectedDestinations, destinationOptions]);
 
   // 1. Memuat destinasi yang disarankan berdasarkan pengunjung terbanyak pada wilayah titik keberangkatan
   useEffect(() => {
     let isCancelled = false;
-    setIsLoadingSuggested(true);
 
     const effectiveLat = originLat || -6.595;
     const effectiveLng = originLng || 106.7972;
@@ -349,13 +365,11 @@ export default function DestinationSelectionScreen({
 
     const trimmed = searchQuery.trim();
     if (!trimmed) {
-      setSearchResults(null);
-      setIsSearching(false);
       return;
     }
 
-    setIsSearching(true);
     searchDebounceRef.current = setTimeout(async () => {
+      setIsSearching(true);
       try {
         const results = await searchDestinations(trimmed, {
           lat: originLat || -6.595,
@@ -448,11 +462,6 @@ export default function DestinationSelectionScreen({
     });
   }, [searchResults, destinationOptions, selectedDestinations]);
 
-  // Rekomendasi tempat berikutnya pada View "Mau ke mana lagi?"
-  const nextRecommendation = useMemo(() => {
-    return availableDestinations[0] || destinationOptions[0];
-  }, [availableDestinations, destinationOptions]);
-
   const handleTabChange = (tab: NavTabId) => {
     if (tab === 'beranda') {
       onNavigateToHome?.();
@@ -465,6 +474,48 @@ export default function DestinationSelectionScreen({
     } else if (tab === 'rencana') {
       onBack?.();
     }
+  };
+
+  // Drag and drop reordering state & confirmation modal
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [showConfirmFinishModal, setShowConfirmFinishModal] = useState<boolean>(false);
+
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedIndex(index);
+    e.dataTransfer.setData('text/plain', String(index));
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === targetIndex) return;
+
+    setSelectedDestinations((prev) => {
+      const copy = [...prev];
+      const [draggedItem] = copy.splice(draggedIndex, 1);
+      copy.splice(targetIndex, 0, draggedItem);
+      return copy;
+    });
+    setDraggedIndex(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+  };
+
+  const moveDestination = (fromIndex: number, toIndex: number) => {
+    if (toIndex < 0 || toIndex >= selectedDestinations.length) return;
+    setSelectedDestinations((prev) => {
+      const copy = [...prev];
+      const [item] = copy.splice(fromIndex, 1);
+      copy.splice(toIndex, 0, item);
+      return copy;
+    });
   };
 
   const isMauKemanaLagi = selectedDestinations.length > 0;
@@ -494,7 +545,7 @@ export default function DestinationSelectionScreen({
             <ArrowLeft className="w-5 h-5 stroke-[2.2]" />
           </button>
           <div className="flex-1 min-w-0">
-            <h1 className="text-base sm:text-lg font-bold text-gray-900 tracking-tight">
+            <h1 className="text-base sm:text-lg font-semibold text-gray-900 tracking-tight">
               {isMauKemanaLagi ? 'Mau ke mana lagi?' : 'Pilih destinasi'}
             </h1>
             <p className="text-xs text-gray-500 mt-0.5">
@@ -563,35 +614,84 @@ export default function DestinationSelectionScreen({
         {/* ======================================================== */}
         {isMauKemanaLagi && (
           <div className="flex flex-col gap-3.5 animate-in fade-in duration-200 mb-4">
-            {/* "Sudah masuk rute" Card */}
+            {/* Starting Point Card (Always visible and editable) */}
+            <div className="flex items-center justify-between p-3.5 bg-white rounded-2xl border border-gray-100 shadow-[0_2px_8px_rgba(0,0,0,0.02)]">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                  <Flag className="w-4 h-4 stroke-[2.2]" />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[10px] font-semibold text-emerald-600">
+                    Titik Awal Keberangkatan
+                  </span>
+                  <p className="text-xs sm:text-sm font-bold text-gray-900 truncate">
+                    {originName}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={onChangeOrigin || onBack}
+                className="text-xs font-semibold text-[#4941EC] hover:text-[#3D35D9] px-2.5 py-1.5 rounded-lg hover:bg-indigo-50 transition-colors cursor-pointer shrink-0"
+              >
+                Ubah
+              </button>
+            </div>
+
+            {/* "Sudah masuk rute" Card with Drag and Drop Reordering */}
             <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-[0_2px_8px_rgba(0,0,0,0.02)] flex flex-col gap-3">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold text-gray-900">
-                  Sudah masuk rute
-                </h3>
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900">
+                    Sudah masuk rute
+                  </h3>
+                  <p className="text-[11px] text-gray-400 mt-0.5">
+                    Geser ikon handle untuk mengatur urutan
+                  </p>
+                </div>
                 <span className="bg-[#E6F8F0] text-[#10B981] text-xs font-semibold px-2.5 py-0.5 rounded-md">
                   {selectedDestinations.length} destinasi
                 </span>
               </div>
 
-              {/* Added Destinations List */}
+              {/* Added Destinations List with Drag & Drop & Quick Up/Down */}
               <div className="flex flex-col gap-2.5">
                 {selectedDestinations.map((dest, idx) => (
                   <div
                     key={dest.id}
-                    className="flex items-center justify-between gap-3 p-2 rounded-xl bg-gray-50/80 border border-gray-100"
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, idx)}
+                    onDragOver={handleDragOver}
+                    onDrop={(e) => handleDrop(e, idx)}
+                    onDragEnd={handleDragEnd}
+                    className={`flex items-center justify-between gap-2.5 p-2 rounded-xl border transition-all ${
+                      draggedIndex === idx
+                        ? 'opacity-40 border-[#4941EC] bg-indigo-50/50'
+                        : 'bg-gray-50/80 border-gray-100 hover:border-gray-200'
+                    }`}
                   >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-gray-100 shrink-0">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      {/* Drag Handle */}
+                      <div
+                        className="cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 p-0.5 touch-none shrink-0"
+                        title="Tarik untuk memindahkan urutan"
+                      >
+                        <GripVertical className="w-4 h-4" />
+                      </div>
+
+                      {/* Destination Thumbnail */}
+                      <div className="relative w-11 h-11 rounded-xl overflow-hidden bg-gray-100 shrink-0">
                         <Image
                           src={dest.image}
                           alt={dest.name}
                           fill
                           className="object-cover"
-                          sizes="48px"
+                          sizes="44px"
                         />
                       </div>
-                      <div className="min-w-0">
+
+                      {/* Destination Info */}
+                      <div className="min-w-0 flex-1">
                         <h4 className="text-xs sm:text-sm font-bold text-gray-900 truncate">
                           {idx + 1}. {dest.name}
                         </h4>
@@ -600,12 +700,35 @@ export default function DestinationSelectionScreen({
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <CheckCircle2 className="w-5 h-5 text-[#4941EC] fill-[#4941EC]/15 stroke-[2.2]" />
+
+                    {/* Actions: Reorder arrows & remove */}
+                    <div className="flex items-center gap-1 shrink-0">
+                      {/* Quick Mobile Up/Down Reorder */}
+                      <div className="flex flex-col">
+                        <button
+                          type="button"
+                          disabled={idx === 0}
+                          onClick={() => moveDestination(idx, idx - 1)}
+                          className="p-0.5 text-gray-400 hover:text-gray-700 disabled:opacity-20 cursor-pointer disabled:cursor-not-allowed"
+                          title="Pindah ke atas"
+                        >
+                          <ChevronUp className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={idx === selectedDestinations.length - 1}
+                          onClick={() => moveDestination(idx, idx + 1)}
+                          className="p-0.5 text-gray-400 hover:text-gray-700 disabled:opacity-20 cursor-pointer disabled:cursor-not-allowed"
+                          title="Pindah ke bawah"
+                        >
+                          <ChevronDown className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
                       <button
                         type="button"
                         onClick={() => handleRemoveDestination(dest.id)}
-                        className="text-gray-300 hover:text-red-500 p-1 cursor-pointer transition-colors"
+                        className="text-gray-300 hover:text-red-500 p-1 cursor-pointer transition-colors ml-0.5"
                         title="Hapus dari rute"
                       >
                         <X className="w-3.5 h-3.5" />
@@ -813,14 +936,25 @@ export default function DestinationSelectionScreen({
               <input
                 type="text"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSearchQuery(val);
+                  if (!val.trim()) {
+                    setSearchResults(null);
+                    setIsSearching(false);
+                  }
+                }}
                 placeholder={`Cari destinasi di ${detectedRegion}...`}
                 className="w-full bg-transparent text-xs text-gray-900 placeholder:text-gray-400 focus:outline-none font-medium"
               />
               {searchQuery && (
                 <button
                   type="button"
-                  onClick={() => setSearchQuery('')}
+                  onClick={() => {
+                    setSearchQuery('');
+                    setSearchResults(null);
+                    setIsSearching(false);
+                  }}
                   className="text-gray-400 hover:text-gray-600 p-0.5 cursor-pointer"
                 >
                   <X className="w-3.5 h-3.5" />
@@ -882,7 +1016,11 @@ export default function DestinationSelectionScreen({
                 </p>
                 <button
                   type="button"
-                  onClick={() => setSearchQuery('')}
+                  onClick={() => {
+                    setSearchQuery('');
+                    setSearchResults(null);
+                    setIsSearching(false);
+                  }}
                   className="mt-2 text-xs font-semibold text-[#4941EC] hover:underline cursor-pointer"
                 >
                   Kembali ke rekomendasi terpopuler
@@ -893,8 +1031,6 @@ export default function DestinationSelectionScreen({
             {/* Destination Cards List */}
             <div className="flex flex-col gap-3">
               {availableDestinations.map((dest) => {
-                const isWishlistCard = viewSource === 'wishlist';
-
                 return (
                   <div
                     key={dest.id}
@@ -979,15 +1115,52 @@ export default function DestinationSelectionScreen({
             </p>
             <button
               type="button"
-              onClick={() => onFinishSelection?.(selectedDestinations)}
-              className="w-full py-3.5 bg-[#4941EC] hover:bg-[#3D35D9] active:scale-[0.99] text-white font-bold text-sm rounded-xl flex items-center justify-center gap-2 shadow-md shadow-[#4941EC]/25 transition-all cursor-pointer"
+              onClick={() => setShowConfirmFinishModal(true)}
+              className="w-full py-3.5 bg-[#4941EC] hover:bg-[#3D35D9] active:scale-[0.99] text-white font-semibold text-sm rounded-xl flex items-center justify-center shadow-md shadow-[#4941EC]/25 transition-all cursor-pointer"
             >
-              <Check className="w-4 h-4 stroke-[2.5]" />
               <span>Selesai memilih</span>
             </button>
           </div>
         )}
       </main>
+
+      {/* Confirmation Modal: Selesai Memilih Destinasi */}
+      {showConfirmFinishModal && (
+        <div className="fixed inset-0 z-[9999] bg-black/50 backdrop-blur-2xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-5 max-w-xs w-full shadow-xl flex flex-col gap-3 animate-in zoom-in-95 duration-150">
+            <div className="w-10 h-10 rounded-full bg-indigo-50 text-[#4941EC] flex items-center justify-center mx-auto">
+              <Check className="w-5 h-5 stroke-[2.4]" />
+            </div>
+            <div className="text-center">
+              <h3 className="text-sm font-semibold text-gray-900">
+                Selesai Memilih Destinasi?
+              </h3>
+              <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+                Apakah kamu yakin dengan {selectedDestinations.length} destinasi yang telah kamu pilih untuk rute perjalanan ini?
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              <button
+                type="button"
+                onClick={() => setShowConfirmFinishModal(false)}
+                className="py-2.5 px-3 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs transition-colors cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowConfirmFinishModal(false);
+                  onFinishSelection?.(selectedDestinations);
+                }}
+                className="py-2.5 px-3 rounded-xl bg-[#4941EC] hover:bg-[#3D35D9] text-white font-semibold text-xs transition-colors cursor-pointer shadow-xs"
+              >
+                Ya, Lanjutkan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 3. Fixed Bottom Navigation Bar with Rencana active */}
       <div className="absolute bottom-0 left-0 right-0 w-full z-30">

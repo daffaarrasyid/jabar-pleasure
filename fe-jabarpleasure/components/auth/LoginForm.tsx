@@ -126,7 +126,7 @@ export default function LoginForm({
       <div className="w-full max-w-[380px] mx-auto my-auto flex flex-col items-center justify-center">
 
         {/* Title "Masuk" matching Masuk.png */}
-        <h1 className="text-2xl sm:text-[26px] font-bold text-center text-gray-900 mb-6 tracking-tight font-sans">
+        <h1 className="text-2xl sm:text-[26px] font-semibold text-center text-gray-900 mb-6 tracking-tight font-sans">
           Masuk
         </h1>
 
@@ -182,12 +182,11 @@ export default function LoginForm({
             </div>
           )}
 
-          {/* Action Button: Masuk -> */}
+          {/* Action Button: Masuk */}
           <Button
             type="submit"
             variant="primary"
             isLoading={isLoading}
-            rightIcon={<span className="text-lg leading-none font-medium">→</span>}
             className="mt-3 text-base font-semibold shadow-xs rounded-xl h-[50px]"
           >
             Masuk
@@ -200,7 +199,7 @@ export default function LoginForm({
           <button
             type="button"
             onClick={onNavigateToRegister}
-            className="font-bold text-[#4941EC] hover:underline"
+            className="font-semibold text-[#4941EC] hover:underline"
           >
             Daftar Sekarang
           </button>

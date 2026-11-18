@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
   Play,
@@ -11,10 +12,13 @@ import {
   Maximize2,
   CheckCircle2,
   Check,
+  Download,
+  Compass,
 } from 'lucide-react';
 import AppHeader from '@/components/layout/AppHeader';
 import BottomNav, { NavTabId } from '@/components/layout/BottomNav';
 import { TripItem } from '@/components/history/historyData';
+import { formatHumanDate } from '@/lib/dateUtils';
 
 const DEFAULT_TRIP: TripItem = {
   id: '',
@@ -138,12 +142,14 @@ export default function TripShowcaseScreen({
   onNavigateToRencana,
   onNavigateToMap,
   onNavigateToProfile,
-  wishlistCount = 4,
+  wishlistCount = 0,
   className = '',
 }: TripShowcaseScreenProps) {
+  const router = useRouter();
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [currentTime, setCurrentTime] = useState('00:00');
+  const [downloadToast, setDownloadToast] = useState<string | null>(null);
 
   const handleTogglePlay = () => {
     setIsPlaying((prev) => {
@@ -151,6 +157,23 @@ export default function TripShowcaseScreen({
       setCurrentTime(next ? '00:45' : '00:00');
       return next;
     });
+  };
+
+  const handleDownloadTimelapse = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    try {
+      const link = document.createElement('a');
+      link.href = '/tangkuban-parahu.jpg';
+      link.download = `timelapse-${trip.title.toLowerCase().replace(/[^a-z0-9]/g, '-')}.mp4`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setDownloadToast('Video timelapse perjalanan sedang diunduh...');
+      setTimeout(() => setDownloadToast(null), 3000);
+    } catch {
+      setDownloadToast('Gagal mengunduh timelapse perjalanan.');
+      setTimeout(() => setDownloadToast(null), 3000);
+    }
   };
 
   const handleTabChange = (tab: NavTabId) => {
@@ -213,12 +236,20 @@ export default function TripShowcaseScreen({
             </span>
           </div>
           <p className="text-xs text-gray-500 mt-0.5 font-medium">
-            {trip.dateRange} • {trip.duration}
+            {formatHumanDate(trip.dateRange)} • {trip.duration}
           </p>
           <p className="text-xs text-gray-400 mt-0.5">
             {trip.stats.destinations} destinasi • {trip.stats.photos} foto • {trip.stats.video} video perjalanan
           </p>
         </div>
+
+        {/* Download Feedback Toast */}
+        {downloadToast && (
+          <div className="mb-3 p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold rounded-xl flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-200">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>{downloadToast}</span>
+          </div>
+        )}
 
         {/* Interactive Video Player Card */}
         <div className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-[0_2px_8px_rgba(0,0,0,0.02)] mb-4">
@@ -240,6 +271,17 @@ export default function TripShowcaseScreen({
             <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-xs px-2.5 py-1 rounded-md text-[10px] font-semibold text-white/90">
               Pratinjau
             </div>
+
+            {/* Top-Right Download Timelapse Icon */}
+            <button
+              type="button"
+              onClick={handleDownloadTimelapse}
+              className="absolute top-3 right-3 bg-black/60 hover:bg-black/85 active:scale-95 backdrop-blur-xs w-8 h-8 rounded-full flex items-center justify-center text-white/90 hover:text-white transition-all shadow-xs cursor-pointer z-10"
+              title="Download Timelapse"
+              aria-label="Download Timelapse"
+            >
+              <Download className="w-4 h-4" />
+            </button>
 
             {/* Center Play/Pause Button */}
             <button
@@ -283,6 +325,15 @@ export default function TripShowcaseScreen({
                 <div className="flex items-center gap-2.5">
                   <button
                     type="button"
+                    onClick={handleDownloadTimelapse}
+                    className="hover:text-[#60CE9F] transition-colors cursor-pointer p-0.5"
+                    title="Download Timelapse"
+                    aria-label="Download Timelapse"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => setIsMuted((m) => !m)}
                     className="hover:text-[#60CE9F] transition-colors cursor-pointer"
                     title={isMuted ? 'Unmute' : 'Mute'}
@@ -310,6 +361,20 @@ export default function TripShowcaseScreen({
               {trip.videoSubtitle || 'Video perjalanan Bandung Trip, bersama foto dan cerita yang sudah kamu masukkan.'}
             </p>
           </div>
+        </div>
+
+        {/* Button: Buka 3D Flyover Interaktif */}
+        <div className="mb-4">
+          <button
+            type="button"
+            onClick={() => {
+              router.push(`/history/${trip.id || 'latest'}/timelapse`);
+            }}
+            className="w-full py-3.5 px-4 bg-[#4941EC] hover:bg-[#3D35D9] active:scale-[0.99] text-white font-semibold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2 shadow-md shadow-[#4941EC]/25 transition-all cursor-pointer"
+          >
+            <Compass className="w-4 h-4 text-[#60CE9F]" />
+            <span>Putar Animasi 3D Flyover Interaktif</span>
+          </button>
         </div>
 
         {/* Dokumentasi Perjalanan Section */}

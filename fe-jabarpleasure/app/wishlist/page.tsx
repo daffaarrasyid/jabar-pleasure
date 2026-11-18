@@ -1,16 +1,25 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import MobileShell from '@/components/layout/MobileShell';
 import WishlistScreen from '@/components/wishlist/WishlistScreen';
 import DestinationDetailModal, { DestinationDetailData } from '@/components/ui/DestinationDetailModal';
 import Toast from '@/components/ui/Toast';
+import { getAuthToken, removeAuthToken } from '@/lib/auth';
 
 export default function WishlistPage() {
   const router = useRouter();
   const [selectedDestinationForDetail, setSelectedDestinationForDetail] = useState<DestinationDetailData | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
+
+  useEffect(() => {
+    const token = getAuthToken();
+    if (!token) {
+      removeAuthToken();
+      router.replace('/auth');
+    }
+  }, [router]);
 
   const showToast = (message: string, type: 'success' | 'info' | 'error' = 'info') => {
     setToast({ message, type });

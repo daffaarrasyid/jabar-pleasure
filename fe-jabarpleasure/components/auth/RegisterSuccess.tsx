@@ -31,7 +31,7 @@ export default function RegisterSuccess({ onContinue }: RegisterSuccessProps) {
 
         {/* Heading & Subtitle matching Mockup */}
         <div className="text-center mb-8 sm:mb-9">
-          <h1 className="text-3xl sm:text-[34px] font-bold text-gray-900 tracking-tight font-sans">
+          <h1 className="text-3xl sm:text-[34px] font-semibold text-gray-900 tracking-tight font-sans">
             Mantapp
           </h1>
           <p className="text-base sm:text-[17px] text-gray-600 font-medium font-sans mt-2">
@@ -39,12 +39,11 @@ export default function RegisterSuccess({ onContinue }: RegisterSuccessProps) {
           </p>
         </div>
 
-        {/* Action Button: Lanjutkan -> */}
+        {/* Action Button: Lanjutkan */}
         <div className="w-full">
           <Button
             variant="primary"
             onClick={onContinue}
-            rightIcon={<span className="text-lg leading-none font-medium">→</span>}
             className="w-full h-[50px] text-base font-semibold shadow-xs rounded-xl"
           >
             Lanjutkan

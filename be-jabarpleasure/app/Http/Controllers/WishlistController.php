@@ -16,7 +16,7 @@ class WishlistController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $user = $request->user() ?? User::first();
+        $user = $request->user() ?? auth('sanctum')->user();
 
         if (!$user) {
             return response()->json([
@@ -59,7 +59,7 @@ class WishlistController extends Controller
             ], 422);
         }
 
-        $user = $request->user() ?? User::first();
+        $user = $request->user() ?? auth('sanctum')->user();
 
         if (!$user) {
             return response()->json([
@@ -104,7 +104,7 @@ class WishlistController extends Controller
      */
     public function destroy(int $destinationId, Request $request): JsonResponse
     {
-        $user = $request->user() ?? User::first();
+        $user = $request->user() ?? auth('sanctum')->user();
 
         if (!$user) {
             return response()->json([

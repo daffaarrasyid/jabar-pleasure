@@ -24,7 +24,7 @@ export default function Button({
   ...props
 }: ButtonProps) {
   const baseClasses =
-    'relative inline-flex items-center justify-center font-medium transition-all duration-200 select-none focus:outline-none focus:ring-2 focus:ring-offset-2 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none disabled:active:scale-100';
+    'relative inline-flex items-center justify-center font-semibold transition-all duration-200 select-none focus:outline-none focus:ring-2 focus:ring-offset-2 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none disabled:active:scale-100';
 
   const sizeClasses = {
     sm: 'h-10 px-4 text-sm rounded-xl',
@@ -80,10 +80,8 @@ export default function Button({
           <span>Memuat...</span>
         </span>
       ) : (
-        <span className="inline-flex items-center justify-center gap-2.5 w-full">
-          {leftIcon && <span className="shrink-0 flex items-center">{leftIcon}</span>}
+        <span className="inline-flex items-center justify-center w-full">
           <span className="truncate">{children}</span>
-          {rightIcon && <span className="shrink-0 flex items-center">{rightIcon}</span>}
         </span>
       )}
     </button>

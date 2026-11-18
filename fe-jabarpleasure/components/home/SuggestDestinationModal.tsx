@@ -3,7 +3,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import {
   X,
-  Upload,
   CheckCircle2,
   MapPin,
   Link2,
@@ -41,6 +40,9 @@ export default function SuggestDestinationModal({
   const [selectedCategory, setSelectedCategory] = useState<string>(DEFAULT_CATEGORIES[0]);
   const [locationMethod, setLocationMethod] = useState<'gps' | 'gmaps'>('gps');
   const [gmapsUrl, setGmapsUrl] = useState('');
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // GPS state - manual coords override if user explicitly refreshes
   const [manualCoords, setManualCoords] = useState<{ lat: number; lng: number } | null>(null);
@@ -108,6 +110,32 @@ export default function SuggestDestinationModal({
     }
   };
 
+  // Function to handle optional image selection
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      setErrorMessage('Ukuran file foto maksimal 2MB.');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
+    setErrorMessage(null);
+    setImageFile(file);
+    const objectUrl = URL.createObjectURL(file);
+    setImagePreview(objectUrl);
+  };
+
+  const handleRemoveImage = () => {
+    setImageFile(null);
+    if (imagePreview) {
+      URL.revokeObjectURL(imagePreview);
+      setImagePreview(null);
+    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
   // Submit handler
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -140,6 +168,7 @@ export default function SuggestDestinationModal({
       latitude: activeLat,
       longitude: activeLng,
       description: locationMethod === 'gmaps' ? `Lokasi Maps: ${gmapsUrl.trim()}` : undefined,
+      image: imageFile,
     })
       .then(() => {
         // Also save to localStorage as backup client persistence
@@ -203,6 +232,7 @@ export default function SuggestDestinationModal({
   const handleModalClose = () => {
     setDestinationName('');
     setGmapsUrl('');
+    handleRemoveImage();
     setErrorMessage(null);
     setIsSubmittedSuccess(false);
     setIsSubmitting(false);
@@ -212,7 +242,7 @@ export default function SuggestDestinationModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-xs transition-opacity duration-300 p-0 sm:p-4">
+    <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-xs transition-opacity duration-300 p-0 sm:p-4">
       {/* Click outside backdrop to dismiss */}
       <div
         className="absolute inset-0"
@@ -228,7 +258,7 @@ export default function SuggestDestinationModal({
         {/* Modal Header */}
         <div className="flex items-center justify-between pb-3.5 border-b border-gray-100 shrink-0">
           <div>
-            <h2 className="text-base sm:text-lg font-bold text-gray-900 tracking-tight">
+            <h2 className="text-base sm:text-lg font-semibold text-gray-900 tracking-tight">
               Form Ajukan Destinasi Baru
             </h2>
             <p className="text-xs text-gray-500 mt-0.5">
@@ -251,7 +281,7 @@ export default function SuggestDestinationModal({
             <div className="w-16 h-16 rounded-full bg-[#60CE9F]/15 text-[#60CE9F] flex items-center justify-center mb-4">
               <CheckCircle2 className="w-10 h-10 stroke-[2.2]" />
             </div>
-            <h3 className="text-lg font-bold text-gray-900 tracking-tight">
+            <h3 className="text-lg font-semibold text-gray-900 tracking-tight">
               Pengajuan Lokasi Berhasil!
             </h3>
             <p className="text-xs sm:text-sm text-gray-600 mt-2 max-w-[320px] leading-relaxed">
@@ -283,7 +313,7 @@ export default function SuggestDestinationModal({
             <div className="space-y-1.5">
               <label
                 htmlFor="destination-name"
-                className="block text-xs font-bold text-gray-900 tracking-tight"
+                className="block text-xs font-semibold text-gray-900 tracking-tight"
               >
                 Nama Tempat Hiburan/Wisata:
               </label>
@@ -301,7 +331,7 @@ export default function SuggestDestinationModal({
             {/* Field 2: Kategori Destinasi (Horizontal Carousel) */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label className="block text-xs font-bold text-gray-900 tracking-tight">
+                <label className="block text-xs font-semibold text-gray-900 tracking-tight">
                   Kategori Destinasi:
                 </label>
                 {/* Scroll arrows navigation */}
@@ -352,7 +382,7 @@ export default function SuggestDestinationModal({
 
             {/* Field 3: Penentuan Lokasi Destinasi (GPS vs Google Maps) */}
             <div className="space-y-2.5 pt-1">
-              <label className="block text-xs font-bold text-gray-900 tracking-tight">
+              <label className="block text-xs font-semibold text-gray-900 tracking-tight">
                 Penentuan Lokasi Destinasi:
               </label>
 
@@ -377,7 +407,7 @@ export default function SuggestDestinationModal({
                   <div className="flex-1">
                     <label
                       htmlFor="loc-gps"
-                      className="text-xs font-bold text-gray-900 cursor-pointer block"
+                      className="text-xs font-semibold text-gray-900 cursor-pointer block"
                     >
                       Gunakan Titik Koordinat Ini (Realtime GPS)
                     </label>
@@ -429,7 +459,7 @@ export default function SuggestDestinationModal({
                   <div className="flex-1">
                     <label
                       htmlFor="loc-gmaps"
-                      className="text-xs font-bold text-gray-900 cursor-pointer block"
+                      className="text-xs font-semibold text-gray-900 cursor-pointer block"
                     >
                       Masukkan Link Google Maps
                     </label>
@@ -455,14 +485,68 @@ export default function SuggestDestinationModal({
               </div>
             </div>
 
+            {/* Field 4: Foto Destinasi (Opsional) */}
+            <div className="space-y-1.5 pt-1">
+              <label className="block text-xs font-semibold text-gray-900 tracking-tight">
+                Foto Destinasi (Opsional)
+              </label>
+
+              {!imagePreview ? (
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full border-2 border-dashed border-gray-200 hover:border-[#4941EC] rounded-xl p-3.5 flex flex-col items-center justify-center gap-1.5 bg-gray-50/50 hover:bg-[#EEF2FF]/20 transition-all cursor-pointer group"
+                >
+                  <p className="text-xs font-semibold text-gray-700 group-hover:text-[#4941EC] transition-colors">
+                    Pilih gambar dari perangkat
+                  </p>
+                  <p className="text-[11px] text-gray-400">
+                    Format JPG, PNG, atau WebP (Maks. 2MB)
+                  </p>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    onChange={handleImageChange}
+                    className="hidden"
+                  />
+                </div>
+              ) : (
+                <div className="relative rounded-xl overflow-hidden border border-gray-200 bg-gray-50 flex items-center justify-between p-2">
+                  <div className="flex items-center gap-3 min-w-0">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={imagePreview}
+                      alt="Preview destinasi"
+                      className="w-12 h-12 rounded-lg object-cover border border-gray-200 shrink-0"
+                    />
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-gray-900 truncate">
+                        {imageFile?.name}
+                      </p>
+                      <p className="text-[11px] text-gray-400">
+                        {((imageFile?.size || 0) / 1024).toFixed(0)} KB
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRemoveImage}
+                    className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors cursor-pointer shrink-0"
+                    aria-label="Hapus foto"
+                  >
+                    <X className="w-4 h-4 stroke-[2]" />
+                  </button>
+                </div>
+              )}
+            </div>
+
             {/* Action Buttons: Kirim Pengajuan Lokasi & Batal */}
             <div className="pt-2 space-y-2">
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full h-12 bg-[#4941EC] hover:bg-[#3C35C7] text-white text-xs sm:text-sm font-bold rounded-xl shadow-[0_4px_12px_rgba(73,65,236,0.25)] transition-all active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70"
+                className="w-full h-12 bg-[#4941EC] hover:bg-[#3C35C7] text-white text-xs sm:text-sm font-semibold rounded-xl shadow-[0_4px_12px_rgba(73,65,236,0.25)] transition-all active:scale-[0.98] flex items-center justify-center cursor-pointer disabled:opacity-70"
               >
-                <Upload className="w-4 h-4 stroke-[2.2]" />
                 <span>{isSubmitting ? 'Mengirim Pengajuan...' : 'Kirim Pengajuan Lokasi'}</span>
               </button>
 

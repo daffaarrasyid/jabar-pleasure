@@ -5,11 +5,9 @@ import dynamic from 'next/dynamic';
 import {
   ArrowLeft,
   ArrowUp,
-  MapPin,
   Navigation,
   CheckCircle2,
   Check,
-  PartyPopper,
   AlertTriangle,
 } from 'lucide-react';
 import AppHeader from '@/components/layout/AppHeader';
@@ -36,6 +34,8 @@ interface ActiveTripScreenProps {
   originLng?: number;
   startTime?: string;
   waypoints?: RouteWaypoint[];
+  initialStopIndex?: number;
+  onProgressChange?: (stopIndex: number) => void;
   onBack?: () => void;
   onFinishTrip?: (visitedCount?: number) => void;
   onNotificationClick?: () => void;
@@ -85,6 +85,8 @@ export default function ActiveTripScreen({
   originLng = 106.7972,
   startTime,
   waypoints = DEFAULT_WAYPOINTS,
+  initialStopIndex = 0,
+  onProgressChange,
   onBack,
   onFinishTrip,
   onNotificationClick,
@@ -93,12 +95,13 @@ export default function ActiveTripScreen({
   onNavigateToMap,
   onNavigateToProfile,
   onNavigateToRiwayat,
-  wishlistCount = 3,
+  wishlistCount = 0,
   className = '',
 }: ActiveTripScreenProps) {
   // Current active destination index (0 = heading to stop 1, 1 = heading to stop 2, etc.)
-  const [currentStopIndex, setCurrentStopIndex] = useState(0);
+  const [currentStopIndex, setCurrentStopIndex] = useState(initialStopIndex || 0);
   const [showEarlyFinishDialog, setShowEarlyFinishDialog] = useState(false);
+  const [showCheckInDialog, setShowCheckInDialog] = useState(false);
 
   // Waktu mulai riil berbasis jam aktual jika tidak dispesifikasikan
   const [realStartTime] = useState<string>(() => {
@@ -162,19 +165,22 @@ export default function ActiveTripScreen({
     }
   };
 
-  const handleArriveAtStop = () => {
-    if (currentStopIndex < waypoints.length) {
-      setCurrentStopIndex((prev) => prev + 1);
+  const handleConfirmCheckIn = () => {
+    setShowCheckInDialog(false);
+    const nextIndex = currentStopIndex + 1;
+    setCurrentStopIndex(nextIndex);
+    onProgressChange?.(nextIndex);
+
+    // Jika check-in di destinasi terakhir, otomatis tandai perjalanan selesai & simpan ke riwayat
+    if (nextIndex >= waypoints.length) {
+      onFinishTrip?.(waypoints.length);
     }
   };
 
   const handleConfirmEarlyFinish = () => {
     setShowEarlyFinishDialog(false);
-    if (onFinishTrip) {
-      onFinishTrip(currentStopIndex);
-    } else {
-      onBack?.();
-    }
+    setCurrentStopIndex(waypoints.length);
+    onFinishTrip?.(currentStopIndex);
   };
 
   return (
@@ -253,15 +259,15 @@ export default function ActiveTripScreen({
           />
         </div>
 
-        {/* Turn-by-Turn Live Guidance Card */}
-        {!isAllCompleted ? (
+        {/* Turn-by-Turn Live Guidance Card (Hanya muncul saat perjalanan masih berlangsung) */}
+        {!isAllCompleted && (
           <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-[0_2px_8px_rgba(0,0,0,0.02)] mb-3.5 flex flex-col gap-2.5 animate-in fade-in duration-200">
             <div className="flex items-start gap-3">
               <div className="w-12 h-12 rounded-2xl bg-[#4941EC] text-white flex items-center justify-center shrink-0 shadow-xs">
                 <ArrowUp className="w-6 h-6 stroke-[2.8]" />
               </div>
               <div className="min-w-0 flex-1">
-                <h2 className="text-sm sm:text-base font-bold text-gray-900 truncate">
+                <h2 className="text-sm sm:text-base font-semibold text-gray-900 truncate">
                   Menuju {currentStop.name}
                 </h2>
                 <p className="text-xs text-gray-500 mt-0.5 truncate">
@@ -272,7 +278,7 @@ export default function ActiveTripScreen({
 
             {/* Live Time, Distance, and Travel Mode from Real Road Route */}
             <div className="flex items-center justify-between pt-1">
-              <span className="text-sm font-bold text-[#4941EC]">
+              <span className="text-sm font-semibold text-[#4941EC]">
                 ±{legDurationMinutes} menit · {legDistanceKm} km
               </span>
               <span className="text-xs font-semibold text-gray-600">
@@ -286,23 +292,31 @@ export default function ActiveTripScreen({
                 : `Dari ${waypoints[currentStopIndex - 1]?.name || 'titik sebelumnya'} · Ikuti rute jalan raya setempat.`}
             </p>
           </div>
-        ) : (
-          /* Completion Banner */
-          <div className="bg-[#ECFDF5] rounded-2xl p-4 border border-[#A7F3D0] mb-3.5 flex flex-col items-center text-center gap-2 animate-in fade-in duration-200">
-            <div className="w-12 h-12 rounded-full bg-[#10B981] text-white flex items-center justify-center shadow-xs">
-              <PartyPopper className="w-6 h-6" />
-            </div>
-            <h2 className="text-base font-bold text-gray-900">
-              Perjalanan Selesai!
-            </h2>
-            <p className="text-xs text-gray-600 max-w-[280px]">
-              Kamu telah mengunjungi semua destinasi dalam rencana {planTitle}. Perjalanan ini siap disimpan ke riwayatmu!
-            </p>
-          </div>
         )}
 
-        {/* Waypoints Tracking List Card */}
+        {/* Waypoints Tracking List Card (Kontainer Rute Lokasi) */}
         <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-[0_2px_8px_rgba(0,0,0,0.02)] mb-3.5 flex flex-col gap-3">
+          {/* Header Selesai Perjalanan (Disatukan dalam kontainer rute di atas destinasi pertama) */}
+          {isAllCompleted && (
+            <div className="pb-3 border-b border-gray-100 flex items-center gap-3 animate-in fade-in duration-200">
+              <div className="w-11 h-11 rounded-xl bg-[#E6F8F0] border border-[#A7F3D0] flex items-center justify-center shrink-0">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="12" cy="12" r="10" fill="#10B981" fillOpacity="0.15" />
+                  <path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21" stroke="#10B981" strokeWidth="1.5" strokeLinecap="round" />
+                  <path d="M8 12l2.5 2.5 5.5-5.5" stroke="#10B981" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-sm font-semibold text-gray-900 leading-tight">
+                  Perjalanan Selesai!
+                </h3>
+                <p className="text-[11px] text-gray-500 mt-0.5 leading-relaxed">
+                  Semua {waypoints.length} destinasi telah dikunjungi dan otomatis tercatat di Riwayat.
+                </p>
+              </div>
+            </div>
+          )}
+
           {waypoints.map((stop, index) => {
             const isVisited = index < currentStopIndex;
             const isCurrent = index === currentStopIndex;
@@ -371,17 +385,16 @@ export default function ActiveTripScreen({
           </div>
         </div>
 
-        {/* Action Button: Tiba di [Tujuan] or Selesaikan */}
+        {/* Action Button */}
         <div className="flex flex-col gap-2 mt-2">
           {!isAllCompleted ? (
             <>
               {/* Primary action: Check-in / Tiba di tujuan aktif */}
               <button
                 type="button"
-                onClick={handleArriveAtStop}
-                className="w-full py-3.5 bg-[#4941EC] hover:bg-[#3D35D9] active:scale-[0.99] text-white font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2 shadow-md shadow-[#4941EC]/25 transition-all cursor-pointer"
+                onClick={() => setShowCheckInDialog(true)}
+                className="w-full py-3.5 bg-[#4941EC] hover:bg-[#3D35D9] active:scale-[0.99] text-white font-semibold text-xs sm:text-sm rounded-xl flex items-center justify-center shadow-md shadow-[#4941EC]/25 transition-all cursor-pointer"
               >
-                <MapPin className="w-4 h-4 stroke-[2.2]" />
                 <span>Tiba di {currentStop.name} (Tujuan {currentStopIndex + 1})</span>
               </button>
 
@@ -389,9 +402,8 @@ export default function ActiveTripScreen({
               <button
                 type="button"
                 onClick={() => setShowEarlyFinishDialog(true)}
-                className="w-full py-3 bg-white hover:bg-emerald-50/70 active:scale-[0.99] border border-emerald-300 text-[#059669] font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2 shadow-2xs transition-all cursor-pointer"
+                className="w-full py-3 bg-white hover:bg-emerald-50/70 active:scale-[0.99] border border-emerald-300 text-[#059669] font-semibold text-xs sm:text-sm rounded-xl flex items-center justify-center shadow-2xs transition-all cursor-pointer"
               >
-                <CheckCircle2 className="w-4 h-4 text-[#10B981] stroke-[2.4]" />
                 <span>
                   Selesai Perjalanan
                   {currentStopIndex > 0
@@ -402,32 +414,75 @@ export default function ActiveTripScreen({
 
               <p className="text-[11px] text-gray-500 text-center font-medium leading-relaxed">
                 {currentStopIndex > 0
-                  ? `${currentStopIndex} dari ${waypoints.length} destinasi telah dikunjungi. Klik "Selesai Perjalanan" jika ingin menyimpan riwayat.`
-                  : 'Tandai tiba saat sampai di lokasi, atau selesaikan perjalanan kapan saja untuk menyimpannya ke Riwayat.'}
+                  ? `${currentStopIndex} dari ${waypoints.length} destinasi telah dikunjungi.`
+                  : 'Tandai tiba saat sampai di lokasi, atau selesaikan perjalanan kapan saja.'}
               </p>
             </>
           ) : (
+            /* Selesai: Tombol Kembali ke Rencana dengan fill putih & stroke primary samar */
             <button
               type="button"
-              onClick={() => (onFinishTrip ? onFinishTrip(waypoints.length) : onBack?.())}
-              className="w-full py-3.5 bg-[#10B981] hover:bg-[#059669] active:scale-[0.99] text-white font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2 shadow-md shadow-[#10B981]/25 transition-all cursor-pointer"
+              onClick={onBack}
+              className="w-full py-3.5 bg-white hover:bg-[#EEF2FF]/40 active:scale-[0.99] border border-[#4941EC]/30 text-[#4941EC] font-semibold text-xs sm:text-sm rounded-xl flex items-center justify-center shadow-2xs transition-all cursor-pointer"
             >
-              <Check className="w-4 h-4 stroke-[3]" />
-              <span>Selesai & Simpan ke Riwayat</span>
+              <span>Kembali ke Rencana</span>
             </button>
           )}
         </div>
       </main>
 
+      {/* Confirmation Dialog: Check-in Destinasi */}
+      {showCheckInDialog && (
+        <div className="fixed inset-0 z-[9999] bg-black/50 backdrop-blur-2xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-5 max-w-xs w-full shadow-xl flex flex-col gap-3 animate-in zoom-in-95 duration-150">
+            <div className="w-10 h-10 rounded-full bg-indigo-50 text-[#4941EC] flex items-center justify-center mx-auto">
+              <Check className="w-5 h-5 stroke-[2.4]" />
+            </div>
+            <div className="text-center">
+              <h3 className="text-sm font-semibold text-gray-900">
+                {currentStopIndex === waypoints.length - 1
+                  ? 'Konfirmasi Selesaikan Perjalanan'
+                  : 'Konfirmasi Tiba di Destinasi'}
+              </h3>
+              <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+                {currentStopIndex === waypoints.length - 1
+                  ? `Apakah kamu yakin ingin check-in di ${currentStop.name}? Check-in ini akan sekaligus menyelesaikan perjalananmu.`
+                  : `Apakah kamu yakin sudah tiba dan ingin check-in di ${currentStop.name}?`}
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              <button
+                type="button"
+                onClick={() => setShowCheckInDialog(false)}
+                className="py-2.5 px-3 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs transition-colors cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmCheckIn}
+                className={`py-2.5 px-3 rounded-xl text-white font-semibold text-xs transition-colors cursor-pointer shadow-xs ${
+                  currentStopIndex === waypoints.length - 1
+                    ? 'bg-[#10B981] hover:bg-[#059669]'
+                    : 'bg-[#4941EC] hover:bg-[#3D35D9]'
+                }`}
+              >
+                {currentStopIndex === waypoints.length - 1 ? 'Ya, Selesaikan' : 'Ya, Check-in'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Confirmation Dialog: Selesai Lebih Awal */}
       {showEarlyFinishDialog && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-2xs flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[9999] bg-black/50 backdrop-blur-2xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-5 max-w-xs w-full shadow-xl flex flex-col gap-3 animate-in zoom-in-95 duration-150">
             <div className="w-10 h-10 rounded-full bg-emerald-100 text-[#059669] flex items-center justify-center mx-auto">
               <AlertTriangle className="w-5 h-5 stroke-[2.2]" />
             </div>
             <div className="text-center">
-              <h3 className="text-sm font-bold text-gray-900">
+              <h3 className="text-sm font-semibold text-gray-900">
                 Selesaikan Perjalanan Sekarang?
               </h3>
               <p className="text-xs text-gray-500 mt-1 leading-relaxed">
@@ -436,20 +491,21 @@ export default function ActiveTripScreen({
                   : `Kamu belum tiba di destinasi mana pun. Tetap selesaikan perjalanan dan simpan ke Riwayat?`}
               </p>
             </div>
+            {/* Primary button is "Lanjut jalan", secondary is "Ya, Selesai" per requirement 7 */}
             <div className="grid grid-cols-2 gap-2 mt-2">
               <button
                 type="button"
-                onClick={() => setShowEarlyFinishDialog(false)}
-                className="py-2 px-3 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs transition-colors cursor-pointer"
+                onClick={handleConfirmEarlyFinish}
+                className="py-2.5 px-3 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs transition-colors cursor-pointer"
               >
-                Lanjut Jalan
+                Ya, Selesai
               </button>
               <button
                 type="button"
-                onClick={handleConfirmEarlyFinish}
-                className="py-2 px-3 rounded-xl bg-[#10B981] hover:bg-[#059669] text-white font-bold text-xs transition-colors cursor-pointer"
+                onClick={() => setShowEarlyFinishDialog(false)}
+                className="py-2.5 px-3 rounded-xl bg-[#4941EC] hover:bg-[#3D35D9] text-white font-semibold text-xs transition-colors cursor-pointer shadow-xs"
               >
-                Ya, Selesai
+                Lanjut jalan
               </button>
             </div>
           </div>

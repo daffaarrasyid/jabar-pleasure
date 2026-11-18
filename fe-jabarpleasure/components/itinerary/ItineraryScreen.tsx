@@ -2,10 +2,71 @@
 
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { MapPin, Calendar, Plus } from 'lucide-react';
+import { Calendar, MapPin, Plus } from 'lucide-react';
 import AppHeader from '@/components/layout/AppHeader';
 import BottomNav, { NavTabId } from '@/components/layout/BottomNav';
 import { getItineraries, ApiItinerary } from '@/lib/api';
+
+function EmptyItineraryVector() {
+  return (
+    <svg
+      width="130"
+      height="110"
+      viewBox="0 0 130 110"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className="drop-shadow-xs"
+    >
+      <defs>
+        <linearGradient id="mapGrad" x1="15" y1="15" x2="115" y2="95" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#EEF2FF" />
+          <stop stopColor="#E0E7FF" />
+        </linearGradient>
+        <linearGradient id="pinGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop stopColor="#6366F1" />
+          <stop stopColor="#4941EC" />
+        </linearGradient>
+      </defs>
+      {/* Folded Map Background */}
+      <path
+        d="M18 24L48 16L82 24L112 16V86L82 94L48 86L18 94V24Z"
+        fill="url(#mapGrad)"
+        stroke="#CBD5E1"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+      {/* Map fold lines */}
+      <path d="M48 16V86" stroke="#94A3B8" strokeWidth="1" strokeDasharray="3 3" />
+      <path d="M82 24V94" stroke="#94A3B8" strokeWidth="1" strokeDasharray="3 3" />
+      
+      {/* Winding Route Path */}
+      <path
+        d="M32 68C38 52 56 60 64 44C72 28 88 40 96 32"
+        stroke="#4941EC"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeDasharray="4 4"
+      />
+      {/* Start Dot */}
+      <circle cx="32" cy="68" r="4.5" fill="#10B981" stroke="white" strokeWidth="1.5" />
+      
+      {/* Mid Waypoint */}
+      <circle cx="64" cy="44" r="3.5" fill="#60CE9F" stroke="white" strokeWidth="1.5" />
+
+      {/* Destination Pin */}
+      <g transform="translate(86, 12)">
+        <path
+          d="M10 0C4.477 0 0 4.477 0 10C0 17 10 26 10 26C10 26 20 17 20 10C20 4.477 15.523 0 10 0Z"
+          fill="url(#pinGrad)"
+        />
+        <circle cx="10" cy="9.5" r="3.5" fill="white" />
+      </g>
+      {/* Sparkles */}
+      <circle cx="108" cy="42" r="2" fill="#F59E0B" />
+      <circle cx="22" cy="14" r="1.5" fill="#60CE9F" />
+    </svg>
+  );
+}
 
 export interface SavedItinerary {
   id: string;
@@ -21,7 +82,30 @@ export interface SavedItinerary {
   rawItinerary?: ApiItinerary;
 }
 
+export interface ActiveTripData {
+  itineraryId?: string | number;
+  title: string;
+  originName: string;
+  originLat: number;
+  originLng: number;
+  startTime?: string;
+  waypoints: {
+    id: string;
+    name: string;
+    address: string;
+    role: string;
+    orderNumber?: number;
+    lat?: number;
+    lng?: number;
+  }[];
+  currentStopIndex: number;
+  distance?: string;
+  status?: 'in_progress' | 'completed';
+}
+
 interface ItineraryScreenProps {
+  activeTrip?: ActiveTripData | null;
+  onResumeActiveTrip?: () => void;
   onBack?: () => void;
   onNotificationClick?: () => void;
   onWishlistClick?: () => void;
@@ -36,34 +120,9 @@ interface ItineraryScreenProps {
   className?: string;
 }
 
-const DEFAULT_ITINERARIES: SavedItinerary[] = [
-  {
-    id: 'itinerary-bogor-1',
-    title: 'Sehari di Bogor',
-    statusBadge: 'Tersimpan',
-    statusText: 'Belum dimulai',
-    origin: 'Dari Stasiun Bogor',
-    destinationCount: 2,
-    distance: '3,1 km',
-    stops: ['Tugu Kujang', 'Botani Square (Botas)'],
-    savedDate: 'Disimpan 27 Okt 2026',
-    image: '/tugu-kujang.jpg',
-  },
-  {
-    id: 'itinerary-bogor-2',
-    title: 'Pagi di Kebun Raya',
-    statusBadge: 'Tersimpan',
-    statusText: 'Belum dimulai',
-    origin: 'Dari Stasiun Bogor',
-    destinationCount: 2,
-    distance: '4,2 km',
-    stops: ['Kebun Raya Bogor', 'Tugu Kujang'],
-    savedDate: 'Disimpan 25 Okt 2026',
-    image: '/kebun-raya-bogor.jpg',
-  },
-];
-
 export default function ItineraryScreen({
+  activeTrip,
+  onResumeActiveTrip,
   onNotificationClick,
   onWishlistClick,
   onNavigateToHome,
@@ -81,7 +140,6 @@ export default function ItineraryScreen({
 
   useEffect(() => {
     let isCancelled = false;
-    setIsLoading(true);
     getItineraries('planned')
       .then((data) => {
         if (isCancelled) return;
@@ -153,6 +211,14 @@ export default function ItineraryScreen({
     }
   };
 
+  const displaySavedItineraries = itineraries.filter((plan) => {
+    if (activeTrip && activeTrip.status !== 'completed') {
+      if (activeTrip.itineraryId && String(plan.id) === String(activeTrip.itineraryId)) return false;
+      if (activeTrip.title && plan.title === activeTrip.title) return false;
+    }
+    return true;
+  });
+
   return (
     <div
       className={`relative w-full h-full flex flex-col bg-[#F9FAFB] overflow-hidden ${className}`}
@@ -167,23 +233,92 @@ export default function ItineraryScreen({
 
       {/* 2. Main Scrollable Content */}
       <main className="flex-1 w-full overflow-y-auto overflow-x-hidden no-scrollbar px-5 pt-3 pb-28">
-        {/* Page Title & Subtitle matching Image 1 */}
-        <div className="mb-4">
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
-            Rencana Perjalanan
-          </h1>
-          <p className="text-xs text-gray-500 mt-1">
-            Simpan ide trip, berangkat saat kamu siap
-          </p>
+        {/* Page Title & Subtitle with Create Plan Button beside title */}
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 tracking-tight">
+              Rencana Perjalanan
+            </h1>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Simpan ide trip, berangkat saat kamu siap
+            </p>
+          </div>
+          {onCreatePlan && (
+            <button
+              type="button"
+              onClick={onCreatePlan}
+              className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#4941EC] hover:bg-[#3D35D9] active:scale-95 text-white flex items-center justify-center shadow-xs transition-all cursor-pointer shrink-0"
+              title="Buat rencana baru"
+              aria-label="Buat rencana baru"
+            >
+              <Plus className="w-5 h-5 stroke-[2.5]" />
+            </button>
+          )}
         </div>
+
+        {/* Section: Sedang Berjalan (Hanya muncul saat ada perjalanan yang sedang aktif) */}
+        {activeTrip && activeTrip.status !== 'completed' && (
+          <div className="mb-5 animate-in fade-in duration-200">
+            <div className="flex items-center justify-between mb-2.5 select-none">
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#10B981] opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#10B981]"></span>
+                </span>
+                <h2 className="text-sm sm:text-base font-semibold text-gray-900">
+                  Sedang Berjalan
+                </h2>
+              </div>
+              <span className="bg-[#D1FAE5] text-[#059669] text-xs font-semibold px-2.5 py-0.5 rounded-lg">
+                Aktif
+              </span>
+            </div>
+
+            {/* Active Trip Card */}
+            <div className="bg-white rounded-2xl p-4 border border-[#A7F3D0] shadow-[0_2px_12px_rgba(16,185,129,0.08)] flex flex-col gap-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-base font-bold text-gray-900 truncate">
+                    {activeTrip.title}
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Dimulai dari {activeTrip.originName} · {activeTrip.startTime || 'Hari ini'}
+                  </p>
+                </div>
+                <div className="px-2.5 py-1 rounded-xl bg-[#E6F8F0] text-[#10B981] text-xs font-bold shrink-0">
+                  {Math.min(activeTrip.currentStopIndex, activeTrip.waypoints.length)} / {activeTrip.waypoints.length} tercapai
+                </div>
+              </div>
+
+              {/* Waypoint indicators & Action */}
+              <div className="pt-2 border-t border-gray-100 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5 text-xs text-gray-600 font-medium truncate flex-1 min-w-0">
+                  <MapPin className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
+                  <span className="truncate">
+                    {activeTrip.currentStopIndex < activeTrip.waypoints.length
+                      ? `Menuju: ${activeTrip.waypoints[activeTrip.currentStopIndex]?.name}`
+                      : 'Semua destinasi telah tercapai'}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={onResumeActiveTrip}
+                  className="bg-[#4941EC] hover:bg-[#3D35D9] active:scale-95 text-white text-xs font-semibold px-3.5 py-2 rounded-xl transition-all shadow-xs cursor-pointer shrink-0"
+                >
+                  Lanjutkan Perjalanan
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Section Header: Rencana tersimpan with badge */}
         <div className="flex items-center justify-between mb-3 select-none">
-          <h2 className="text-sm sm:text-base font-bold text-gray-900">
+          <h2 className="text-sm sm:text-base font-semibold text-gray-900">
             Rencana tersimpan
           </h2>
           <span className="bg-[#E6F8F0] text-[#10B981] text-xs font-semibold px-2.5 py-0.5 rounded-lg">
-            {isLoading ? '...' : `${itineraries.length} rencana`}
+            {isLoading ? '...' : `${displaySavedItineraries.length} rencana`}
           </span>
         </div>
 
@@ -216,23 +351,21 @@ export default function ItineraryScreen({
           </div>
         )}
 
-        {/* Empty State jika belum ada rencana tersimpan */}
-        {!isLoading && itineraries.length === 0 && (
-          <div className="bg-white rounded-2xl p-6 border border-gray-100 text-center flex flex-col items-center gap-2.5 mb-4 shadow-2xs">
-            <div className="w-12 h-12 rounded-2xl bg-[#EEF2FF] text-[#4941EC] flex items-center justify-center">
-              <MapPin className="w-6 h-6 stroke-[2]" />
-            </div>
-            <h3 className="text-sm font-bold text-gray-900 mt-1">Belum Ada Rencana Tersimpan</h3>
-            <p className="text-xs text-gray-500 max-w-[260px] leading-relaxed">
+        {/* Empty State jika belum ada rencana tersimpan (No fill container, 2D vector) */}
+        {!isLoading && displaySavedItineraries.length === 0 && (
+          <div className="py-8 sm:py-12 flex flex-col items-center text-center gap-2.5 mb-4 animate-in fade-in duration-300 select-none">
+            <EmptyItineraryVector />
+            <h3 className="text-base font-semibold text-gray-900 mt-2">Belum Ada Rencana Tersimpan</h3>
+            <p className="text-xs text-gray-500 max-w-[280px] leading-relaxed">
               Mulai rencanakan liburanmu! Pilih titik keberangkatan dan destinasi wisata favorit di Jawa Barat.
             </p>
           </div>
         )}
 
         {/* Saved Itinerary Cards List */}
-        {!isLoading && itineraries.length > 0 && (
+        {!isLoading && displaySavedItineraries.length > 0 && (
           <div className="flex flex-col gap-3.5 mb-4">
-            {itineraries.map((plan) => (
+            {displaySavedItineraries.map((plan) => (
               <div
                 key={plan.id}
                 className="bg-white rounded-2xl p-4 border border-gray-100 shadow-[0_2px_10px_rgba(0,0,0,0.03)] hover:shadow-md transition-all flex flex-col gap-3"
@@ -250,7 +383,7 @@ export default function ItineraryScreen({
                   </div>
 
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-base font-bold text-gray-900 truncate">
+                    <h3 className="text-base font-semibold text-gray-900 truncate">
                       {plan.title}
                     </h3>
                     <div className="mt-1">
@@ -296,7 +429,7 @@ export default function ItineraryScreen({
         )}
 
         {/* Info Callout Card: Belum ada perjalanan dimulai */}
-        <div className="bg-[#EEF2FF] rounded-2xl p-4 flex items-start gap-3 border border-[#E0E7FF]/70 mb-4">
+        <div className="bg-[#EEF2FF] rounded-2xl p-4 flex items-start gap-3 border border-[#E0E7FF]/70 mb-2">
           <Calendar className="w-5 h-5 text-[#4941EC] stroke-[2] shrink-0 mt-0.5" />
           <div className="flex-1">
             <h4 className="text-xs font-bold text-[#4941EC]">
@@ -307,16 +440,6 @@ export default function ItineraryScreen({
             </p>
           </div>
         </div>
-
-        {/* CTA Button: + Buat rencana */}
-        <button
-          type="button"
-          onClick={onCreatePlan}
-          className="w-full py-3.5 bg-[#4941EC] hover:bg-[#3D35D9] active:scale-[0.99] text-white font-bold text-sm rounded-xl flex items-center justify-center gap-2 shadow-md shadow-[#4941EC]/25 transition-all cursor-pointer"
-        >
-          <Plus className="w-4 h-4 stroke-[2.5]" />
-          <span>Buat rencana</span>
-        </button>
       </main>
 
       {/* 3. Fixed Bottom Navigation Bar with Rencana active */}

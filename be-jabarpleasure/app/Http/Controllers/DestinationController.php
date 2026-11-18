@@ -96,10 +96,11 @@ class DestinationController extends Controller
     {
         $limit = min((int) $request->input('limit', 5), 20);
         $category = $request->input('category');
+        $regency = $request->input('regency');
         $lat = (float) $request->input('lat', -6.9175);
         $lng = (float) $request->input('lng', 107.6191);
 
-        $user = $request->user() ?? User::first();
+        $user = $request->user('sanctum') ?? $request->user();
 
         $query = Destination::with(['category:id,name,slug', 'regency:id,name'])
             ->withCount('checkIns')
@@ -116,19 +117,29 @@ class DestinationController extends Controller
             }
         }
 
+        // 3. Filter by regency if explicitly provided
+        if ($regency) {
+            $cleanRegency = trim(str_ireplace(['kota ', 'kabupaten '], '', $regency));
+            $query->whereHas('regency', function ($q) use ($regency, $cleanRegency) {
+                $q->where('name', 'ILIKE', "%{$cleanRegency}%")
+                  ->orWhere('name', 'ILIKE', "%{$regency}%");
+            });
+        }
+
         // Calculate distance from reference point
         $query->selectRaw(
             "ROUND((ST_Distance(location::geography, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography) / 1000.0)::numeric, 1) as distance_km",
             [(float) $lng, (float) $lat]
         );
 
-        // Urutkan dari pengunjung terbanyak (check_ins_count DESC)
-        $items = $query->orderBy('check_ins_count', 'desc')
+        // Prioritize destinations closest to the reference point, then highest visitors
+        $items = $query->orderBy('distance_km', 'asc')
+            ->orderBy('check_ins_count', 'desc')
             ->orderBy('id', 'asc')
             ->limit($limit)
             ->get();
 
-        // Fallback jika belum ada destinasi pada kategori preferensi user
+        // Fallback jika belum ada destinasi pada kategori/wilayah preferensi user
         if ($items->isEmpty()) {
             $fallbackQuery = Destination::with(['category:id,name,slug', 'regency:id,name'])
                 ->withCount('checkIns')
@@ -136,16 +147,25 @@ class DestinationController extends Controller
                 ->selectRaw(
                     "ROUND((ST_Distance(location::geography, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography) / 1000.0)::numeric, 1) as distance_km",
                     [(float) $lng, (float) $lat]
-                )
-                ->orderBy('check_ins_count', 'desc')
-                ->orderBy('id', 'asc')
-                ->limit($limit);
+                );
 
             if ($category && $category !== 'Semua') {
                 $fallbackQuery->filterCategory($category);
             }
 
-            $items = $fallbackQuery->get();
+            if ($regency) {
+                $cleanRegency = trim(str_ireplace(['kota ', 'kabupaten '], '', $regency));
+                $fallbackQuery->whereHas('regency', function ($q) use ($regency, $cleanRegency) {
+                    $q->where('name', 'ILIKE', "%{$cleanRegency}%")
+                      ->orWhere('name', 'ILIKE', "%{$regency}%");
+                });
+            }
+
+            $items = $fallbackQuery->orderBy('distance_km', 'asc')
+                ->orderBy('check_ins_count', 'desc')
+                ->orderBy('id', 'asc')
+                ->limit($limit)
+                ->get();
         }
 
         return response()->json([

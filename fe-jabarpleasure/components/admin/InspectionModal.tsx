@@ -71,10 +71,10 @@ export default function InspectionModal({
         {/* Header */}
         <div className="flex items-center justify-between p-4 sm:p-5 border-b border-gray-100 bg-gray-50/50 shrink-0">
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#4941EC] bg-[#EEF0FF] px-2 py-0.5 rounded-md">
+            <span className="text-[10px] font-semibold text-[#4941EC] bg-[#EEF0FF] px-2 py-0.5 rounded-md">
               Validasi POI Pengguna
             </span>
-            <h3 className="text-base font-bold text-gray-900 mt-1">
+            <h3 className="text-base font-semibold text-gray-900 mt-1">
               Tinjau Pengajuan: {submission.name}
             </h3>
           </div>
@@ -95,14 +95,14 @@ export default function InspectionModal({
             <div className="flex items-center gap-2 text-gray-600">
               <User className="w-4 h-4 text-gray-400 shrink-0" />
               <div className="min-w-0">
-                <p className="text-[10px] text-gray-400 uppercase">Pengaju</p>
+                <p className="text-[10px] text-gray-400 font-medium uppercase">Pengaju</p>
                 <p className="font-semibold text-gray-900 truncate">{submission.submitter}</p>
               </div>
             </div>
             <div className="flex items-center gap-2 text-gray-600">
               <Calendar className="w-4 h-4 text-gray-400 shrink-0" />
               <div className="min-w-0">
-                <p className="text-[10px] text-gray-400 uppercase">Waktu Pengajuan</p>
+                <p className="text-[10px] text-gray-400 font-medium uppercase">Waktu Pengajuan</p>
                 <p className="font-semibold text-gray-900 truncate">{submission.date}</p>
               </div>
             </div>
@@ -114,7 +114,7 @@ export default function InspectionModal({
               <Tag className="w-4 h-4 text-[#4941EC]" />
               Kategori Wisata:
             </span>
-            <span className="font-bold text-[#4941EC] bg-[#EEF0FF] px-2.5 py-1 rounded-lg text-xs">
+            <span className="font-semibold text-[#4941EC] bg-[#EEF0FF] px-2.5 py-1 rounded-lg text-xs">
               {submission.category}
             </span>
           </div>
