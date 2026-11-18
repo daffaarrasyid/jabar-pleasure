@@ -818,3 +818,123 @@ export async function deleteAdminDestination(id: number | string): Promise<boole
   }
 }
 
+export interface ApiAdminUser {
+  id: number;
+  name: string;
+  email: string;
+  phone?: string | null;
+  city?: string | null;
+  avatar_url?: string | null;
+  travel_style?: string | null;
+  role: 'admin' | 'user';
+  is_blocked: boolean;
+  created_at: string;
+}
+
+export interface ApiAdminMedia {
+  id: number;
+  check_in_id: number;
+  file_path: string;
+  media_type: 'photo' | 'video';
+  file_size_kb?: number;
+  caption?: string | null;
+  created_at: string;
+  url: string;
+  check_in?: {
+    user?: { id: number; name: string; email: string };
+    destination?: { id: number; name: string; slug: string };
+  };
+}
+
+/**
+ * Get paginated users for admin account management tab
+ */
+export async function getAdminUsersPaginated(params: {
+  page?: number;
+  per_page?: number;
+  search?: string;
+  role?: string;
+  status?: string;
+}): Promise<{ data: ApiAdminUser[]; pagination?: { current_page: number; last_page: number; per_page: number; total: number } }> {
+  const query = new URLSearchParams();
+  if (params.page) query.set('page', String(params.page));
+  if (params.per_page) query.set('per_page', String(params.per_page));
+  if (params.search) query.set('search', params.search);
+  if (params.role && params.role !== 'all') query.set('role', params.role);
+  if (params.status && params.status !== 'all') query.set('status', params.status);
+
+  const qs = query.toString() ? `?${query.toString()}` : '';
+  try {
+    const res = await fetchApi<ApiAdminUser[]>(`/admin/users${qs}`);
+    return { data: res.data || [], pagination: res.pagination };
+  } catch {
+    try {
+      const res = await fetchApi<ApiAdminUser[]>(`/admin/users-public${qs}`);
+      return { data: res.data || [], pagination: res.pagination };
+    } catch {
+      return { data: [], pagination: undefined };
+    }
+  }
+}
+
+/**
+ * Toggle block status for a user (Admin action)
+ */
+export async function toggleBlockUser(id: number | string): Promise<{ is_blocked: boolean; message: string }> {
+  try {
+    const res = await fetchApi<{ is_blocked: boolean; message: string }>(`/admin/users/${id}/toggle-block`, {
+      method: 'PATCH',
+    });
+    return { is_blocked: res.data?.is_blocked ?? false, message: res.message || 'Status blokir berhasil diubah.' };
+  } catch {
+    const res = await fetchApi<{ is_blocked: boolean; message: string }>(`/admin/users-public/${id}/toggle-block`, {
+      method: 'PATCH',
+    });
+    return { is_blocked: res.data?.is_blocked ?? false, message: res.message || 'Status blokir berhasil diubah.' };
+  }
+}
+
+/**
+ * Get paginated user journal media for moderation tab
+ */
+export async function getAdminMediaPaginated(params: {
+  page?: number;
+  per_page?: number;
+  type?: string;
+}): Promise<{ data: ApiAdminMedia[]; pagination?: { current_page: number; last_page: number; per_page: number; total: number } }> {
+  const query = new URLSearchParams();
+  if (params.page) query.set('page', String(params.page));
+  if (params.per_page) query.set('per_page', String(params.per_page));
+  if (params.type && params.type !== 'all') query.set('type', params.type);
+
+  const qs = query.toString() ? `?${query.toString()}` : '';
+  try {
+    const res = await fetchApi<ApiAdminMedia[]>(`/admin/media${qs}`);
+    return { data: res.data || [], pagination: res.pagination };
+  } catch {
+    try {
+      const res = await fetchApi<ApiAdminMedia[]>(`/admin/media-public${qs}`);
+      return { data: res.data || [], pagination: res.pagination };
+    } catch {
+      return { data: [], pagination: undefined };
+    }
+  }
+}
+
+/**
+ * Delete a media item (Admin moderation action)
+ */
+export async function deleteAdminMedia(id: number | string): Promise<boolean> {
+  try {
+    const res = await fetchApi(`/admin/media/${id}`, {
+      method: 'DELETE',
+    });
+    return res.status === 'success';
+  } catch {
+    const res = await fetchApi(`/admin/media-public/${id}`, {
+      method: 'DELETE',
+    });
+    return res.status === 'success';
+  }
+}
+

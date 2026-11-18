@@ -38,6 +38,11 @@ class CheckIn extends Model
         return $this->belongsTo(User::class);
     }
 
+    public function destination(): BelongsTo
+    {
+        return $this->belongsTo(Destination::class);
+    }
+
     public function itinerary(): BelongsTo
     {
         return $this->belongsTo(Itinerary::class);

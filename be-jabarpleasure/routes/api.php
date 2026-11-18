@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\AdminDashboardController;
+use App\Http\Controllers\AdminMediaController;
+use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DestinationController;
 use App\Http\Controllers\ItineraryController;
@@ -120,6 +122,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/admin/destinations', [DestinationController::class, 'store']);
         Route::put('/admin/destinations/{id}', [DestinationController::class, 'adminUpdate']);
         Route::delete('/admin/destinations/{id}', [DestinationController::class, 'adminDestroy']);
+        Route::get('/admin/users', [AdminUserController::class, 'index']);
+        Route::patch('/admin/users/{id}/toggle-block', [AdminUserController::class, 'toggleBlock']);
+        Route::patch('/admin/users/{id}/role', [AdminUserController::class, 'updateRole']);
+        Route::get('/admin/media', [AdminMediaController::class, 'index']);
+        Route::delete('/admin/media/{id}', [AdminMediaController::class, 'destroy']);
     });
 });
 
@@ -129,6 +136,10 @@ Route::get('/admin/destinations-public', [DestinationController::class, 'adminIn
 Route::post('/admin/destinations-public', [DestinationController::class, 'store']);
 Route::put('/admin/destinations-public/{id}', [DestinationController::class, 'adminUpdate']);
 Route::delete('/admin/destinations-public/{id}', [DestinationController::class, 'adminDestroy']);
+Route::get('/admin/users-public', [AdminUserController::class, 'index']);
+Route::patch('/admin/users-public/{id}/toggle-block', [AdminUserController::class, 'toggleBlock']);
+Route::get('/admin/media-public', [AdminMediaController::class, 'index']);
+Route::delete('/admin/media-public/{id}', [AdminMediaController::class, 'destroy']);
 Route::get('/itineraries-public', [ItineraryController::class, 'index']);
 Route::post('/itineraries-public', [ItineraryController::class, 'store']);
 Route::post('/itineraries-public/{id}/complete', [ItineraryController::class, 'complete']);

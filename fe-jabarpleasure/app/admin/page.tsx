@@ -7,6 +7,8 @@ import AdminSidebar, { AdminMenuTab } from '@/components/admin/AdminSidebar';
 import AdminOverview from '@/components/admin/AdminOverview';
 import AdminSubmissionsTab from '@/components/admin/AdminSubmissionsTab';
 import AdminPoiTab from '@/components/admin/AdminPoiTab';
+import AdminUsersTab from '@/components/admin/AdminUsersTab';
+import AdminMediaTab from '@/components/admin/AdminMediaTab';
 import { getAdminSession, removeAdminSession, isAdminAuthenticated } from '@/lib/auth';
 import { Construction } from 'lucide-react';
 
@@ -95,6 +97,10 @@ export default function AdminDashboardPage() {
             <AdminPoiTab />
           ) : activeTab === 'pengajuan' ? (
             <AdminSubmissionsTab />
+          ) : activeTab === 'akun' ? (
+            <AdminUsersTab />
+          ) : activeTab === 'moderasi' ? (
+            <AdminMediaTab />
           ) : (
             <div className="bg-white rounded-2xl border border-gray-100 p-8 sm:p-12 text-center shadow-xs">
               <div className="w-14 h-14 rounded-2xl bg-[#EEF0FF] text-[#4941EC] flex items-center justify-center mx-auto mb-4">
