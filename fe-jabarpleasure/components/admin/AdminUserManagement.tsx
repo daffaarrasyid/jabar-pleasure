@@ -923,16 +923,32 @@ export default function AdminUserManagement() {
                 </tr>
               )}
 
-              {!isLoading && paginatedUsers.length === 0 && (
+              {!isLoading && users.length === 0 && (
                 <tr>
                   <td colSpan={6} className="py-12 text-center text-gray-400">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <Users className="w-8 h-8 stroke-[1.5] text-gray-300" />
                       <p className="text-xs font-semibold text-gray-700">
-                        Tidak ada akun pengguna yang sesuai filter
+                        Belum Ada Data Pengguna
                       </p>
                       <p className="text-[11px] text-gray-400">
-                        Coba sesuaikan kata kunci pencarian atau ubah filter role/status.
+                        Tidak ditemukan akun pengguna yang terdaftar di dalam sistem.
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+              )}
+
+              {!isLoading && users.length > 0 && paginatedUsers.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="py-12 text-center text-gray-400">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <Search className="w-8 h-8 stroke-[1.5] text-gray-300" />
+                      <p className="text-xs font-semibold text-gray-700">
+                        Tidak Ada Akun Pengguna yang Sesuai
+                      </p>
+                      <p className="text-[11px] text-gray-400">
+                        Coba sesuaikan kata kunci pencarian atau ubah filter peranan/status.
                       </p>
                     </div>
                   </td>
@@ -946,10 +962,16 @@ export default function AdminUserManagement() {
         <div className="pt-4 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-500">
           {/* Left: Data display count */}
           <div>
-            Menampilkan{' '}
-            <strong className="text-gray-900 font-semibold">{startItem}</strong> -{' '}
-            <strong className="text-gray-900 font-semibold">{endItem}</strong> dari{' '}
-            <strong className="text-gray-900 font-semibold">{totalItems}</strong> data
+            {totalItems > 0 ? (
+              <span>
+                Menampilkan{' '}
+                <strong className="text-gray-900 font-semibold">{startItem}</strong> -{' '}
+                <strong className="text-gray-900 font-semibold">{endItem}</strong> dari{' '}
+                <strong className="text-gray-900 font-semibold">{totalItems}</strong> akun
+              </span>
+            ) : (
+              <span>Menampilkan 0 akun</span>
+            )}
           </div>
 
           {/* Right: Items per page & page buttons */}

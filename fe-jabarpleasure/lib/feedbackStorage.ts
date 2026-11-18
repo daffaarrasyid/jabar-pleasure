@@ -148,21 +148,20 @@ export const INITIAL_FEEDBACK: UserFeedback[] = [
 const FEEDBACK_STORAGE_KEY = 'jp_user_feedback_list';
 
 export function getStoredFeedback(): UserFeedback[] {
-  if (typeof window === 'undefined') return INITIAL_FEEDBACK;
+  if (typeof window === 'undefined') return [];
   try {
     const raw = localStorage.getItem(FEEDBACK_STORAGE_KEY);
     if (!raw) {
-      localStorage.setItem(FEEDBACK_STORAGE_KEY, JSON.stringify(INITIAL_FEEDBACK));
-      return INITIAL_FEEDBACK;
+      return [];
     }
     const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed) && parsed.length > 0) {
+    if (Array.isArray(parsed)) {
       return parsed;
     }
   } catch {
     // fallback
   }
-  return INITIAL_FEEDBACK;
+  return [];
 }
 
 export function saveFeedback(

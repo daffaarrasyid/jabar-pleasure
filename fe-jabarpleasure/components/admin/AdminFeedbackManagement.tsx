@@ -17,8 +17,9 @@ import {
   Sparkles,
   Paperclip,
   Star,
+  Loader2,
 } from 'lucide-react';
-import { getAdminFeedback, updateAdminFeedbackStatus } from '@/lib/api';
+import { getAdminFeedback } from '@/lib/api';
 import {
   UserFeedback,
   FeedbackCategory,
@@ -769,13 +770,38 @@ export default function AdminFeedbackManagement() {
                 );
               })}
 
-              {paginatedFeedback.length === 0 && (
+              {isLoading && (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center text-gray-400">
+                    <Loader2 className="w-6 h-6 animate-spin text-[#4941EC] mx-auto mb-2" />
+                    <span className="text-xs">Memuat pesan saran & masukan dari database...</span>
+                  </td>
+                </tr>
+              )}
+
+              {!isLoading && feedbackList.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center text-gray-400">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <MessageSquare className="w-8 h-8 stroke-[1.5] text-gray-300" />
+                      <p className="text-xs font-semibold text-gray-700">
+                        Belum Ada Saran & Masukan
+                      </p>
+                      <p className="text-[11px] text-gray-400">
+                        Saat ini belum ada kritik, saran, atau laporan dari pengguna yang tercatat dalam sistem.
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+              )}
+
+              {!isLoading && feedbackList.length > 0 && paginatedFeedback.length === 0 && (
                 <tr>
                   <td colSpan={5} className="py-12 text-center text-gray-400">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <Search className="w-8 h-8 stroke-[1.5] text-gray-300" />
                       <p className="text-xs font-semibold text-gray-700">
-                        Tidak ada pesan saran & masukan yang cocok
+                        Tidak Ada Saran & Masukan yang Sesuai
                       </p>
                       <p className="text-[11px] text-gray-400">
                         Coba sesuaikan kata kunci pencarian atau ubah filter status/kategori.
@@ -792,10 +818,16 @@ export default function AdminFeedbackManagement() {
         <div className="pt-4 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-500">
           {/* Left: Data display count */}
           <div>
-            Menampilkan{' '}
-            <strong className="text-gray-900 font-semibold">{startItem}</strong> -{' '}
-            <strong className="text-gray-900 font-semibold">{endItem}</strong> dari{' '}
-            <strong className="text-gray-900 font-semibold">{totalItems}</strong> data
+            {totalItems > 0 ? (
+              <span>
+                Menampilkan{' '}
+                <strong className="text-gray-900 font-semibold">{startItem}</strong> -{' '}
+                <strong className="text-gray-900 font-semibold">{endItem}</strong> dari{' '}
+                <strong className="text-gray-900 font-semibold">{totalItems}</strong> data
+              </span>
+            ) : (
+              <span>Menampilkan 0 data</span>
+            )}
           </div>
 
           {/* Right: Items per page & page buttons */}

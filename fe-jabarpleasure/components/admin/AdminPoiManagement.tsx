@@ -1069,13 +1069,29 @@ export default function AdminPoiManagement() {
                 </tr>
               )}
 
-              {!isLoading && paginatedPois.length === 0 && (
+              {!isLoading && poiList.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="py-12 text-center text-gray-400">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <MapPin className="w-8 h-8 stroke-[1.5] text-gray-300" />
+                      <p className="text-xs font-semibold text-gray-700">
+                        Belum Ada Data Destinasi
+                      </p>
+                      <p className="text-[11px] text-gray-400">
+                        Belum ada data objek wisata (POI) yang tersimpan dalam database spasial.
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+              )}
+
+              {!isLoading && poiList.length > 0 && paginatedPois.length === 0 && (
                 <tr>
                   <td colSpan={6} className="py-12 text-center text-gray-400">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <Search className="w-8 h-8 stroke-[1.5] text-gray-300" />
                       <p className="text-xs font-semibold text-gray-700">
-                        Tidak ada data POI yang sesuai filter
+                        Tidak Ada Destinasi yang Sesuai
                       </p>
                       <p className="text-[11px] text-gray-400">
                         Coba sesuaikan kata kunci pencarian atau ubah filter kategori/wilayah.

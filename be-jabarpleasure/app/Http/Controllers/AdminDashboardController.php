@@ -37,10 +37,7 @@ class AdminDashboardController extends Controller
         $newUsersThisWeek = User::where('created_at', '>=', $startOfWeek)->count();
 
         // 4. Feedback / Community suggestions count
-        $totalFeedback = PoiSubmission::whereNotNull('admin_note')->count();
-        if ($totalFeedback === 0) {
-            $totalFeedback = 8; // fallback realistic baseline
-        }
+        $totalFeedback = PoiSubmission::whereNotNull('description')->count();
 
         // 5. Category breakdown & click trends (from destinations or user behavior)
         $categories = Category::all();
@@ -226,41 +223,6 @@ class AdminDashboardController extends Controller
                 'created_at' => $sub->created_at?->toISOString() ?? now()->toISOString(),
             ];
         });
-
-        if ($items->isEmpty()) {
-            $items = collect([
-                [
-                    'id' => 1,
-                    'user_name' => 'Fajar Nugraha',
-                    'user_email' => 'fajar.nugraha@gmail.com',
-                    'subject' => 'Penambahan Fitur Filter Fasilitas Ramah Disabilitas',
-                    'message' => 'Mohon tambahkan filter destinasi yang ramah kursi roda di area Lembang dan Ciwidey.',
-                    'category' => 'Aksesibilitas',
-                    'status' => 'Perlu Ditinjau',
-                    'created_at' => now()->subDays(1)->toISOString(),
-                ],
-                [
-                    'id' => 2,
-                    'user_name' => 'Siti Rahma',
-                    'user_email' => 'siti.rahma@gmail.com',
-                    'subject' => 'Pembaruan Jam Operasional Curug Cimahi',
-                    'message' => 'Saat ini Curug Cimahi tutup setiap hari Senin untuk perawatan rutin.',
-                    'category' => 'Informasi Destinasi',
-                    'status' => 'Ditanggapi',
-                    'created_at' => now()->subDays(3)->toISOString(),
-                ],
-                [
-                    'id' => 3,
-                    'user_name' => 'Budi Santoso',
-                    'user_email' => 'budi.santoso@gmail.com',
-                    'subject' => 'Koreksi Titik Koordinat Dusun Bambu',
-                    'message' => 'Titik masuk gerbang utama agak bergeser sekitar 150 meter ke arah barat.',
-                    'category' => 'Peta Spasial',
-                    'status' => 'Selesai',
-                    'created_at' => now()->subDays(5)->toISOString(),
-                ],
-            ]);
-        }
 
         return response()->json([
             'status' => 'success',

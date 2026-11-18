@@ -870,13 +870,29 @@ export default function AdminMediaModeration() {
                 </tr>
               )}
 
-              {!isLoading && paginatedTrips.length === 0 && (
+              {!isLoading && tripList.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="py-12 text-center text-gray-400">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <CheckCircle2 className="w-8 h-8 stroke-[1.5] text-emerald-500" />
+                      <p className="text-xs font-semibold text-gray-700">
+                        Tidak Ada Media yang Perlu Dimoderasi
+                      </p>
+                      <p className="text-[11px] text-gray-400">
+                        Seluruh berkas dokumentasi perjalanan pengguna telah bersih dan sesuai pedoman komunitas.
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+              )}
+
+              {!isLoading && tripList.length > 0 && paginatedTrips.length === 0 && (
                 <tr>
                   <td colSpan={6} className="py-12 text-center text-gray-400">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <Search className="w-8 h-8 stroke-[1.5] text-gray-300" />
                       <p className="text-xs font-semibold text-gray-700">
-                        Tidak ada data perjalanan yang cocok
+                        Tidak Ada Perjalanan yang Sesuai Filter
                       </p>
                       <p className="text-[11px] text-gray-400">
                         Coba sesuaikan kata kunci pencarian atau ubah filter status moderasi.

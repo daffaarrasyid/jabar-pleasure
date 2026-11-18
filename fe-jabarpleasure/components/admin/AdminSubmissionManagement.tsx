@@ -912,13 +912,29 @@ export default function AdminSubmissionManagement() {
                 </tr>
               )}
 
-              {!isLoading && paginatedSubmissions.length === 0 && (
+              {!isLoading && submissions.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="py-12 text-center text-gray-400">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <CheckCircle2 className="w-8 h-8 stroke-[1.5] text-emerald-500" />
+                      <p className="text-xs font-semibold text-gray-700">
+                        Semua Pengajuan Telah Selesai Ditinjau
+                      </p>
+                      <p className="text-[11px] text-gray-400">
+                        Saat ini tidak ada antrean pengajuan tempat baru dari pengguna yang perlu diverifikasi.
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+              )}
+
+              {!isLoading && submissions.length > 0 && paginatedSubmissions.length === 0 && (
                 <tr>
                   <td colSpan={6} className="py-12 text-center text-gray-400">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <Search className="w-8 h-8 stroke-[1.5] text-gray-300" />
                       <p className="text-xs font-semibold text-gray-700">
-                        Tidak ada antrean pengajuan yang sesuai filter
+                        Tidak Ada Pengajuan yang Sesuai Filter
                       </p>
                       <p className="text-[11px] text-gray-400">
                         Coba sesuaikan kata kunci pencarian atau ubah filter status/metode.

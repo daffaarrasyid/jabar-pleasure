@@ -597,9 +597,13 @@ export default function AdminOverview() {
                       <tr>
                         <td
                           colSpan={5}
-                          className="py-8 text-center text-xs text-gray-400"
+                          className="py-10 text-center text-xs text-gray-400"
                         >
-                          Semua antrean pengajuan telah selesai diverifikasi.
+                          <div className="flex flex-col items-center justify-center gap-1.5">
+                            <CheckCircle className="w-6 h-6 text-emerald-500 stroke-[1.5]" />
+                            <span className="font-semibold text-gray-700">Semua Pengajuan Telah Selesai Ditinjau</span>
+                            <span className="text-[11px] text-gray-400">Tidak ada antrean pengajuan POI baru dari pengguna saat ini.</span>
+                          </div>
                         </td>
                       </tr>
                     )}
@@ -693,6 +697,13 @@ export default function AdminOverview() {
                       </td>
                     </tr>
                   ))}
+                  {spatialRegions.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="py-8 text-center text-xs text-gray-400">
+                        Belum ada data ekspos spasial kabupaten/kota yang tercatat.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -771,6 +782,12 @@ export default function AdminOverview() {
                   </div>
                 </div>
               ))}
+
+              {liveLogs.length === 0 && (
+                <div className="py-8 text-center text-xs text-gray-400">
+                  Belum ada aktivitas komunitas pengguna terkini.
+                </div>
+              )}
             </div>
           </div>
 
