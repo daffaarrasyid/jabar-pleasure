@@ -938,3 +938,39 @@ export async function deleteAdminMedia(id: number | string): Promise<boolean> {
   }
 }
 
+export interface ApiAdminFeedback {
+  id: number;
+  user_name: string;
+  user_email: string;
+  subject: string;
+  message: string;
+  category: string;
+  status: string;
+  created_at: string;
+}
+
+/**
+ * Get feedback and suggestions for admin feedback tab
+ */
+export async function getAdminFeedbacksPaginated(params: {
+  page?: number;
+  per_page?: number;
+}): Promise<{ data: ApiAdminFeedback[]; pagination?: { current_page: number; last_page: number; per_page: number; total: number } }> {
+  const query = new URLSearchParams();
+  if (params.page) query.set('page', String(params.page));
+  if (params.per_page) query.set('per_page', String(params.per_page));
+
+  const qs = query.toString() ? `?${query.toString()}` : '';
+  try {
+    const res = await fetchApi<ApiAdminFeedback[]>(`/admin/feedbacks${qs}`);
+    return { data: res.data || [], pagination: res.pagination };
+  } catch {
+    try {
+      const res = await fetchApi<ApiAdminFeedback[]>(`/admin/feedbacks-public${qs}`);
+      return { data: res.data || [], pagination: res.pagination };
+    } catch {
+      return { data: [], pagination: undefined };
+    }
+  }
+}
+

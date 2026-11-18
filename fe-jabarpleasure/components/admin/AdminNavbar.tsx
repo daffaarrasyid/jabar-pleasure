@@ -5,15 +5,19 @@ import { Search, Bell, LogOut, Menu } from 'lucide-react';
 
 interface AdminNavbarProps {
   adminName?: string;
+  pendingCount?: number;
   onLogout?: () => void;
   onToggleSidebar?: () => void;
+  onOpenPending?: () => void;
   className?: string;
 }
 
 export default function AdminNavbar({
   adminName = 'Admin123',
+  pendingCount = 0,
   onLogout,
   onToggleSidebar,
+  onOpenPending,
   className = '',
 }: AdminNavbarProps) {
   return (
@@ -45,14 +49,21 @@ export default function AdminNavbar({
 
       {/* Right: Notification Bell + Admin Profile + Logout */}
       <div className="flex items-center gap-4 sm:gap-6 shrink-0">
-        {/* Notification Bell with red badge */}
+        {/* Notification Bell with badge */}
         <button
           type="button"
+          onClick={onOpenPending}
           className="relative p-1.5 text-gray-500 hover:text-gray-800 transition-colors cursor-pointer"
-          title="Notifikasi"
+          title={pendingCount > 0 ? `${pendingCount} pengajuan memerlukan validasi` : 'Notifikasi Admin'}
         >
           <Bell className="w-5 h-5" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-500 ring-2 ring-white" />
+          {pendingCount > 0 ? (
+            <span className="absolute -top-1 -right-1 px-1.5 py-0.2 rounded-full bg-red-500 text-white text-[9px] font-bold ring-2 ring-white animate-pulse">
+              {pendingCount}
+            </span>
+          ) : (
+            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-white" />
+          )}
         </button>
 
         {/* Admin Profile Chip */}

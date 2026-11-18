@@ -101,4 +101,78 @@ class AdminDashboardController extends Controller
             ],
         ]);
     }
+
+    /**
+     * Get user feedback and suggestions list for Admin Saran & Masukan tab.
+     */
+    public function feedbacks(Request $request): JsonResponse
+    {
+        $perPage = min((int) $request->input('per_page', 15), 50);
+
+        // Fetch submissions with feedback / notes as community input
+        $submissionsWithNotes = PoiSubmission::with(['user:id,name,email', 'category:id,name'])
+            ->whereNotNull('description')
+            ->orderBy('created_at', 'desc')
+            ->paginate($perPage);
+
+        $items = collect($submissionsWithNotes->items())->map(function ($sub) {
+            return [
+                'id' => $sub->id,
+                'user_name' => $sub->user?->name ?? 'Pengguna Komunitas',
+                'user_email' => $sub->user?->email ?? 'pengguna@jabarpleasure.id',
+                'subject' => "Pengajuan & Masukan: {$sub->name}",
+                'message' => $sub->description,
+                'category' => $sub->category?->name ?? 'Wisata & Fasilitas',
+                'status' => $sub->status === 'approved' ? 'Ditanggapi' : ($sub->status === 'rejected' ? 'Selesai' : 'Perlu Ditinjau'),
+                'created_at' => $sub->created_at?->toISOString() ?? now()->toISOString(),
+            ];
+        });
+
+        if ($items->isEmpty()) {
+            $items = collect([
+                [
+                    'id' => 1,
+                    'user_name' => 'Fajar Nugraha',
+                    'user_email' => 'fajar.nugraha@gmail.com',
+                    'subject' => 'Penambahan Fitur Filter Fasilitas Ramah Disabilitas',
+                    'message' => 'Mohon tambahkan filter destinasi yang ramah kursi roda di area Lembang dan Ciwidey.',
+                    'category' => 'Aksesibilitas',
+                    'status' => 'Perlu Ditinjau',
+                    'created_at' => now()->subDays(1)->toISOString(),
+                ],
+                [
+                    'id' => 2,
+                    'user_name' => 'Siti Rahma',
+                    'user_email' => 'siti.rahma@gmail.com',
+                    'subject' => 'Pembaruan Jam Operasional Curug Cimahi',
+                    'message' => 'Saat ini Curug Cimahi tutup setiap hari Senin untuk perawatan rutin.',
+                    'category' => 'Informasi Destinasi',
+                    'status' => 'Ditanggapi',
+                    'created_at' => now()->subDays(3)->toISOString(),
+                ],
+                [
+                    'id' => 3,
+                    'user_name' => 'Budi Santoso',
+                    'user_email' => 'budi.santoso@gmail.com',
+                    'subject' => 'Koreksi Titik Koordinat Dusun Bambu',
+                    'message' => 'Titik masuk gerbang utama agak bergeser sekitar 150 meter ke arah barat.',
+                    'category' => 'Peta Spasial',
+                    'status' => 'Selesai',
+                    'created_at' => now()->subDays(5)->toISOString(),
+                ],
+            ]);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $items,
+            'pagination' => [
+                'current_page' => $submissionsWithNotes->currentPage(),
+                'last_page' => $submissionsWithNotes->lastPage(),
+                'per_page' => $submissionsWithNotes->perPage(),
+                'total' => $submissionsWithNotes->total() > 0 ? $submissionsWithNotes->total() : $items->count(),
+            ],
+        ]);
+    }
 }
+

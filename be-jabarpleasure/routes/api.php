@@ -115,6 +115,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::middleware('admin')->group(function () {
         Route::get('/admin/metrics', [AdminDashboardController::class, 'metrics']);
+        Route::get('/admin/feedbacks', [AdminDashboardController::class, 'feedbacks']);
         Route::get('/admin/submissions', [PoiSubmissionController::class, 'index']);
         Route::post('/admin/submissions/{id}/approve', [PoiSubmissionController::class, 'approve']);
         Route::post('/admin/submissions/{id}/reject', [PoiSubmissionController::class, 'reject']);
@@ -132,6 +133,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
 // Direct fallback routes for development or token recovery
 Route::get('/admin/metrics-public', [AdminDashboardController::class, 'metrics']);
+Route::get('/admin/feedbacks-public', [AdminDashboardController::class, 'feedbacks']);
 Route::get('/admin/destinations-public', [DestinationController::class, 'adminIndex']);
 Route::post('/admin/destinations-public', [DestinationController::class, 'store']);
 Route::put('/admin/destinations-public/{id}', [DestinationController::class, 'adminUpdate']);

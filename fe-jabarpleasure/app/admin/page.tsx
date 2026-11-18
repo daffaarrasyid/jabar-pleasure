@@ -9,8 +9,9 @@ import AdminSubmissionsTab from '@/components/admin/AdminSubmissionsTab';
 import AdminPoiTab from '@/components/admin/AdminPoiTab';
 import AdminUsersTab from '@/components/admin/AdminUsersTab';
 import AdminMediaTab from '@/components/admin/AdminMediaTab';
+import AdminFeedbackTab from '@/components/admin/AdminFeedbackTab';
 import { getAdminSession, removeAdminSession, isAdminAuthenticated } from '@/lib/auth';
-import { Construction } from 'lucide-react';
+import { getAdminOverviewMetrics } from '@/lib/api';
 
 export default function AdminDashboardPage() {
   const router = useRouter();
@@ -28,6 +29,8 @@ export default function AdminDashboardPage() {
 
   const [activeTab, setActiveTab] = useState<AdminMenuTab>('overview');
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [pendingCount, setPendingCount] = useState<number>(0);
+
   const [isAuthenticated] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
       return isAdminAuthenticated();
@@ -40,6 +43,15 @@ export default function AdminDashboardPage() {
       router.replace('/admin/login');
     }
   }, [router]);
+
+  // Fetch pending count for notification badge
+  useEffect(() => {
+    getAdminOverviewMetrics().then((metrics) => {
+      if (metrics?.kpi?.pending_submissions?.value !== undefined) {
+        setPendingCount(metrics.kpi.pending_submissions.value);
+      }
+    }).catch(() => null);
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -86,41 +98,19 @@ export default function AdminDashboardPage() {
           {/* Top Floating Admin Navbar */}
           <AdminNavbar
             adminName={adminName}
+            pendingCount={pendingCount}
             onLogout={handleLogout}
             onToggleSidebar={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
+            onOpenPending={() => setActiveTab('pengajuan')}
           />
 
-          {/* Tab Content */}
-          {activeTab === 'overview' ? (
-            <AdminOverview />
-          ) : activeTab === 'poi' ? (
-            <AdminPoiTab />
-          ) : activeTab === 'pengajuan' ? (
-            <AdminSubmissionsTab />
-          ) : activeTab === 'akun' ? (
-            <AdminUsersTab />
-          ) : activeTab === 'moderasi' ? (
-            <AdminMediaTab />
-          ) : (
-            <div className="bg-white rounded-2xl border border-gray-100 p-8 sm:p-12 text-center shadow-xs">
-              <div className="w-14 h-14 rounded-2xl bg-[#EEF0FF] text-[#4941EC] flex items-center justify-center mx-auto mb-4">
-                <Construction className="w-7 h-7" />
-              </div>
-              <h2 className="text-base sm:text-lg font-bold text-gray-900 tracking-tight">
-                Menu {activeTab.toUpperCase()} Sedang Dipersiapkan
-              </h2>
-              <p className="text-xs sm:text-sm text-gray-500 mt-1.5 max-w-md mx-auto">
-                Halaman ini difokuskan pada tahap tampilan antarmuka (frontend). Anda dapat kembali ke menu Overview & Analitik.
-              </p>
-              <button
-                type="button"
-                onClick={() => setActiveTab('overview')}
-                className="mt-6 px-4 py-2 bg-[#4941EC] hover:bg-[#3C35C7] text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer"
-              >
-                Kembali ke Overview & Analitik
-              </button>
-            </div>
-          )}
+          {/* Dynamic Tab Content */}
+          {activeTab === 'overview' && <AdminOverview />}
+          {activeTab === 'poi' && <AdminPoiTab />}
+          {activeTab === 'pengajuan' && <AdminSubmissionsTab />}
+          {activeTab === 'saran' && <AdminFeedbackTab />}
+          {activeTab === 'akun' && <AdminUsersTab />}
+          {activeTab === 'moderasi' && <AdminMediaTab />}
         </div>
       </main>
     </div>
