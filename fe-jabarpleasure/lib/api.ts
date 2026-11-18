@@ -1,4 +1,4 @@
-import { getAuthToken } from './auth';
+import { getAuthToken, getAdminSession } from './auth';
 
 /**
  * Standard API Client for JabarPleasure Backend
@@ -61,7 +61,8 @@ export async function fetchApi<T = any>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<ApiResponse<T>> {
-  const token = getAuthToken();
+  const adminToken = getAdminSession()?.token;
+  const token = adminToken || getAuthToken();
   const headers = new Headers(options.headers || {});
 
   headers.set('Accept', 'application/json');
@@ -622,6 +623,58 @@ export async function rejectSubmission(id: number | string, adminNote?: string):
       body: JSON.stringify({ admin_note: adminNote }),
     });
     return res.data;
+  }
+}
+
+export interface AdminOverviewMetrics {
+  kpi: {
+    total_poi: {
+      value: number;
+      display_value: string;
+      trend_delta: number;
+      trend_label: string;
+    };
+    pending_submissions: {
+      value: number;
+      display_value: string;
+      trend_label: string;
+    };
+    total_users: {
+      value: number;
+      display_value: string;
+      trend_delta: number;
+      trend_label: string;
+    };
+    new_feedback: {
+      value: number;
+      display_value: string;
+      trend_label: string;
+    };
+  };
+  category_trends: Array<{
+    id: number;
+    name: string;
+    slug: string;
+    count: number;
+    percentage: number;
+    color: string;
+  }>;
+}
+
+/**
+ * Fetch overview metrics and analytics for admin dashboard
+ */
+export async function getAdminOverviewMetrics(): Promise<AdminOverviewMetrics | null> {
+  try {
+    const res = await fetchApi<AdminOverviewMetrics>('/admin/metrics');
+    return res.data;
+  } catch {
+    try {
+      const res = await fetchApi<AdminOverviewMetrics>('/admin/metrics-public');
+      return res.data;
+    } catch {
+      return null;
+    }
   }
 }
 

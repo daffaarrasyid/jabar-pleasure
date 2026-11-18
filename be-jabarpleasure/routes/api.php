@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AdminDashboardController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DestinationController;
 use App\Http\Controllers\ItineraryController;
@@ -109,13 +110,18 @@ Route::middleware('auth:sanctum')->group(function () {
     |--------------------------------------------------------------------------
     */
     Route::post('/submissions', [PoiSubmissionController::class, 'store']);
-    Route::get('/admin/submissions', [PoiSubmissionController::class, 'index']);
-    Route::post('/admin/submissions/{id}/approve', [PoiSubmissionController::class, 'approve']);
-    Route::post('/admin/submissions/{id}/reject', [PoiSubmissionController::class, 'reject']);
-    Route::post('/admin/destinations', [DestinationController::class, 'store']);
+
+    Route::middleware('admin')->group(function () {
+        Route::get('/admin/metrics', [AdminDashboardController::class, 'metrics']);
+        Route::get('/admin/submissions', [PoiSubmissionController::class, 'index']);
+        Route::post('/admin/submissions/{id}/approve', [PoiSubmissionController::class, 'approve']);
+        Route::post('/admin/submissions/{id}/reject', [PoiSubmissionController::class, 'reject']);
+        Route::post('/admin/destinations', [DestinationController::class, 'store']);
+    });
 });
 
 // Direct fallback routes for development or token recovery
+Route::get('/admin/metrics-public', [AdminDashboardController::class, 'metrics']);
 Route::get('/itineraries-public', [ItineraryController::class, 'index']);
 Route::post('/itineraries-public', [ItineraryController::class, 'store']);
 Route::post('/itineraries-public/{id}/complete', [ItineraryController::class, 'complete']);
