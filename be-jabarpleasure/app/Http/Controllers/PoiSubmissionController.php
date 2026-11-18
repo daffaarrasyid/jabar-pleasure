@@ -115,8 +115,17 @@ class PoiSubmissionController extends Controller
             'reviewer:id,name',
         ])->withCoordinates();
 
-        if ($status) {
+        if ($status && in_array($status, ['pending', 'approved', 'rejected'])) {
             $query->where('status', $status);
+        }
+
+        if ($search = $request->input('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'ILIKE', "%{$search}%")
+                  ->orWhereHas('user', function ($uq) use ($search) {
+                      $uq->where('name', 'ILIKE', "%{$search}%");
+                  });
+            });
         }
 
         $submissions = $query->orderBy('created_at', 'desc')->paginate($perPage);

@@ -589,6 +589,35 @@ export async function getAdminSubmissions(status?: string): Promise<any[]> {
 }
 
 /**
+ * Get paginated & filtered POI submissions for dedicated admin tab
+ */
+export async function getAdminSubmissionsPaginated(params: {
+  status?: string;
+  search?: string;
+  page?: number;
+  per_page?: number;
+}): Promise<{ data: any[]; pagination?: { current_page: number; last_page: number; per_page: number; total: number } }> {
+  const query = new URLSearchParams();
+  if (params.status && params.status !== 'all') query.set('status', params.status);
+  if (params.search) query.set('search', params.search);
+  if (params.page) query.set('page', String(params.page));
+  if (params.per_page) query.set('per_page', String(params.per_page));
+
+  const qs = query.toString() ? `?${query.toString()}` : '';
+  try {
+    const res = await fetchApi<any[]>(`/admin/submissions${qs}`);
+    return { data: res.data || [], pagination: res.pagination };
+  } catch {
+    try {
+      const res = await fetchApi<any[]>(`/admin/submissions-public${qs}`);
+      return { data: res.data || [], pagination: res.pagination };
+    } catch {
+      return { data: [], pagination: undefined };
+    }
+  }
+}
+
+/**
  * Approve submission (Admin action - triggers confirmation & broadcast notifications)
  */
 export async function approveSubmission(id: number | string, adminNote?: string): Promise<any> {

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import AdminNavbar from '@/components/admin/AdminNavbar';
 import AdminSidebar, { AdminMenuTab } from '@/components/admin/AdminSidebar';
 import AdminOverview from '@/components/admin/AdminOverview';
+import AdminSubmissionsTab from '@/components/admin/AdminSubmissionsTab';
 import { getAdminSession, removeAdminSession, isAdminAuthenticated } from '@/lib/auth';
 import { Construction } from 'lucide-react';
 
@@ -89,6 +90,8 @@ export default function AdminDashboardPage() {
           {/* Tab Content */}
           {activeTab === 'overview' ? (
             <AdminOverview />
+          ) : activeTab === 'pengajuan' ? (
+            <AdminSubmissionsTab />
           ) : (
             <div className="bg-white rounded-2xl border border-gray-100 p-8 sm:p-12 text-center shadow-xs">
               <div className="w-14 h-14 rounded-2xl bg-[#EEF0FF] text-[#4941EC] flex items-center justify-center mx-auto mb-4">
