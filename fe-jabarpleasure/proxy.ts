@@ -2,10 +2,10 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 /**
- * Next.js Auth Guard Middleware
+ * Next.js Auth Guard Proxy
  * Protects all application screens requiring an active authenticated session.
  */
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get('auth_token')?.value;
   const adminToken = request.cookies.get('admin_token')?.value;
@@ -69,4 +69,3 @@ export const config = {
     '/((?!_next/static|_next/image|favicon.ico|api/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };
-
