@@ -16,31 +16,23 @@ import { getAdminOverviewMetrics } from '@/lib/api';
 export default function AdminDashboardPage() {
   const router = useRouter();
 
-  const [adminName] = useState<string>(() => {
-    if (typeof window !== 'undefined') {
-      const session = getAdminSession();
-      const rawName = session?.user?.name;
-      if (typeof rawName === 'string' && rawName) {
-        return rawName === 'admin' ? 'Admin123' : rawName;
-      }
-    }
-    return 'Admin123';
-  });
-
+  const [adminName, setAdminName] = useState<string>('Admin123');
   const [activeTab, setActiveTab] = useState<AdminMenuTab>('overview');
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [pendingCount, setPendingCount] = useState<number>(0);
-
-  const [isAuthenticated] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      return isAdminAuthenticated();
-    }
-    return true;
-  });
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true);
 
   useEffect(() => {
     if (!isAdminAuthenticated()) {
+      setIsAuthenticated(false);
       router.replace('/admin/login');
+      return;
+    }
+
+    const session = getAdminSession();
+    const rawName = session?.user?.name;
+    if (typeof rawName === 'string' && rawName) {
+      setAdminName(rawName === 'admin' ? 'Admin123' : rawName);
     }
   }, [router]);
 

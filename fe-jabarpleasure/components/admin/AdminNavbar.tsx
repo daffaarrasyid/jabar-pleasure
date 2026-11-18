@@ -72,10 +72,14 @@ export default function AdminNavbar({
           <img
             src="/images/admin-avatar.png"
             alt={adminName}
+            suppressHydrationWarning
             className="w-8 h-8 rounded-full object-cover border border-gray-200"
           />
           <div className="hidden sm:flex flex-col text-left">
-            <span className="text-xs font-bold text-gray-900 leading-tight">
+            <span
+              suppressHydrationWarning
+              className="text-xs font-bold text-gray-900 leading-tight"
+            >
               {adminName}
             </span>
             <span className="text-[10px] text-gray-400 leading-tight">
