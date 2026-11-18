@@ -6,6 +6,7 @@ import AdminNavbar from '@/components/admin/AdminNavbar';
 import AdminSidebar, { AdminMenuTab } from '@/components/admin/AdminSidebar';
 import AdminOverview from '@/components/admin/AdminOverview';
 import AdminSubmissionsTab from '@/components/admin/AdminSubmissionsTab';
+import AdminPoiTab from '@/components/admin/AdminPoiTab';
 import { getAdminSession, removeAdminSession, isAdminAuthenticated } from '@/lib/auth';
 import { Construction } from 'lucide-react';
 
@@ -90,6 +91,8 @@ export default function AdminDashboardPage() {
           {/* Tab Content */}
           {activeTab === 'overview' ? (
             <AdminOverview />
+          ) : activeTab === 'poi' ? (
+            <AdminPoiTab />
           ) : activeTab === 'pengajuan' ? (
             <AdminSubmissionsTab />
           ) : (

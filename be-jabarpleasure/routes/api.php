@@ -116,12 +116,19 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/admin/submissions', [PoiSubmissionController::class, 'index']);
         Route::post('/admin/submissions/{id}/approve', [PoiSubmissionController::class, 'approve']);
         Route::post('/admin/submissions/{id}/reject', [PoiSubmissionController::class, 'reject']);
+        Route::get('/admin/destinations', [DestinationController::class, 'adminIndex']);
         Route::post('/admin/destinations', [DestinationController::class, 'store']);
+        Route::put('/admin/destinations/{id}', [DestinationController::class, 'adminUpdate']);
+        Route::delete('/admin/destinations/{id}', [DestinationController::class, 'adminDestroy']);
     });
 });
 
 // Direct fallback routes for development or token recovery
 Route::get('/admin/metrics-public', [AdminDashboardController::class, 'metrics']);
+Route::get('/admin/destinations-public', [DestinationController::class, 'adminIndex']);
+Route::post('/admin/destinations-public', [DestinationController::class, 'store']);
+Route::put('/admin/destinations-public/{id}', [DestinationController::class, 'adminUpdate']);
+Route::delete('/admin/destinations-public/{id}', [DestinationController::class, 'adminDestroy']);
 Route::get('/itineraries-public', [ItineraryController::class, 'index']);
 Route::post('/itineraries-public', [ItineraryController::class, 'store']);
 Route::post('/itineraries-public/{id}/complete', [ItineraryController::class, 'complete']);

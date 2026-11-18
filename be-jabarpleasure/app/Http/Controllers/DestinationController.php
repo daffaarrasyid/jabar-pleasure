@@ -355,5 +355,132 @@ class DestinationController extends Controller
             'data' => $destination->load(['category', 'regency']),
         ], 201);
     }
+
+    /**
+     * Admin index: List destinations with pagination, category/regency filter, and keyword search.
+     */
+    public function adminIndex(Request $request): JsonResponse
+    {
+        $perPage = min((int) $request->input('per_page', 15), 50);
+        $search = $request->input('search');
+        $categoryId = $request->input('category_id');
+        $regencyId = $request->input('regency_id');
+
+        $query = Destination::withCoordinates()
+            ->with(['category:id,name,slug', 'regency:id,name']);
+
+        if ($search) {
+            $query->search($search);
+        }
+
+        if ($categoryId && $categoryId !== 'all') {
+            $query->where('category_id', $categoryId);
+        }
+
+        if ($regencyId && $regencyId !== 'all') {
+            $query->where('regency_id', $regencyId);
+        }
+
+        $destinations = $query->orderBy('id', 'desc')->paginate($perPage);
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $destinations->items(),
+            'pagination' => [
+                'current_page' => $destinations->currentPage(),
+                'last_page' => $destinations->lastPage(),
+                'per_page' => $destinations->perPage(),
+                'total' => $destinations->total(),
+            ],
+        ]);
+    }
+
+    /**
+     * Admin update: Update an existing destination.
+     */
+    public function adminUpdate(Request $request, int|string $id): JsonResponse
+    {
+        $destination = Destination::find($id);
+        if (!$destination) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Destinasi wisata tidak ditemukan.',
+            ], 404);
+        }
+
+        $validated = $request->validate([
+            'name' => 'sometimes|required|string|max:200',
+            'category_id' => 'sometimes|required|integer|exists:categories,id',
+            'regency_id' => 'nullable|integer|exists:regencies_cities,id',
+            'description' => 'nullable|string',
+            'address' => 'nullable|string',
+            'price_range' => 'nullable|string|max:50',
+            'opening_hours' => 'nullable|string|max:100',
+            'latitude' => 'nullable|numeric|between:-11.0,6.0',
+            'longitude' => 'nullable|numeric|between:95.0,141.0',
+            'cover_image' => 'nullable|string|max:255',
+        ]);
+
+        if (isset($validated['name'])) {
+            $destination->name = $validated['name'];
+        }
+        if (isset($validated['category_id'])) {
+            $destination->category_id = $validated['category_id'];
+        }
+        if (array_key_exists('regency_id', $validated)) {
+            $destination->regency_id = $validated['regency_id'];
+        }
+        if (array_key_exists('description', $validated)) {
+            $destination->description = $validated['description'];
+        }
+        if (array_key_exists('address', $validated)) {
+            $destination->address = $validated['address'];
+        }
+        if (array_key_exists('price_range', $validated)) {
+            $destination->price_range = $validated['price_range'];
+        }
+        if (array_key_exists('opening_hours', $validated)) {
+            $destination->opening_hours = $validated['opening_hours'];
+        }
+        if (array_key_exists('cover_image', $validated)) {
+            $destination->cover_image = $validated['cover_image'];
+        }
+
+        if (isset($validated['latitude']) && isset($validated['longitude'])) {
+            $lng = (float) $validated['longitude'];
+            $lat = (float) $validated['latitude'];
+            $destination->location = DB::raw("ST_SetSRID(ST_MakePoint({$lng}, {$lat}), 4326)");
+        }
+
+        $destination->save();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => "Destinasi '{$destination->name}' berhasil diperbarui.",
+            'data' => Destination::withCoordinates()->with(['category', 'regency'])->find($destination->id),
+        ]);
+    }
+
+    /**
+     * Admin destroy: Delete a destination.
+     */
+    public function adminDestroy(int|string $id): JsonResponse
+    {
+        $destination = Destination::find($id);
+        if (!$destination) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Destinasi wisata tidak ditemukan.',
+            ], 404);
+        }
+
+        $name = $destination->name;
+        $destination->delete();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => "Destinasi '{$name}' berhasil dihapus.",
+        ]);
+    }
 }
 

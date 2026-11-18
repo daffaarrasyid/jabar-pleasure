@@ -707,3 +707,114 @@ export async function getAdminOverviewMetrics(): Promise<AdminOverviewMetrics | 
   }
 }
 
+/**
+ * Get paginated destinations for admin POI tab
+ */
+export async function getAdminDestinationsPaginated(params: {
+  page?: number;
+  per_page?: number;
+  search?: string;
+  category_id?: number | string;
+  regency_id?: number | string;
+}): Promise<{ data: ApiDestination[]; pagination?: { current_page: number; last_page: number; per_page: number; total: number } }> {
+  const query = new URLSearchParams();
+  if (params.page) query.set('page', String(params.page));
+  if (params.per_page) query.set('per_page', String(params.per_page));
+  if (params.search) query.set('search', params.search);
+  if (params.category_id && params.category_id !== 'all') query.set('category_id', String(params.category_id));
+  if (params.regency_id && params.regency_id !== 'all') query.set('regency_id', String(params.regency_id));
+
+  const qs = query.toString() ? `?${query.toString()}` : '';
+  try {
+    const res = await fetchApi<ApiDestination[]>(`/admin/destinations${qs}`);
+    return { data: res.data || [], pagination: res.pagination };
+  } catch {
+    try {
+      const res = await fetchApi<ApiDestination[]>(`/admin/destinations-public${qs}`);
+      return { data: res.data || [], pagination: res.pagination };
+    } catch {
+      return { data: [], pagination: undefined };
+    }
+  }
+}
+
+/**
+ * Create a new destination (Admin action)
+ */
+export async function createAdminDestination(payload: {
+  name: string;
+  category_id: number;
+  regency_id?: number;
+  description?: string;
+  address?: string;
+  price_range?: string;
+  opening_hours?: string;
+  latitude: number;
+  longitude: number;
+  cover_image?: string;
+}): Promise<ApiDestination> {
+  try {
+    const res = await fetchApi<ApiDestination>('/admin/destinations', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return res.data;
+  } catch {
+    const res = await fetchApi<ApiDestination>('/admin/destinations-public', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return res.data;
+  }
+}
+
+/**
+ * Update an existing destination (Admin action)
+ */
+export async function updateAdminDestination(
+  id: number | string,
+  payload: Partial<{
+    name: string;
+    category_id: number;
+    regency_id?: number;
+    description?: string;
+    address?: string;
+    price_range?: string;
+    opening_hours?: string;
+    latitude: number;
+    longitude: number;
+    cover_image?: string;
+  }>
+): Promise<ApiDestination> {
+  try {
+    const res = await fetchApi<ApiDestination>(`/admin/destinations/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+    return res.data;
+  } catch {
+    const res = await fetchApi<ApiDestination>(`/admin/destinations-public/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+    return res.data;
+  }
+}
+
+/**
+ * Delete a destination (Admin action)
+ */
+export async function deleteAdminDestination(id: number | string): Promise<boolean> {
+  try {
+    const res = await fetchApi(`/admin/destinations/${id}`, {
+      method: 'DELETE',
+    });
+    return res.status === 'success';
+  } catch {
+    const res = await fetchApi(`/admin/destinations-public/${id}`, {
+      method: 'DELETE',
+    });
+    return res.status === 'success';
+  }
+}
+
