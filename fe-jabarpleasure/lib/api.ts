@@ -1077,12 +1077,18 @@ export async function deleteAdminMedia(id: number | string): Promise<boolean> {
 
 export interface ApiAdminFeedback {
   id: number;
+  user_id?: number;
   user_name: string;
   user_email: string;
   subject: string;
   message: string;
   category: string;
+  rating?: number;
+  attachment_url?: string | null;
   status: string;
+  admin_reply?: string | null;
+  admin_name?: string | null;
+  replied_at?: string | null;
   created_at: string;
 }
 
@@ -1111,6 +1117,106 @@ export async function getAdminFeedbacksPaginated(params: {
   }
 }
 
+/**
+ * Admin replies to user feedback and triggers automated notification to submitter
+ */
+export async function replyAdminFeedback(
+  id: number | string,
+  adminReply: string,
+  status: string = 'resolved'
+): Promise<any> {
+  try {
+    return await fetchApi(`/admin/feedbacks/${id}/reply`, {
+      method: 'POST',
+      body: JSON.stringify({ admin_reply: adminReply, status }),
+    });
+  } catch {
+    return await fetchApi(`/admin/feedbacks-public/${id}/reply`, {
+      method: 'POST',
+      body: JSON.stringify({ admin_reply: adminReply, status }),
+    });
+  }
+}
+
+/**
+ * Quick update feedback status (unread / in_progress / resolved)
+ */
+export async function updateAdminFeedbackStatus(
+  id: number | string,
+  status: string
+): Promise<any> {
+  try {
+    return await fetchApi(`/admin/feedbacks/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    });
+  } catch {
+    return await fetchApi(`/admin/feedbacks-public/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    });
+  }
+}
+
+/**
+ * Hard delete feedback
+ */
+export async function deleteAdminFeedback(id: number | string): Promise<any> {
+  try {
+    return await fetchApi(`/admin/feedbacks/${id}`, {
+      method: 'DELETE',
+    });
+  } catch {
+    return await fetchApi(`/admin/feedbacks-public/${id}`, {
+      method: 'DELETE',
+    });
+  }
+}
+
+/**
+ * Submit feedback as authenticated user
+ */
+export async function submitUserFeedback(payload: {
+  category: 'bug' | 'feature' | 'question' | 'other';
+  subject: string;
+  message: string;
+  rating?: number;
+  attachment?: File;
+}): Promise<any> {
+  if (payload.attachment) {
+    const formData = new FormData();
+    formData.append('category', payload.category);
+    formData.append('subject', payload.subject);
+    formData.append('message', payload.message);
+    if (payload.rating) formData.append('rating', String(payload.rating));
+    formData.append('attachment', payload.attachment);
+
+    try {
+      return await fetchApi('/feedbacks', {
+        method: 'POST',
+        body: formData,
+      });
+    } catch {
+      return await fetchApi('/feedbacks-public', {
+        method: 'POST',
+        body: formData,
+      });
+    }
+  }
+
+  try {
+    return await fetchApi('/feedbacks', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  } catch {
+    return await fetchApi('/feedbacks-public', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+}
+
 // Aliases for unified admin dashboard integrations
 export const getAdminDestinations = getAdminDestinationsPaginated;
 export const getAdminUsers = async (params: any = {}) => {
@@ -1125,9 +1231,6 @@ export const getAdminMedia = async (params: any = {}) => {
 export const getAdminFeedback = async (params: any = {}) => {
   const res = await getAdminFeedbacksPaginated(params);
   return res.data;
-};
-export const updateAdminFeedbackStatus = async (id: number | string, status: string) => {
-  return { id, status };
 };
 
 

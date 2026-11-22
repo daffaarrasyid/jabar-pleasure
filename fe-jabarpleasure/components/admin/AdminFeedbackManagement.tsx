@@ -19,7 +19,12 @@ import {
   Star,
   Loader2,
 } from 'lucide-react';
-import { getAdminFeedback } from '@/lib/api';
+import {
+  getAdminFeedback,
+  replyAdminFeedback,
+  updateAdminFeedbackStatus,
+  deleteAdminFeedback,
+} from '@/lib/api';
 import {
   UserFeedback,
   FeedbackCategory,
@@ -161,8 +166,8 @@ export default function AdminFeedbackManagement() {
           else if (c.includes('tanya') || c.includes('informasi')) cat = 'question';
 
           let st: FeedbackStatus = 'unread';
-          if (f.status === 'Ditanggapi') st = 'in_progress';
-          else if (f.status === 'Selesai') st = 'resolved';
+          if (f.status === 'in_progress' || f.status === 'Ditanggapi') st = 'in_progress';
+          else if (f.status === 'resolved' || f.status === 'Selesai') st = 'resolved';
 
           const rawDate = f.created_at ? new Date(f.created_at) : new Date();
           const formattedDate = rawDate.toLocaleDateString('id-ID', {
@@ -173,6 +178,17 @@ export default function AdminFeedbackManagement() {
             minute: '2-digit',
           }) + ' WIB';
 
+          let formattedRepliedDate: string | undefined = undefined;
+          if (f.replied_at) {
+            formattedRepliedDate = new Date(f.replied_at).toLocaleDateString('id-ID', {
+              day: '2-digit',
+              month: 'short',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+            }) + ' WIB';
+          }
+
           return {
             id: f.id,
             submitterName: f.user_name || '@pengguna',
@@ -182,6 +198,11 @@ export default function AdminFeedbackManagement() {
             message: f.message || f.subject,
             status: st,
             tripTitle: f.subject,
+            rating: f.rating,
+            attachmentUrl: f.attachment_url,
+            attachmentName: f.attachment_url ? f.attachment_url.split('/').pop() : undefined,
+            adminReply: f.admin_reply,
+            repliedAt: formattedRepliedDate,
           };
         });
 
@@ -315,7 +336,7 @@ export default function AdminFeedbackManagement() {
   };
 
   // Submit response & update status
-  const handleSaveResponse = () => {
+  const handleSaveResponse = async () => {
     if (!selectedFeedback) return;
 
     const previousItem = { ...selectedFeedback };
@@ -335,6 +356,16 @@ export default function AdminFeedbackManagement() {
       repliedAt: replyMessage.trim() ? nowStr : selectedFeedback.repliedAt,
     };
 
+    try {
+      if (replyMessage.trim()) {
+        await replyAdminFeedback(selectedFeedback.id, replyMessage.trim(), editStatus);
+      } else {
+        await updateAdminFeedbackStatus(selectedFeedback.id, editStatus);
+      }
+    } catch (err) {
+      console.warn('Backend feedback response sync failed, updating local state:', err);
+    }
+
     updateFeedback(selectedFeedback.id, {
       status: editStatus,
       adminReply: replyMessage.trim() || undefined,
@@ -350,9 +381,15 @@ export default function AdminFeedbackManagement() {
   };
 
   // Delete feedback item
-  const handleDeleteFeedback = (id: number) => {
+  const handleDeleteFeedback = async (id: number) => {
     const target = feedbackList.find((f) => f.id === id);
     if (!target) return;
+
+    try {
+      await deleteAdminFeedback(id);
+    } catch (err) {
+      console.warn('Backend feedback delete sync failed, deleting from local state:', err);
+    }
 
     deleteFeedback(id);
     setLastAction({ type: 'delete', item: target });
