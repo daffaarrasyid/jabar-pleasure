@@ -23,127 +23,20 @@ export interface UserFeedback {
   tripTitle?: string; // optional trip context
 }
 
-export const INITIAL_FEEDBACK: UserFeedback[] = [
-  {
-    id: 1,
-    submitterName: '@julyandre',
-    submitterEmail: 'julyandre@example.com',
-    category: 'bug',
-    date: '12/10/2026, 14:30 WIB',
-    message:
-      'Peta tidak merender marker saat koneksi lambat di Lembang. Mohon diperbaiki optimasi loading tile layer Leaflet.js nya agar peta tidak blank.',
-    attachmentName: 'Tangkapan_Layar_Bug.jpg',
-    status: 'unread',
-    adminReply:
-      'Terima kasih atas laporannya! Tim developer sedang mengoptimalkan kueri spasial dan caching tile peta agar lebih ringan di koneksi lambat.',
-  },
-  {
-    id: 2,
-    submitterName: '@daffa_dev',
-    submitterEmail: 'daffa_dev@example.com',
-    category: 'feature',
-    date: '11/10/2026, 16:45 WIB',
-    message:
-      'Mohon tambahkan filter khusus jalur rute sepeda dan tracking elevasi kontur perbukitan Jawa Barat di menu Itinerary.',
-    attachmentName: 'Usulan_Fitur_Sepeda.png',
-    status: 'in_progress',
-    adminReply:
-      'Usulan menarik! Tim GIS sedang mengkaji integrasi layer kontur SRTM dan kurasi jalur rute gowes populer Bandung Raya.',
-  },
-  {
-    id: 3,
-    submitterName: '@rifaldi_pm',
-    submitterEmail: 'rifaldi_pm@example.com',
-    category: 'question',
-    date: '10/10/2026, 10:15 WIB',
-    message:
-      'Bagaimana cara memperbarui data destinasi yang sudah di-approve oleh admin jika jam operasional tempatnya berubah?',
-    status: 'resolved',
-    adminReply:
-      'Halo! Pengguna dapat mengajukan pembaruan informasi melalui tombol "Laporkan Perubahan Info" pada halaman detail destinasi publik.',
-    repliedAt: '10/10/2026, 11:30 WIB',
-  },
-  {
-    id: 4,
-    submitterName: '@bintang_gis',
-    submitterEmail: 'bintang_gis@example.com',
-    category: 'bug',
-    date: '09/10/2026, 08:20 WIB',
-    message:
-      'Bottom sheet detail destinasi di layar iPhone 13 mini terkadang tertutup oleh bilah navigasi bawah saat mode landscape.',
-    attachmentName: 'Screen_Landscape_Issue.jpg',
-    status: 'resolved',
-    adminReply:
-      'Masalah safe-area-inset-bottom telah diperbaiki pada pembaruan tata letak antarmuka mobile v2.4.',
-    repliedAt: '09/10/2026, 09:15 WIB',
-  },
-  {
-    id: 5,
-    submitterName: '@citra_lestari',
-    submitterEmail: 'citra.lestari@example.com',
-    category: 'feature',
-    date: '08/10/2026, 13:40 WIB',
-    message:
-      'Apakah bisa ditambahkan fitur export daftar rencana perjalanan ke format PDF ringkas atau kalender iCal agar mudah dibagikan ke teman grup wisata?',
-    status: 'unread',
-  },
-  {
-    id: 6,
-    submitterName: '@eko_prasetyo',
-    submitterEmail: 'eko.p@example.com',
-    category: 'question',
-    date: '07/10/2026, 17:05 WIB',
-    message:
-      'Apakah aplikasi JabarPleasure sudah mendukung unduh peta offline ketika kami sedang berkunjung ke area blank spot di Ciwidey bagian selatan?',
-    status: 'unread',
-  },
-  {
-    id: 7,
-    submitterName: '@maya_safitri',
-    submitterEmail: 'maya.s@example.com',
-    category: 'bug',
-    date: '06/10/2026, 11:12 WIB',
-    message:
-      'GPS geolocation di browser Chrome seluler meminta izin berulang kali setiap kali halaman peta utama di-refresh.',
-    status: 'unread',
-  },
-  {
-    id: 8,
-    submitterName: '@hendra_wicaksono',
-    submitterEmail: 'hendra.w@example.com',
-    category: 'feature',
-    date: '05/10/2026, 19:30 WIB',
-    message:
-      'Saran untuk menambahkan filter ramah disabilitas dan fasilitas kursi roda pada POI destinasi wisata ramah keluarga.',
-    attachmentName: 'Saran_Fasilitas_Disabilitas.pdf',
-    status: 'in_progress',
-    adminReply:
-      'Kategori fasilitas aksesibilitas ramah disabilitas sedang diinput ke atribut database POI untuk rilis berikutnya.',
-  },
-  {
-    id: 9,
-    submitterName: '@rani_kurnia',
-    submitterEmail: 'rani.kurnia@example.com',
-    category: 'other',
-    date: '04/10/2026, 15:22 WIB',
-    message:
-      'Terima kasih banyak atas platform WebGIS ini! Sangat membantu keluarga kami saat liburan keliling Garut dan Tasikmalaya.',
-    status: 'resolved',
-    adminReply:
-      'Terima kasih atas apresiasinya! Selamat menikmati keindahan wisata alam dan budaya Jawa Barat!',
-    repliedAt: '04/10/2026, 16:00 WIB',
-  },
-  {
-    id: 10,
-    submitterName: '@fajar_sidik',
-    submitterEmail: 'fajar.s@example.com',
-    category: 'question',
-    date: '03/10/2026, 09:10 WIB',
-    message:
-      'Apakah data koordinat lokasi wisata di JabarPleasure sudah terverifikasi dengan data resmi Dinas Pariwisata dan Kebudayaan Provinsi Jawa Barat?',
-    status: 'unread',
-  },
-];
+export const INITIAL_FEEDBACK: UserFeedback[] = [];
+
+const DUMMY_SUBMITTERS = new Set([
+  '@julyandre',
+  '@daffa_dev',
+  '@rifaldi_pm',
+  '@bintang_gis',
+  '@citra_lestari',
+  '@eko_prasetyo',
+  '@maya_safitri',
+  '@hendra_wicaksono',
+  '@rani_kurnia',
+  '@fajar_sidik',
+]);
 
 const FEEDBACK_STORAGE_KEY = 'jp_user_feedback_list';
 
@@ -156,7 +49,17 @@ export function getStoredFeedback(): UserFeedback[] {
     }
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed)) {
-      return parsed;
+      const realItems = parsed.filter(
+        (item) => item && !DUMMY_SUBMITTERS.has(item.submitterName) && item.id > 100
+      );
+      if (realItems.length !== parsed.length) {
+        if (realItems.length === 0) {
+          localStorage.removeItem(FEEDBACK_STORAGE_KEY);
+        } else {
+          localStorage.setItem(FEEDBACK_STORAGE_KEY, JSON.stringify(realItems));
+        }
+      }
+      return realItems;
     }
   } catch {
     // fallback

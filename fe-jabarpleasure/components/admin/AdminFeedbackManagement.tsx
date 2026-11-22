@@ -29,9 +29,6 @@ import {
   UserFeedback,
   FeedbackCategory,
   FeedbackStatus,
-  getStoredFeedback,
-  updateFeedback,
-  deleteFeedback,
 } from '@/lib/feedbackStorage';
 
 interface AnimatedNumberProps {
@@ -144,7 +141,7 @@ function getPageNumbers(currentPage: number, totalPages: number): (number | stri
 }
 
 export default function AdminFeedbackManagement() {
-  const [feedbackList, setFeedbackList] = useState<UserFeedback[]>(() => getStoredFeedback());
+  const [feedbackList, setFeedbackList] = useState<UserFeedback[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -152,12 +149,26 @@ export default function AdminFeedbackManagement() {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [itemsPerPage, setItemsPerPage] = useState<number>(5);
 
-  // Load feedback from backend API
+  // Purge any legacy initial dummy feedbacks from localStorage on client
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('jp_user_feedback_list');
+        if (raw && (raw.includes('@julyandre') || raw.includes('Lembang') || raw.includes('@daffa_dev'))) {
+          localStorage.removeItem('jp_user_feedback_list');
+        }
+      } catch {
+        // ignore
+      }
+    }
+  }, []);
+
+  // Load feedback purely from backend database API
   const loadFeedback = React.useCallback(async () => {
     setIsLoading(true);
     try {
       const data = await getAdminFeedback();
-      if (Array.isArray(data) && data.length > 0) {
+      if (Array.isArray(data)) {
         const mapped: UserFeedback[] = data.map((f: any) => {
           let cat: FeedbackCategory = 'other';
           const c = (f.category || '').toLowerCase();
@@ -206,21 +217,13 @@ export default function AdminFeedbackManagement() {
           };
         });
 
-        // Merge with local stored feedback if any
-        const local = getStoredFeedback();
-        const merged = [...mapped];
-        for (const loc of local) {
-          if (!merged.some((m) => m.id === loc.id)) {
-            merged.push(loc);
-          }
-        }
-        setFeedbackList(merged);
+        setFeedbackList(mapped);
       } else {
-        setFeedbackList(getStoredFeedback());
+        setFeedbackList([]);
       }
     } catch (err) {
       console.error('Failed to load admin feedback:', err);
-      setFeedbackList(getStoredFeedback());
+      setFeedbackList([]);
     } finally {
       setIsLoading(false);
     }
@@ -366,12 +369,6 @@ export default function AdminFeedbackManagement() {
       console.warn('Backend feedback response sync failed, updating local state:', err);
     }
 
-    updateFeedback(selectedFeedback.id, {
-      status: editStatus,
-      adminReply: replyMessage.trim() || undefined,
-      repliedAt: replyMessage.trim() ? nowStr : selectedFeedback.repliedAt,
-    });
-
     setFeedbackList((prev) =>
       prev.map((f) => (f.id === selectedFeedback.id ? updatedItem : f))
     );
@@ -391,7 +388,6 @@ export default function AdminFeedbackManagement() {
       console.warn('Backend feedback delete sync failed, deleting from local state:', err);
     }
 
-    deleteFeedback(id);
     setLastAction({ type: 'delete', item: target });
     setFeedbackList((prev) => prev.filter((f) => f.id !== id));
     setSelectedFeedback(null);
