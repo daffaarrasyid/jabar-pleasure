@@ -2,10 +2,11 @@
 
 Platform *Geographic Information System* (WebGIS) modern dan terpersonalisasi yang menyajikan rekomendasi tempat hiburan dan destinasi wisata di 27 Kabupaten/Kota Provinsi Jawa Barat secara interaktif dan presisi.
 
-Aplikasi ini dibangun menggunakan arsitektur *Decoupled* (Frontend dan Backend terpisah):
+Aplikasi ini dibangun menggunakan arsitektur *Decoupled* (Frontend dan Backend terpisah) dengan integrasi *Cloud Storage*:
 - **Frontend (`fe-jabarpleasure`):** Next.js 15 (React 19), Tailwind CSS, Leaflet.js / MapLibre GL, Three.js (Timelapse 3D).
 - **Backend (`be-jabarpleasure`):** Laravel 11, PHP 8.2+, REST API, Laravel Sanctum (Autentikasi Bearer Token).
 - **Basis Data Spasial:** PostgreSQL 15+ dengan ekstensi **PostGIS 3+** (SRID 4326 / WGS84).
+- **Penyimpanan Media (Cloud Storage):** **Supabase Storage Bucket (`destinations`)** digunakan untuk seluruh unggahan media (foto cover destinasi, avatar profil pengguna, bukti foto pengajuan destinasi baru, dan dokumentasi foto/video jurnal perjalanan). Aplikasi **tidak menggunakan penyimpanan lokal** untuk menjamin persistensi media terpusat di cloud.
 
 ---
 
@@ -19,6 +20,7 @@ Sebelum melakukan instalasi, pastikan sistem pengujian Anda telah terpasang:
    - `mbstring`, `openssl`, `curl`, `fileinfo`, `xml`, `tokenizer`
 3. **Composer:** Versi `>= 2.x`.
 4. **PostgreSQL:** Versi `>= 15` dengan modul ekstensi **PostGIS** terpasang.
+5. **Akun / Akses Supabase Storage:** Proyek telah terhubung ke Supabase project dengan bucket publik bernama `destinations`.
 
 ---
 
@@ -39,7 +41,7 @@ Sebelum melakukan instalasi, pastikan sistem pengujian Anda telah terpasang:
 
 ---
 
-### 2. Instalasi & Menjalankan Backend (`be-jabarpleasure`)
+### 2. Instalasi & Konfigurasi Backend (`be-jabarpleasure`)
 
 1. Buka terminal dan masuk ke direktori backend:
    ```bash
@@ -56,15 +58,22 @@ Sebelum melakukan instalasi, pastikan sistem pengujian Anda telah terpasang:
    cp .env.example .env
    ```
 
-4. Buka file `.env` dan sesuaikan koneksi database PostgreSQL Anda:
+4. Buka file `.env` dan sesuaikan koneksi database PostgreSQL serta kredensial Supabase Storage:
    ```env
+   # Basis Data Spasial PostgreSQL & PostGIS
    DB_CONNECTION=pgsql
    DB_HOST=127.0.0.1
    DB_PORT=5432
    DB_DATABASE=JabarPleasure
    DB_USERNAME=postgres
    DB_PASSWORD=password_postgres_anda
+
+   # Supabase Cloud Storage (Wajib untuk pengujian media & avatar)
+   SUPABASE_URL=https://nruydgxivzixylaxoced.supabase.co
+   SUPABASE_KEY=your_supabase_service_role_key
+   SUPABASE_BUCKET=destinations
    ```
+   *(Catatan: `SUPABASE_KEY` menggunakan service role key Supabase untuk memberikan hak akses upload dan delete objek secara terprogram ke bucket `destinations`)*.
 
 5. Generate application key:
    ```bash
@@ -75,14 +84,9 @@ Sebelum melakukan instalasi, pastikan sistem pengujian Anda telah terpasang:
    ```bash
    php artisan migrate --seed
    ```
-   > **Catatan Seeder:** Perintah ini akan otomatis mengisi master kategori wisata, daftar 27 Kabupaten/Kota Jawa Barat, ratusan data POI destinasi wisata awal, akun pengujian wisatawan (*Nabila Putri*), dan akun administrator (*admin123*).
+   > **Catatan Seeder:** Perintah ini otomatis mengisi master kategori wisata, daftar 27 Kabupaten/Kota Jawa Barat, data POI destinasi wisata awal lengkap dengan path cover Supabase, akun wisatawan pengujian (*Nabila Putri*), dan akun administrator (*admin123*).
 
-7. Buat symbolic link untuk direktori storage upload:
-   ```bash
-   php artisan storage:link
-   ```
-
-8. Jalankan server pengembangan backend Laravel:
+7. Jalankan server backend:
    ```bash
    php artisan serve
    ```
@@ -90,7 +94,7 @@ Sebelum melakukan instalasi, pastikan sistem pengujian Anda telah terpasang:
 
 ---
 
-### 3. Instalasi & Menjalankan Frontend (`fe-jabarpleasure`)
+### 3. Instalasi & Konfigurasi Frontend (`fe-jabarpleasure`)
 
 1. Buka terminal baru dan masuk ke direktori frontend:
    ```bash
@@ -106,13 +110,13 @@ Sebelum melakukan instalasi, pastikan sistem pengujian Anda telah terpasang:
    ```bash
    cp .env.example .env.local
    ```
-   Pastikan isi `.env.local` adalah:
+   Pastikan konfigurasi di `.env.local` telah sesuai:
    ```env
    NEXT_PUBLIC_API_URL=/api
    NEXT_PUBLIC_SUPABASE_URL=https://nruydgxivzixylaxoced.supabase.co
    NEXT_PUBLIC_SUPABASE_BUCKET=destinations
    ```
-   *(Frontend Next.js telah dikonfigurasi melalui `next.config.ts` untuk merewrite kueri `/api/*` secara otomatis menuju `http://127.0.0.1:8000/api/*`)*.
+   *(Frontend Next.js secara otomatis merewrite kueri `/api/*` ke backend `http://127.0.0.1:8000/api/*` via `next.config.ts`, dan mengizinkan rendering aset gambar langsung dari domain `*.supabase.co`)*.
 
 4. Jalankan server frontend:
    ```bash
@@ -122,22 +126,43 @@ Sebelum melakukan instalasi, pastikan sistem pengujian Anda telah terpasang:
 
 ---
 
+## ☁️ Pengujian Cloud Storage (Supabase Bucket)
+
+Salah satu fokus pengujian pada sistem JabarPleasure adalah validasi penyimpanan berbasis **Cloud Object Storage (Supabase Bucket `destinations`)**:
+
+1. **Unggah Foto Profil / Avatar:**
+   - Masuk ke tab **Profil** (`/profile`) $\rightarrow$ klik **Edit Profil**.
+   - Unggah gambar avatar baru $\rightarrow$ sistem di backend (`AvatarStorageService.php`) otomatis melakukan kompresi ke format WebP dan mengirimkannya langsung ke endpoint Supabase Storage:
+     `{SUPABASE_URL}/storage/v1/object/destinations/avatars/{filename}.webp`
+   - Avatar lama secara otomatis dihapus dari bucket untuk efisiensi ruang simpan.
+
+2. **Unggah Jurnal Dokumentasi Perjalanan:**
+   - Pada riwayat perjalanan selesai (`TripDetailScreen.tsx` / `DestinationDocScreen.tsx`), klik **Upload Media**.
+   - Unggah foto (maksimal 2 MB) atau video (maksimal 10 MB / 15 detik).
+   - Backend (`JournalMediaController.php`) memvalidasi batasan kuota media dan mengunggahnya langsung ke Supabase Storage bucket `destinations`.
+   - URL publik Supabase disimpan ke database dan ditampilkan di antarmuka riwayat serta pemutar animasi 3D Timelapse.
+
+3. **Foto Pengajuan Destinasi Baru & Katalog POI:**
+   - Foto yang diajukan oleh pengguna atau admin tersimpan dengan referensi ke bucket Supabase, memastikan seluruh aset visual dapat diakses secara publik dan konsisten di berbagai perangkat tanpa ketergantungan storage lokal.
+
+---
+
 ## 🔑 Kredensial Akun Pengujian (Testing Accounts)
 
-Untuk mempermudah demonstrasi dan pengujian fungsionalitas aplikasi, gunakan akun bawaan yang telah disediakan oleh seeder database:
+Untuk mempermudah demonstrasi dan evaluasi fitur, gunakan akun bawaan hasil seeder database berikut:
 
 ### 1. Akun Wisatawan / Pengguna Terdaftar (Role: `user`)
 * **Email:** `nabila.putri@gmail.com`
 * **Kata Sandi:** `password123`
 * **Akses Login:** Buka `http://localhost:3000/login`
 * **Fitur yang dapat diuji:**
-  - Personalisasi feed rekomendasi wisata
-  - Pencarian destinasi & filter spasial radius proksimitas 5 km
+  - Personalisasi feed rekomendasi wisata berbasis minat & riwayat klik
+  - Pencarian destinasi & filter spasial radius proksimitas 5 km di Jawa Barat
   - Simpan dan kelola Wishlist favorit
-  - Pengajuan destinasi baru (*Suggest Destination*) jika tidak menemukan tempat yang dicari
-  - Penyusunan Itinerary perjalanan 3-5 destinasi & rute jalan raya (ETA)
-  - Simulasi Check-in lokasi di titik perjalanan (mendukung offline mode fallback)
-  - Riwayat perjalanan, upload media jurnal, dan pemutaran ulang rute *Interactive Timelapse Replay* 3D
+  - Pengajuan destinasi baru (*Suggest Destination*) jika destinasi belum terdaftar
+  - Penyusunan Itinerary perjalanan 3-5 destinasi & kalkulasi rute jalan raya (ETA)
+  - Simulasi Check-in lokasi di titik perjalanan (didukung *offline mode fallback* di local storage)
+  - Riwayat perjalanan, upload foto/video jurnal langsung ke Supabase Bucket, dan putar ulang rute *Interactive Timelapse Replay* 3D
   - Pengiriman masukan / ulasan pengguna (Feedback)
 
 ### 2. Akun Administrator (Role: `admin`)
@@ -149,7 +174,7 @@ Untuk mempermudah demonstrasi dan pengujian fungsionalitas aplikasi, gunakan aku
   - **Pengajuan Destinasi (Submissions):** Memeriksa antrean usulan POI baru dari pengguna, inspeksi posisi koordinat di peta Jawa Barat, lalu memilih **Approve** (terbit ke publik) atau **Reject** (tolak dengan alasan)
   - **Katalog POI:** Tambah, edit, perbarui titik koordinat via Map Picker, dan hapus destinasi
   - **Manajemen Pengguna:** Memantau daftar pengguna, mengubah peran (`user`/`admin`), dan memblokir akun bermasalah (*Toggle Block*)
-  - **Moderasi Media:** Meninjau dan menghapus foto/video dokumentasi perjalanan pengguna yang tidak pantas
+  - **Moderasi Media:** Meninjau dan menghapus foto/video dokumentasi jurnal perjalanan pengguna di Supabase jika melanggar ketentuan
   - **Manajemen Feedback:** Membaca keluhan/saran wisatawan, membalas tanggapan, dan memperbarui status penanganan
 
 ---
@@ -168,13 +193,14 @@ Untuk mempermudah demonstrasi dan pengujian fungsionalitas aplikasi, gunakan aku
    - Klik **"Inspeksi"** pada pengajuan baru untuk mengecek koordinat di peta.
    - Klik **"Setujui (Approve)"** $\rightarrow$ Destinasi seketika terbit di peta publik dan pengguna menerima notifikasi.
 
-### Skenario B: Itinerary Planner, Check-in & Timelapse Replay
+### Skenario B: Itinerary Planner, Check-in, Jurnal Cloud & Timelapse Replay
 1. Masuk ke tab **"Rencana"** (`/itinerary` atau `/rencana`).
 2. Tentukan titik awal keberangkatan (GPS atau pilih di peta).
 3. Pilih 3–5 destinasi dari Wishlist (serta tambahkan rekomendasi populer opsional).
 4. Klik **"Hitung Rute & Ringkasan"** untuk melihat estimasi rute jalan (ETA) dan polyline.
 5. Klik **"Mulai Perjalanan"** $\rightarrow$ Lakukan simulasi tombol **"Check-in di Sini"** pada tiap titik kunjungan.
-6. Selesaikan perjalanan $\rightarrow$ Buka tab **"Riwayat"** $\rightarrow$ Klik **"Putar Ulang Perjalanan"** untuk menyaksikan animasi pergerakan rute dan sorotan foto dokumentasi 3D.
+6. Selesaikan perjalanan $\rightarrow$ Buka tab **"Riwayat"** $\rightarrow$ Unggah foto/video jurnal ke Supabase.
+7. Klik **"Putar Ulang Perjalanan"** untuk menyaksikan animasi pergerakan rute dan sorotan foto dokumentasi 3D.
 
 ---
 
@@ -184,5 +210,6 @@ Untuk mempermudah demonstrasi dan pengujian fungsionalitas aplikasi, gunakan aku
 | :--- | :--- | :--- |
 | `SQLSTATE[XX000]: ... extension "postgis" is not available` | Modul PostGIS belum terinstal di server PostgreSQL | Instal PostGIS di OS Anda (misal di Ubuntu: `sudo apt install postgresql-15-postgis-3`, di Windows centang PostGIS pada Stack Builder). |
 | `Network Error / Failed to fetch /api/...` | Backend Laravel belum berjalan | Pastikan perintah `php artisan serve` aktif dan berjalan di `http://127.0.0.1:8000`. |
-| Gambar destinasi tidak muncul | Tautan penyimpanan storage belum dibuat | Jalankan `php artisan storage:link` pada direktori `be-jabarpleasure`. |
+| Gagal upload foto avatar / media jurnal | Kunci Supabase belum disetel di `.env` backend | Pastikan `SUPABASE_URL`, `SUPABASE_KEY` (service role), dan `SUPABASE_BUCKET=destinations` telah terisi di `be-jabarpleasure/.env`. |
+| Gambar Supabase tidak muncul di frontend | Hostname Supabase belum diizinkan di Next.js | Periksa `next.config.ts`, pastikan domain `*.supabase.co` terdaftar pada `images.remotePatterns`. |
 | `403 Forbidden` saat mengakses panel `/admin` | Akun yang login tidak memiliki peran administrator | Gunakan akun `admin123` di `http://localhost:3000/admin/login`. |
