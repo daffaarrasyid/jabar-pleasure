@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Destination;
+use App\Models\Feedback;
 use App\Models\Notification;
 use App\Models\PoiSubmission;
 use App\Models\User;
@@ -91,6 +92,34 @@ class NotificationService
         }
 
         return count($batch);
+    }
+
+    /**
+     * Send notification to user when admin replies to their feedback/suggestion.
+     */
+    public function sendFeedbackReplyNotification(Feedback $feedback): ?Notification
+    {
+        $recipient = User::find($feedback->user_id);
+        if ($recipient && $recipient->notifications_enabled === false) {
+            return null;
+        }
+
+        $title = 'Tanggapan atas Saran & Masukan Anda 💬';
+        $message = "Admin telah menanggapi masukan Anda mengenai '{$feedback->subject}'. Cek detail tanggapannya sekarang.";
+
+        return Notification::create([
+            'user_id' => $feedback->user_id,
+            'type' => 'feedback_reply',
+            'title' => $title,
+            'message' => $message,
+            'data' => [
+                'feedback_id' => $feedback->id,
+                'subject' => $feedback->subject,
+                'status' => $feedback->status,
+                'admin_reply' => $feedback->admin_reply,
+                'replied_at' => $feedback->replied_at?->toIso8601String(),
+            ],
+        ]);
     }
 }
 

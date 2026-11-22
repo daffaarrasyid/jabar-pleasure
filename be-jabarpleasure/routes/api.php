@@ -5,6 +5,7 @@ use App\Http\Controllers\AdminMediaController;
 use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DestinationController;
+use App\Http\Controllers\FeedbackController;
 use App\Http\Controllers\ItineraryController;
 use App\Http\Controllers\JournalMediaController;
 use App\Http\Controllers\NotificationController;
@@ -114,6 +115,14 @@ Route::middleware('auth:sanctum')->group(function () {
 
     /*
     |--------------------------------------------------------------------------
+    | User Feedback & Community Suggestions Endpoints (Authenticated)
+    |--------------------------------------------------------------------------
+    */
+    Route::post('/feedbacks', [FeedbackController::class, 'store']);
+    Route::get('/feedbacks/my', [FeedbackController::class, 'myFeedbacks']);
+
+    /*
+    |--------------------------------------------------------------------------
     | POI Submissions & Admin Moderation Endpoints (Authenticated)
     |--------------------------------------------------------------------------
     */
@@ -122,6 +131,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('admin')->group(function () {
         Route::get('/admin/metrics', [AdminDashboardController::class, 'metrics']);
         Route::get('/admin/feedbacks', [AdminDashboardController::class, 'feedbacks']);
+        Route::post('/admin/feedbacks/{id}/reply', [AdminDashboardController::class, 'replyFeedback']);
+        Route::patch('/admin/feedbacks/{id}/status', [AdminDashboardController::class, 'updateFeedbackStatus']);
+        Route::delete('/admin/feedbacks/{id}', [AdminDashboardController::class, 'destroyFeedback']);
         Route::get('/admin/submissions', [PoiSubmissionController::class, 'index']);
         Route::post('/admin/submissions/{id}/approve', [PoiSubmissionController::class, 'approve']);
         Route::post('/admin/submissions/{id}/reject', [PoiSubmissionController::class, 'reject']);
@@ -140,6 +152,10 @@ Route::middleware('auth:sanctum')->group(function () {
 // Direct fallback routes for development or token recovery
 Route::get('/admin/metrics-public', [AdminDashboardController::class, 'metrics']);
 Route::get('/admin/feedbacks-public', [AdminDashboardController::class, 'feedbacks']);
+Route::post('/admin/feedbacks-public/{id}/reply', [AdminDashboardController::class, 'replyFeedback']);
+Route::patch('/admin/feedbacks-public/{id}/status', [AdminDashboardController::class, 'updateFeedbackStatus']);
+Route::delete('/admin/feedbacks-public/{id}', [AdminDashboardController::class, 'destroyFeedback']);
+Route::post('/feedbacks-public', [FeedbackController::class, 'store']);
 Route::get('/admin/destinations-public', [DestinationController::class, 'adminIndex']);
 Route::post('/admin/destinations-public', [DestinationController::class, 'store']);
 Route::put('/admin/destinations-public/{id}', [DestinationController::class, 'adminUpdate']);
