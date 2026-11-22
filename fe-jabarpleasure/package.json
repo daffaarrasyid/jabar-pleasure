@@ -9,7 +9,12 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@turf/turf": "^7.4.0",
+    "@turf/along": "^7.4.0",
+    "@turf/bearing": "^7.4.0",
+    "@turf/helpers": "^7.4.0",
+    "@turf/length": "^7.4.0",
+    "@turf/line-slice-along": "^7.4.0",
+    "@turf/nearest-point-on-line": "^7.4.0",
     "@types/three": "^0.187.0",
     "framer-motion": "^14.14.0",
     "leaflet": "^1.9.4",

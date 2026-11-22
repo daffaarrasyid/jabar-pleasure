@@ -43,37 +43,47 @@ class PoiSubmissionController extends Controller
             'description' => 'nullable|string',
             'price_range' => 'nullable|string|max:50',
             'opening_hours' => 'nullable|string|max:100',
-            'latitude' => 'required|numeric|between:-11.0,6.0',
-            'longitude' => 'required|numeric|between:95.0,141.0',
+            'latitude' => 'nullable|numeric|between:-11.0,6.0',
+            'longitude' => 'nullable|numeric|between:95.0,141.0',
             'evidence_image' => 'nullable|string|max:500',
             'image' => 'nullable|image|max:2048',
         ]);
 
-        // Resolve category
+        $lng = !empty($validated['longitude']) ? (float) $validated['longitude'] : 107.6191;
+        $lat = !empty($validated['latitude']) ? (float) $validated['latitude'] : -6.9175;
+
+        // Resolve category strictly from existing categories in database (4 official clusters)
         $categoryId = $validated['category_id'] ?? null;
+        if ($categoryId && !Category::where('id', $categoryId)->exists()) {
+            $categoryId = null;
+        }
+
         if (!$categoryId && !empty($validated['category_name'])) {
-            $cat = Category::where('name', 'ILIKE', "%{$validated['category_name']}%")->first();
+            $cat = Category::where('name', 'ILIKE', "%{$validated['category_name']}%")
+                ->orWhere('slug', 'ILIKE', '%' . Str::slug($validated['category_name']) . '%')
+                ->first();
             $categoryId = $cat?->id;
         }
+
         if (!$categoryId) {
-            $categoryId = Category::first()?->id ?? 1;
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Kategori yang dipilih tidak valid. Destinasi harus diklasifikasikan ke dalam salah satu dari 4 kategori resmi yang tersedia di JabarPleasure.',
+            ], 422);
         }
 
         // Resolve regency if not provided, find closest regency in West Java
         $regencyId = $validated['regency_id'] ?? null;
         if (!$regencyId) {
             $closestRegency = RegencyCity::select('id')
-                ->whereNotNull('boundary')
+                ->whereNotNull('geom')
                 ->orderByRaw(
-                    "ST_Distance(boundary::geography, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography) ASC",
-                    [(float) $validated['longitude'], (float) $validated['latitude']]
+                    "ST_Distance(geom::geography, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography) ASC",
+                    [$lng, $lat]
                 )
                 ->first();
-            $regencyId = $closestRegency?->id;
+            $regencyId = $closestRegency?->id ?? RegencyCity::first()?->id ?? 1;
         }
-
-        $lng = (float) $validated['longitude'];
-        $lat = (float) $validated['latitude'];
 
         $evidenceImage = $validated['evidence_image'] ?? null;
         if ($request->hasFile('image')) {
@@ -177,32 +187,28 @@ class PoiSubmissionController extends Controller
 
         $adminNote = $request->input('admin_note', 'Disetujui dan telah memenuhi kriteria kurasi lokasi.');
 
-        $submission->update([
-            'status' => 'approved',
-            'admin_note' => $adminNote,
-            'reviewed_by' => $admin?->id,
-            'reviewed_at' => now(),
-        ]);
-
-        // Generate a unique slug
-        $baseSlug = Str::slug($submission->name);
-        $slug = $baseSlug;
-        $counter = 1;
-        while (Destination::where('slug', $slug)->exists()) {
-            $slug = "{$baseSlug}-{$counter}";
-            $counter++;
+        if ($request->filled('latitude') && $request->filled('longitude')) {
+            $lat = (float) $request->input('latitude');
+            $lng = (float) $request->input('longitude');
+            $submission->proposed_location = DB::raw("ST_SetSRID(ST_MakePoint({$lng}, {$lat}), 4326)");
+        } else {
+            $lng = (float) ($submission->longitude ?? 107.6191);
+            $lat = (float) ($submission->latitude ?? -6.9175);
         }
 
-        $lng = (float) ($submission->longitude ?? 107.6191);
-        $lat = (float) ($submission->latitude ?? -6.9175);
+        $submission->status = 'approved';
+        $submission->admin_note = $adminNote;
+        $submission->reviewed_by = $admin?->id;
+        $submission->reviewed_at = now();
+        $submission->save();
 
         // Ensure regency_id satisfies not-null constraint
         $regencyId = $submission->regency_id;
         if (!$regencyId) {
             $closestRegency = RegencyCity::select('id')
-                ->whereNotNull('boundary')
+                ->whereNotNull('geom')
                 ->orderByRaw(
-                    "ST_Distance(boundary::geography, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography) ASC",
+                    "ST_Distance(geom::geography, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography) ASC",
                     [$lng, $lat]
                 )
                 ->first();

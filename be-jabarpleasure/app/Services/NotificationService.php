@@ -99,16 +99,24 @@ class NotificationService
      */
     public function sendFeedbackReplyNotification(Feedback $feedback): ?Notification
     {
-        $recipient = User::find($feedback->user_id);
+        $userId = $feedback->user_id;
+        if (!$userId) {
+            return null;
+        }
+
+        $recipient = User::find($userId);
         if ($recipient && $recipient->notifications_enabled === false) {
             return null;
         }
 
         $title = 'Tanggapan atas Saran & Masukan Anda 💬';
-        $message = "Admin telah menanggapi masukan Anda mengenai '{$feedback->subject}'. Cek detail tanggapannya sekarang.";
+        $replySnippet = !empty($feedback->admin_reply)
+            ? (strlen($feedback->admin_reply) > 90 ? substr($feedback->admin_reply, 0, 90) . '...' : $feedback->admin_reply)
+            : 'Admin telah menanggapi masukan Anda.';
+        $message = "Admin telah menanggapi: \"{$replySnippet}\"";
 
         return Notification::create([
-            'user_id' => $feedback->user_id,
+            'user_id' => $userId,
             'type' => 'feedback_reply',
             'title' => $title,
             'message' => $message,

@@ -2,15 +2,19 @@
  * Authentication and Token Management Utility
  */
 
+const SESSION_MAX_AGE_SECONDS = 86400; // 24 hours
+const SESSION_MAX_AGE_MS = SESSION_MAX_AGE_SECONDS * 1000;
+
 export function setAuthToken(token: string, user?: unknown): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem('auth_token', token);
+    localStorage.setItem('auth_token_created_at', Date.now().toString());
     if (user) {
       localStorage.setItem('user', JSON.stringify(user));
     }
-    // Set cookie with 30 days max-age
-    document.cookie = `auth_token=${encodeURIComponent(token)}; path=/; max-age=2592000; SameSite=Lax`;
+    // Set cookie with 24 hours max-age
+    document.cookie = `auth_token=${encodeURIComponent(token)}; path=/; max-age=${SESSION_MAX_AGE_SECONDS}; SameSite=Lax`;
   } catch (err) {
     console.warn('Failed to set auth token:', err);
   }
@@ -19,6 +23,15 @@ export function setAuthToken(token: string, user?: unknown): void {
 export function getAuthToken(): string | null {
   if (typeof window === 'undefined') return null;
   try {
+    const createdAtStr = localStorage.getItem('auth_token_created_at');
+    if (createdAtStr) {
+      const elapsed = Date.now() - Number(createdAtStr);
+      if (elapsed > SESSION_MAX_AGE_MS) {
+        removeAuthToken();
+        return null;
+      }
+    }
+
     const local = localStorage.getItem('auth_token');
     if (local) return local;
 
@@ -77,6 +90,7 @@ export function removeAuthToken(): void {
     if (activeKey) localStorage.removeItem(activeKey);
 
     localStorage.removeItem('auth_token');
+    localStorage.removeItem('auth_token_created_at');
     localStorage.removeItem('user');
     sessionStorage.removeItem('auth_token');
     sessionStorage.removeItem('user');
@@ -108,10 +122,11 @@ export function setAdminSession(token: string, user?: unknown): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem('admin_token', token);
+    localStorage.setItem('admin_token_created_at', Date.now().toString());
     if (user) {
       localStorage.setItem('admin_user', JSON.stringify(user));
     }
-    document.cookie = `admin_token=${encodeURIComponent(token)}; path=/; max-age=2592000; SameSite=Lax`;
+    document.cookie = `admin_token=${encodeURIComponent(token)}; path=/; max-age=${SESSION_MAX_AGE_SECONDS}; SameSite=Lax`;
   } catch (err) {
     console.warn('Failed to set admin session:', err);
   }
@@ -120,6 +135,15 @@ export function setAdminSession(token: string, user?: unknown): void {
 export function getAdminSession(): { token: string; user: Record<string, unknown> } | null {
   if (typeof window === 'undefined') return null;
   try {
+    const createdAtStr = localStorage.getItem('admin_token_created_at');
+    if (createdAtStr) {
+      const elapsed = Date.now() - Number(createdAtStr);
+      if (elapsed > SESSION_MAX_AGE_MS) {
+        removeAdminSession();
+        return null;
+      }
+    }
+
     const local = localStorage.getItem('admin_token');
     const token =
       local ||
@@ -144,6 +168,7 @@ export function removeAdminSession(): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.removeItem('admin_token');
+    localStorage.removeItem('admin_token_created_at');
     localStorage.removeItem('admin_user');
     sessionStorage.removeItem('admin_token');
     sessionStorage.removeItem('admin_user');

@@ -1,12 +1,11 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, Star, Upload, FileText, CheckCircle2 } from 'lucide-react';
-import {
-  FeedbackCategory,
-  saveFeedback,
-  UserFeedback,
-} from '@/lib/feedbackStorage';
+import { useRouter } from 'next/navigation';
+import { X, Star, Upload, FileText, CheckCircle2, Lock, AlertCircle, LogIn } from 'lucide-react';
+import { FeedbackCategory, UserFeedback } from '@/lib/feedbackStorage';
+import { isAuthenticated, getStoredUser } from '@/lib/auth';
+import { submitUserFeedback } from '@/lib/api';
 
 interface FeedbackModalProps {
   isOpen: boolean;
@@ -30,20 +29,33 @@ export default function FeedbackModal({
   onClose,
   initialCategory = 'feature',
   initialTripTitle = '',
-  defaultUserName = '@julyandre',
-  defaultUserEmail = 'julyandre@example.com',
+  defaultUserName = '@pengguna',
+  defaultUserEmail = 'pengguna@jabarpleasure.id',
   onSuccess,
 }: FeedbackModalProps) {
+  const router = useRouter();
+  const isLoggedIn = isAuthenticated();
   const [category, setCategory] = useState<FeedbackCategory>(initialCategory);
-  const [userName, setUserName] = useState<string>(defaultUserName);
-  const [userEmail, setUserEmail] = useState<string>(defaultUserEmail);
+  const [userName, setUserName] = useState<string>(() => {
+    const user = getStoredUser<{ name?: string }>();
+    if (user?.name) {
+      return user.name.startsWith('@') ? user.name : `@${user.name.toLowerCase().replace(/\s+/g, '_')}`;
+    }
+    return defaultUserName;
+  });
+  const [userEmail, setUserEmail] = useState<string>(() => {
+    const user = getStoredUser<{ email?: string }>();
+    return user?.email || defaultUserEmail;
+  });
   const [tripTitle] = useState<string>(initialTripTitle);
   const [rating, setRating] = useState<number>(5);
   const [message, setMessage] = useState<string>('');
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
   const [attachmentName, setAttachmentName] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [showSuccessToast, setShowSuccessToast] = useState<boolean>(false);
+  const [fileSizeErrorModal, setFileSizeErrorModal] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -51,17 +63,31 @@ export default function FeedbackModal({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Strict Image Only validation
+    if (!file.type.startsWith('image/')) {
+      setFileSizeErrorModal('Tipe file tidak didukung. Sistem hanya menerima file gambar (JPG, PNG, WebP).');
+      if (e.target) e.target.value = '';
+      return;
+    }
+
     // PRD constraint: Image <= 2MB
     if (file.size > 2 * 1024 * 1024) {
-      setErrorMsg('Ukuran file maksimal 2MB.');
+      setFileSizeErrorModal('Ukuran gambar melebihi batas 2MB. Sistem hanya menerima file gambar dengan ukuran di bawah 2MB.');
+      if (e.target) e.target.value = '';
       return;
     }
 
     setErrorMsg(null);
+    setAttachmentFile(file);
     setAttachmentName(file.name);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleRemoveAttachment = () => {
+    setAttachmentFile(null);
+    setAttachmentName(null);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!message.trim()) {
       setErrorMsg('Silakan tuliskan isi masukan atau ulasan Anda.');
@@ -72,37 +98,59 @@ export default function FeedbackModal({
     setErrorMsg(null);
 
     try {
-      // If trip context exists, prepend to message or save in tripTitle
+      // If trip context exists, prepend to message
       let finalMessage = message.trim();
       if (tripTitle && !finalMessage.toLowerCase().includes(tripTitle.toLowerCase())) {
         finalMessage = `[Konteks: ${tripTitle}] ${finalMessage}`;
       }
 
-      const created = saveFeedback({
-        submitterName: userName.trim() || '@pengguna',
-        submitterEmail: userEmail.trim() || 'pengguna@jabarpleasure.id',
+      const subject = tripTitle
+        ? `Ulasan: ${tripTitle}`
+        : category === 'feature'
+        ? 'Usulan Fitur Pengguna'
+        : category === 'bug'
+        ? 'Laporan Kendala Sistem'
+        : category === 'question'
+        ? 'Pertanyaan Pengguna'
+        : 'Ulasan & Pengalaman Pengguna';
+
+      // Submit directly to database table feedbacks via API
+      await submitUserFeedback({
         category,
+        subject,
         message: finalMessage,
-        attachmentName: attachmentName || undefined,
+        email: userEmail.trim() || undefined,
+        name: userName.trim() || undefined,
         rating: category === 'other' || tripTitle ? rating : undefined,
-        tripTitle: tripTitle || undefined,
+        attachment: attachmentFile || undefined,
       });
 
       setIsSubmitting(false);
       setShowSuccessToast(true);
 
       if (onSuccess) {
-        onSuccess(created);
+        onSuccess({
+          id: Date.now(),
+          submitterName: userName.trim() || '@pengguna',
+          submitterEmail: userEmail.trim() || 'pengguna@jabarpleasure.id',
+          category,
+          message: finalMessage,
+          attachmentName: attachmentName || undefined,
+          rating: category === 'other' || tripTitle ? rating : undefined,
+          tripTitle: tripTitle || undefined,
+          status: 'unread',
+          date: new Date().toISOString(),
+        });
       }
 
       // Auto close after brief success confirmation
       setTimeout(() => {
         onClose();
-      }, 1400);
-    } catch (err) {
-      console.error('Failed to save feedback:', err);
+      }, 1600);
+    } catch (err: unknown) {
+      console.error('Failed to submit feedback to database:', err);
       setIsSubmitting(false);
-      setErrorMsg('Gagal mengirimkan masukan. Silakan coba lagi.');
+      setErrorMsg('Gagal mengirimkan masukan ke server database. Silakan pastikan koneksi Anda stabil.');
     }
   };
 
@@ -145,8 +193,42 @@ export default function FeedbackModal({
           </button>
         </div>
 
-        {/* Scrollable Body */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto no-scrollbar px-5 py-4 space-y-4 text-left">
+        {/* Guest / Unauthenticated Prompt View */}
+        {!isLoggedIn ? (
+          <div className="py-8 px-5 flex flex-col items-center text-center">
+            <div className="w-16 h-16 rounded-3xl bg-[#EEF2FF] text-[#4941EC] flex items-center justify-center mb-4 shadow-xs">
+              <Lock className="w-8 h-8 stroke-[2.2]" />
+            </div>
+            <h3 className="text-base font-bold text-gray-900 tracking-tight">
+              Masuk untuk Memberikan Masukan
+            </h3>
+            <p className="text-xs text-gray-500 mt-2 mb-6 max-w-[320px] leading-relaxed">
+              Fitur saran dan masukan aplikasi hanya dapat diakses oleh pengguna terdaftar JabarPleasure. Silakan masuk ke akun Anda terlebih dahulu.
+            </p>
+            <div className="w-full flex flex-col gap-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  router.push('/login');
+                }}
+                className="w-full py-3 px-4 rounded-xl bg-[#4941EC] hover:bg-[#3D35D9] active:scale-[0.98] text-white text-xs font-bold shadow-md shadow-[#4941EC]/20 transition-all cursor-pointer flex items-center justify-center gap-2"
+              >
+                <LogIn className="w-4 h-4" />
+                <span>Masuk Sekarang</span>
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-full py-3 px-4 rounded-xl bg-gray-100 hover:bg-gray-200 active:scale-[0.98] text-gray-700 text-xs font-semibold transition-all cursor-pointer"
+              >
+                Batal
+              </button>
+            </div>
+          </div>
+        ) : (
+          /* Scrollable Body */
+          <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto no-scrollbar px-5 py-4 space-y-4 text-left">
           {/* Success Banner */}
           {showSuccessToast && (
             <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center gap-3 text-emerald-800 animate-in fade-in">
@@ -312,7 +394,7 @@ export default function FeedbackModal({
                 </div>
                 <button
                   type="button"
-                  onClick={() => setAttachmentName(null)}
+                  onClick={handleRemoveAttachment}
                   className="text-xs text-red-500 hover:text-red-700 cursor-pointer ml-2 shrink-0 font-medium"
                 >
                   Hapus
@@ -324,7 +406,7 @@ export default function FeedbackModal({
                 <span className="text-xs font-medium">Unggah Foto atau Tangkapan Layar (Maks. 2MB)</span>
                 <input
                   type="file"
-                  accept="image/png,image/jpeg,image/webp,application/pdf"
+                  accept="image/png,image/jpeg,image/webp"
                   onChange={handleFileChange}
                   className="hidden"
                 />
@@ -359,7 +441,44 @@ export default function FeedbackModal({
             </button>
           </div>
         </form>
+        )}
       </div>
+
+      {/* Pop-up Validasi Ukuran File Melebihi 2MB */}
+      {fileSizeErrorModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-200"
+        >
+          <div
+            className="fixed inset-0"
+            onClick={() => setFileSizeErrorModal(null)}
+            aria-hidden="true"
+          />
+          <div className="relative w-full max-w-[340px] bg-white rounded-3xl p-6 shadow-2xl flex flex-col items-center text-center animate-in zoom-in-95 duration-200 border border-gray-100 z-10">
+            <div className="w-14 h-14 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center mb-3.5">
+              <AlertCircle className="w-7 h-7 stroke-[2.2]" />
+            </div>
+
+            <h3 className="text-base font-bold text-gray-900 tracking-tight">
+              Ukuran Gambar Terlalu Besar
+            </h3>
+
+            <p className="text-xs text-gray-500 mt-2 mb-6 leading-relaxed">
+              {fileSizeErrorModal}
+            </p>
+
+            <button
+              type="button"
+              onClick={() => setFileSizeErrorModal(null)}
+              className="w-full py-2.5 px-4 rounded-xl bg-[#4941EC] hover:bg-[#3D35D9] active:scale-[0.98] text-white text-xs font-bold shadow-md shadow-[#4941EC]/20 transition-all cursor-pointer"
+            >
+              Mengerti
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

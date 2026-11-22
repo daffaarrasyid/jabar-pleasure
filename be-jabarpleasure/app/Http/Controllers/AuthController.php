@@ -167,13 +167,19 @@ class AuthController extends Controller
     {
         $user = $request->user();
         if ($user) {
-            $user->currentAccessToken()?->delete();
+            $token = $user->currentAccessToken();
+            if ($token) {
+                Cache::forget('admin_session_activity_' . $token->id);
+                $token->delete();
+            }
+            Cache::forget('admin_session_activity_admin_' . $user->id);
         }
 
         return response()->json([
             'status' => 'success',
             'message' => 'Berhasil keluar sesi.',
-        ])->withCookie(Cookie::forget('auth_token', '/'));
+        ])->withCookie(Cookie::forget('auth_token', '/'))
+          ->withCookie(Cookie::forget('admin_token', '/'));
     }
 
     /**

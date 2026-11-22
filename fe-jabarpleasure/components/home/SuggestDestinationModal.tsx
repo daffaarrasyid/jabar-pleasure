@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   X,
   CheckCircle2,
@@ -10,8 +11,11 @@ import {
   ChevronRight,
   RefreshCw,
   AlertCircle,
+  Lock,
+  LogIn,
 } from 'lucide-react';
 import { getCategories, ApiCategory, submitPoiDestination } from '@/lib/api';
+import { isAuthenticated } from '@/lib/auth';
 
 interface SuggestDestinationModalProps {
   isOpen: boolean;
@@ -25,7 +29,6 @@ const DEFAULT_CATEGORIES = [
   'Modern & Lifestyle',
   'Publik & Edukasi',
   'Rekreasi Keluarga',
-  'Kuliner & Hiburan',
 ];
 
 export default function SuggestDestinationModal({
@@ -34,8 +37,17 @@ export default function SuggestDestinationModal({
   userCoords,
   onSuccess,
 }: SuggestDestinationModalProps) {
+  const router = useRouter();
+  const isLoggedIn = isAuthenticated();
+
   // Form State
   const [destinationName, setDestinationName] = useState('');
+  const [categoriesData, setCategoriesData] = useState<Array<{ id?: number; name: string }>>([
+    { id: 1, name: 'Wisata Alam & Terbuka' },
+    { id: 2, name: 'Modern & Lifestyle' },
+    { id: 3, name: 'Publik & Edukasi' },
+    { id: 4, name: 'Rekreasi Keluarga' },
+  ]);
   const [categoryList, setCategoryList] = useState<string[]>(DEFAULT_CATEGORIES);
   const [selectedCategory, setSelectedCategory] = useState<string>(DEFAULT_CATEGORIES[0]);
   const [locationMethod, setLocationMethod] = useState<'gps' | 'gmaps'>('gps');
@@ -52,6 +64,7 @@ export default function SuggestDestinationModal({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmittedSuccess, setIsSubmittedSuccess] = useState(false);
+  const [fileSizeErrorModal, setFileSizeErrorModal] = useState<string | null>(null);
 
   const categoryScrollRef = useRef<HTMLDivElement>(null);
 
@@ -65,10 +78,11 @@ export default function SuggestDestinationModal({
     getCategories()
       .then((items: ApiCategory[]) => {
         if (isMounted && items && items.length > 0) {
-          const names = items.map((c) => c.name).filter((name) => name !== 'Semua');
-          if (names.length > 0) {
-            setCategoryList(names);
-            setSelectedCategory(names[0]);
+          const valid = items.filter((c) => c.name !== 'Semua');
+          if (valid.length > 0) {
+            setCategoriesData(valid.map((c) => ({ id: c.id, name: c.name })));
+            setCategoryList(valid.map((c) => c.name));
+            setSelectedCategory(valid[0].name);
           }
         }
       })
@@ -115,8 +129,14 @@ export default function SuggestDestinationModal({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (!file.type.startsWith('image/')) {
+      setFileSizeErrorModal('Tipe file tidak didukung. Sistem hanya menerima file gambar (JPG, PNG, WebP).');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
     if (file.size > 2 * 1024 * 1024) {
-      setErrorMessage('Ukuran file foto maksimal 2MB.');
+      setFileSizeErrorModal('Ukuran gambar melebihi batas 2MB. Sistem hanya menerima file gambar dengan ukuran di bawah 2MB.');
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
@@ -141,6 +161,12 @@ export default function SuggestDestinationModal({
     e.preventDefault();
     setErrorMessage(null);
 
+    // Verify authentication
+    if (!isLoggedIn) {
+      setErrorMessage('Silakan masuk ke akun Anda terlebih dahulu untuk mengajukan destinasi.');
+      return;
+    }
+
     const trimmedName = destinationName.trim();
     if (!trimmedName) {
       setErrorMessage('Mohon ketik nama tempat hiburan/wisata terlebih dahulu.');
@@ -161,71 +187,30 @@ export default function SuggestDestinationModal({
 
     setIsSubmitting(true);
 
-    // Call API to persist to backend database
+    const matchedCategory = categoriesData.find((c) => c.name === selectedCategory);
+
+    // Call API to persist to backend database poi_submissions table
     submitPoiDestination({
       name: trimmedName,
+      category_id: matchedCategory?.id,
       category_name: selectedCategory,
       latitude: activeLat,
       longitude: activeLng,
-      description: locationMethod === 'gmaps' ? `Lokasi Maps: ${gmapsUrl.trim()}` : undefined,
+      description: locationMethod === 'gmaps' ? `[Tautan Google Maps: ${gmapsUrl.trim()}]` : undefined,
       image: imageFile,
     })
       .then(() => {
-        // Also save to localStorage as backup client persistence
-        try {
-          const existing = JSON.parse(
-            localStorage.getItem('jabarpleasure_user_suggested_destinations') || '[]'
-          );
-          const newSubmission = {
-            id: Date.now(),
-            name: trimmedName,
-            category: selectedCategory,
-            locationMethod,
-            coordinates: { lat: activeLat, lng: activeLng },
-            gmapsUrl: locationMethod === 'gmaps' ? gmapsUrl.trim() : null,
-            status: 'pending_review',
-            submittedAt: new Date().toISOString(),
-          };
-          existing.unshift(newSubmission);
-          localStorage.setItem(
-            'jabarpleasure_user_suggested_destinations',
-            JSON.stringify(existing)
-          );
-        } catch (err) {
-          console.warn('Could not persist submission to localStorage:', err);
-        }
-
         setIsSubmitting(false);
         setIsSubmittedSuccess(true);
         onSuccess?.(trimmedName);
       })
       .catch((err) => {
-        console.warn('API submission fallback to offline localStorage:', err);
-        // Fallback to local storage
-        try {
-          const existing = JSON.parse(
-            localStorage.getItem('jabarpleasure_user_suggested_destinations') || '[]'
-          );
-          const newSubmission = {
-            id: Date.now(),
-            name: trimmedName,
-            category: selectedCategory,
-            locationMethod,
-            coordinates: { lat: activeLat, lng: activeLng },
-            gmapsUrl: locationMethod === 'gmaps' ? gmapsUrl.trim() : null,
-            status: 'pending_review',
-            submittedAt: new Date().toISOString(),
-          };
-          existing.unshift(newSubmission);
-          localStorage.setItem(
-            'jabarpleasure_user_suggested_destinations',
-            JSON.stringify(existing)
-          );
-        } catch {}
-
+        console.error('API submission failed:', err);
         setIsSubmitting(false);
-        setIsSubmittedSuccess(true);
-        onSuccess?.(trimmedName);
+        setErrorMessage(
+          err?.message ||
+          'Gagal mengirimkan pengajuan destinasi ke database. Silakan pastikan Anda sudah masuk dan coba kembali.'
+        );
       });
   };
 
@@ -236,6 +221,7 @@ export default function SuggestDestinationModal({
     setErrorMessage(null);
     setIsSubmittedSuccess(false);
     setIsSubmitting(false);
+    setFileSizeErrorModal(null);
     onClose();
   };
 
@@ -275,8 +261,40 @@ export default function SuggestDestinationModal({
           </button>
         </div>
 
-        {/* Success Feedback View */}
-        {isSubmittedSuccess ? (
+        {/* Content Views: Guest Lock / Success / Form */}
+        {!isLoggedIn ? (
+          <div className="py-8 px-4 flex flex-col items-center text-center">
+            <div className="w-16 h-16 rounded-3xl bg-[#EEF2FF] text-[#4941EC] flex items-center justify-center mb-4 shadow-xs">
+              <Lock className="w-8 h-8 stroke-[2.2]" />
+            </div>
+            <h3 className="text-base font-bold text-gray-900 tracking-tight">
+              Khusus Pengguna Terdaftar
+            </h3>
+            <p className="text-xs text-gray-500 mt-2 mb-6 max-w-[320px] leading-relaxed">
+              Fitur pengajuan destinasi baru hanya dapat dilakukan oleh pengguna terdaftar JabarPleasure. Silakan masuk atau buat akun baru untuk berkontribusi.
+            </p>
+            <div className="w-full flex flex-col gap-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  handleModalClose();
+                  router.push('/login');
+                }}
+                className="w-full py-3 px-4 rounded-xl bg-[#4941EC] hover:bg-[#3D35D9] active:scale-[0.98] text-white text-xs font-bold shadow-md shadow-[#4941EC]/20 transition-all cursor-pointer flex items-center justify-center gap-2"
+              >
+                <LogIn className="w-4 h-4" />
+                <span>Masuk Sekarang</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleModalClose}
+                className="w-full py-3 px-4 rounded-xl bg-gray-100 hover:bg-gray-200 active:scale-[0.98] text-gray-700 text-xs font-semibold transition-all cursor-pointer"
+              >
+                Batal
+              </button>
+            </div>
+          </div>
+        ) : isSubmittedSuccess ? (
           <div className="py-8 px-2 flex flex-col items-center text-center">
             <div className="w-16 h-16 rounded-full bg-[#60CE9F]/15 text-[#60CE9F] flex items-center justify-center mb-4">
               <CheckCircle2 className="w-10 h-10 stroke-[2.2]" />
@@ -561,6 +579,42 @@ export default function SuggestDestinationModal({
           </form>
         )}
       </div>
+
+      {/* Pop-up Validasi Ukuran File Melebihi 2MB */}
+      {fileSizeErrorModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-200"
+        >
+          <div
+            className="fixed inset-0"
+            onClick={() => setFileSizeErrorModal(null)}
+            aria-hidden="true"
+          />
+          <div className="relative w-full max-w-[340px] bg-white rounded-3xl p-6 shadow-2xl flex flex-col items-center text-center animate-in zoom-in-95 duration-200 border border-gray-100 z-10">
+            <div className="w-14 h-14 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center mb-3.5">
+              <AlertCircle className="w-7 h-7 stroke-[2.2]" />
+            </div>
+
+            <h3 className="text-base font-bold text-gray-900 tracking-tight">
+              Ukuran Gambar Terlalu Besar
+            </h3>
+
+            <p className="text-xs text-gray-500 mt-2 mb-6 leading-relaxed">
+              {fileSizeErrorModal}
+            </p>
+
+            <button
+              type="button"
+              onClick={() => setFileSizeErrorModal(null)}
+              className="w-full py-2.5 px-4 rounded-xl bg-[#4941EC] hover:bg-[#3D35D9] active:scale-[0.98] text-white text-xs font-bold shadow-md shadow-[#4941EC]/20 transition-all cursor-pointer"
+            >
+              Mengerti
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

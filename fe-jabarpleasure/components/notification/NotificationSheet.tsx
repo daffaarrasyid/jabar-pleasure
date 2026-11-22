@@ -9,9 +9,9 @@ import {
   Sparkles,
   MapPin,
   CheckCheck,
-  Calendar,
   ChevronRight,
   ExternalLink,
+  MessageSquare,
 } from 'lucide-react';
 import {
   AppNotification,
@@ -275,6 +275,11 @@ export default function NotificationSheet({
                 iconBg = 'bg-gradient-to-br from-[#4941EC]/10 to-[#60CE9F]/20 text-[#4941EC] border border-[#4941EC]/20';
                 badgeText = 'Destinasi Baru';
                 badgeClass = 'bg-[#4941EC]/10 text-[#4941EC]';
+              } else if (notif.type === 'feedback_reply') {
+                Icon = MessageSquare;
+                iconBg = 'bg-indigo-50 text-indigo-600 border border-indigo-100';
+                badgeText = 'Tanggapan Masukan';
+                badgeClass = 'bg-indigo-100/80 text-indigo-700';
               }
 
               return (
@@ -338,6 +343,13 @@ export default function NotificationSheet({
                       <div className="mt-2 p-2 rounded-xl bg-red-50/50 border border-red-100 text-[11px] text-red-700">
                         <span className="font-bold">Catatan Kurator: </span>
                         {notif.data.admin_note}
+                      </div>
+                    )}
+
+                    {notif.type === 'feedback_reply' && notif.data?.admin_reply && (
+                      <div className="mt-2 p-2.5 rounded-xl bg-indigo-50/70 border border-indigo-100 text-[11px] text-indigo-950 leading-relaxed">
+                        <span className="font-bold text-indigo-800 block mb-0.5">Tanggapan Admin:</span>
+                        &ldquo;{notif.data.admin_reply}&rdquo;
                       </div>
                     )}
                   </div>

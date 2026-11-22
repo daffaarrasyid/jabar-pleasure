@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useEffect, useState, useSyncExternalStore } from 'react';
+import React, { useEffect, useState, useSyncExternalStore, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Construction } from 'lucide-react';
+import { Construction, LogOut, Loader2 } from 'lucide-react';
 import AdminNavbar from '@/components/admin/AdminNavbar';
 import AdminSidebar, { AdminMenuTab } from '@/components/admin/AdminSidebar';
 import AdminOverview from '@/components/admin/AdminOverview';
@@ -13,6 +13,7 @@ import AdminUserManagement from '@/components/admin/AdminUserManagement';
 import AdminMediaModeration from '@/components/admin/AdminMediaModeration';
 import { getAdminSession, removeAdminSession, isAdminAuthenticated } from '@/lib/auth';
 import { getAdminOverviewMetrics } from '@/lib/api';
+import { useAdminIdleTimer } from '@/hooks/useAdminIdleTimer';
 
 function subscribeAdminSession(callback: () => void) {
   if (typeof window === 'undefined') return () => {};
@@ -47,15 +48,45 @@ export default function AdminDashboardPage() {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [pendingCount, setPendingCount] = useState<number>(0);
-  const [, setIsAuthenticated] = useState<boolean>(true);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   useEffect(() => {
     if (!isAdminAuthenticated()) {
-      setIsAuthenticated(false);
       router.replace('/admin/login');
-      return;
     }
   }, [router]);
+
+  const executeLogout = useCallback(async (reason?: string) => {
+    setIsLoggingOut(true);
+    try {
+      const session = getAdminSession();
+      if (session?.token) {
+        await fetch('/api/logout', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${session.token}`,
+            Accept: 'application/json',
+          },
+        }).catch(() => null);
+      }
+    } finally {
+      removeAdminSession();
+      setIsLoggingOut(false);
+      setShowLogoutConfirm(false);
+      const queryParam = reason ? `?reason=${encodeURIComponent(reason)}` : '';
+      router.replace(`/admin/login${queryParam}`);
+    }
+  }, [router]);
+
+  // Admin Inactivity Idle Timer (Auto logout after 60 minutes)
+  useAdminIdleTimer({
+    timeoutMs: 60 * 60 * 1000,
+    onTimeout: () => {
+      executeLogout('idle_timeout');
+    },
+    enabled: true,
+  });
 
   // Fetch pending count for notification badge
   useEffect(() => {
@@ -78,24 +109,6 @@ export default function AdminDashboardPage() {
     return () => window.removeEventListener('scroll', handleWindowScroll);
   }, []);
 
-  const handleLogout = async () => {
-    try {
-      const session = getAdminSession();
-      if (session?.token) {
-        await fetch('/api/logout', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${session.token}`,
-            Accept: 'application/json',
-          },
-        }).catch(() => null);
-      }
-    } finally {
-      removeAdminSession();
-      router.replace('/admin/login');
-    }
-  };
-
   return (
     <div className="min-h-screen w-full bg-[#F6F8FB] flex text-gray-900">
       {/* Left Admin Sidebar */}
@@ -113,7 +126,7 @@ export default function AdminDashboardPage() {
           <AdminNavbar
             adminName={adminName}
             pendingCount={pendingCount}
-            onLogout={handleLogout}
+            onLogout={() => setShowLogoutConfirm(true)}
             onToggleSidebar={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
             onOpenPending={() => setActiveTab('pengajuan')}
             isScrolled={isScrolled}
@@ -153,6 +166,61 @@ export default function AdminDashboardPage() {
           )}
         </div>
       </main>
+
+      {/* Logout Confirmation Modal */}
+      {showLogoutConfirm && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-200"
+        >
+          <div
+            className="fixed inset-0"
+            onClick={() => !isLoggingOut && setShowLogoutConfirm(false)}
+            aria-hidden="true"
+          />
+          <div className="relative w-full max-w-[360px] bg-white rounded-3xl p-6 shadow-2xl flex flex-col items-center text-center animate-in zoom-in-95 duration-200 border border-gray-100 z-10">
+            <div className="w-14 h-14 rounded-full bg-red-50 text-[#EF4444] flex items-center justify-center mb-3.5">
+              <LogOut className="w-7 h-7 stroke-[2.2]" />
+            </div>
+
+            <h2 className="text-base font-bold text-gray-900 tracking-tight">
+              Konfirmasi Keluar Admin
+            </h2>
+
+            <p className="text-xs text-gray-500 mt-2 mb-6 leading-relaxed max-w-[280px]">
+              Apakah Anda yakin ingin mengakhiri sesi Administrator JabarPleasure? Anda harus masuk kembali untuk mengelola sistem.
+            </p>
+
+            <div className="w-full flex flex-col gap-2.5">
+              <button
+                type="button"
+                disabled={isLoggingOut}
+                onClick={() => executeLogout()}
+                className="w-full py-3 px-4 rounded-xl bg-[#EF4444] hover:bg-red-600 active:scale-[0.98] text-white text-xs font-bold shadow-md shadow-red-500/20 transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isLoggingOut ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Mengakhiri sesi...</span>
+                  </>
+                ) : (
+                  <span>Ya, Keluar</span>
+                )}
+              </button>
+
+              <button
+                type="button"
+                disabled={isLoggingOut}
+                onClick={() => setShowLogoutConfirm(false)}
+                className="w-full py-3 px-4 rounded-xl bg-gray-100 hover:bg-gray-200 active:scale-[0.98] text-gray-700 text-xs font-semibold transition-all cursor-pointer disabled:opacity-50"
+              >
+                Batal
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -97,6 +97,8 @@ export interface DestinationSubmission {
   date: string;
   method: 'gps' | 'maps_link';
   locationDetail: string;
+  gmapsUrl?: string;
+  description?: string;
   latitude: number;
   longitude: number;
   detectedDistrict: string;
@@ -257,8 +259,10 @@ export default function AdminSubmissionManagement() {
   const [itemsPerPage, setItemsPerPage] = useState<number>(5);
 
   // Load submissions from backend API
-  const loadSubmissions = React.useCallback(async () => {
-    setIsLoading(true);
+  const loadSubmissions = React.useCallback(async (showLoading = false) => {
+    if (showLoading) {
+      setIsLoading(true);
+    }
     try {
       const data = await getAdminSubmissions();
       if (Array.isArray(data) && data.length > 0) {
@@ -274,18 +278,24 @@ export default function AdminSubmissionManagement() {
             minute: '2-digit',
           }) + ' WIB';
 
+          const gmapsMatch = sub.description ? sub.description.match(/(https?:\/\/[^\s\]]+)/i) : null;
+          const extractedLink = gmapsMatch ? gmapsMatch[1] : (sub.evidence_image?.startsWith('http') ? sub.evidence_image : null);
+          const hasLink = Boolean(extractedLink);
+
           return {
             id: sub.id,
             name: sub.name,
             submitter: sub.user?.name ? `@${sub.user.name}` : '@pengguna',
             category: sub.category?.name || 'Wisata Alam & Terbuka',
             date: formattedDate,
-            method: sub.evidence_image?.startsWith('http') ? 'maps_link' : 'gps',
-            locationDetail: sub.evidence_image?.startsWith('http') ? sub.evidence_image : `Lat: ${lat.toFixed(4)}, Long: ${lng.toFixed(4)}`,
+            method: hasLink ? 'maps_link' : 'gps',
+            locationDetail: extractedLink || `Lat: ${lat.toFixed(4)}, Long: ${lng.toFixed(4)}`,
+            gmapsUrl: extractedLink || undefined,
+            description: sub.description,
             latitude: lat,
             longitude: lng,
-            detectedDistrict: 'Jawa Barat',
-            photoFileName: sub.evidence_image ? sub.evidence_image.split('/').pop() : undefined,
+            detectedDistrict: sub.regency?.name || 'Jawa Barat',
+            photoFileName: sub.evidence_image && !sub.evidence_image.startsWith('http') ? sub.evidence_image.split('/').pop() : undefined,
             status: sub.status || 'pending',
             adminNotes: sub.admin_note,
           };
@@ -305,7 +315,7 @@ export default function AdminSubmissionManagement() {
   }, []);
 
   useEffect(() => {
-    loadSubmissions();
+    loadSubmissions(false);
   }, [loadSubmissions]);
 
   // Custom Dropdown states
@@ -404,7 +414,11 @@ export default function AdminSubmissionManagement() {
 
     setLastAction({ id, prevStatus: target.status, name: target.name });
     try {
-      await approveSubmission(id, adminNoteInput.trim() || undefined);
+      await approveSubmission(id, {
+        adminNote: adminNoteInput.trim() || undefined,
+        latitude: editLat,
+        longitude: editLng,
+      });
       setSubmissions((prev) =>
         prev.map((s) =>
           s.id === id
@@ -1160,73 +1174,76 @@ export default function AdminSubmissionManagement() {
                   Data Lokasi Spasial
                 </h4>
 
-                {inspectingSub.method === 'maps_link' ? (
-                  <div className="p-3.5 rounded-xl border border-gray-100 bg-[#FBFBFE] space-y-2.5">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-gray-500 font-medium">Metode Penentuan:</span>
-                      <span className="font-semibold text-gray-800">
-                        Link Google Maps
-                      </span>
-                    </div>
+                <div className="p-3.5 rounded-xl border border-gray-100 bg-[#FBFBFE] space-y-3">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-gray-500 font-medium">Metode Penentuan:</span>
+                    <span className="font-semibold text-gray-800">
+                      {inspectingSub.method === 'maps_link' ? 'Tautan Google Maps' : 'Realtime GPS Coordinate'}
+                    </span>
+                  </div>
 
-                    <div className="flex items-center justify-between p-2.5 rounded-lg bg-white border border-gray-200 text-xs font-mono text-gray-700">
-                      <span className="truncate max-w-[320px]">
-                        {inspectingSub.locationDetail}
+                  {/* Jika ada tautan Google Maps / URL dari pengguna */}
+                  {(inspectingSub.gmapsUrl || inspectingSub.locationDetail?.startsWith('http')) && (
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded-lg bg-white border border-gray-200 text-xs font-mono text-gray-700">
+                      <span className="truncate max-w-[280px]">
+                        {inspectingSub.gmapsUrl || inspectingSub.locationDetail}
                       </span>
                       <a
-                        href={inspectingSub.locationDetail}
+                        href={inspectingSub.gmapsUrl || inspectingSub.locationDetail}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center px-3 py-1 rounded-full bg-[#EEF2FF] text-[#4941EC] hover:bg-[#E0E7FF] font-semibold text-[11px] transition-colors ml-2 shrink-0"
+                        className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#EEF2FF] text-[#4941EC] hover:bg-[#E0E7FF] font-semibold text-xs transition-colors shrink-0"
                       >
-                        Buka Tautan Eksternal Google Maps
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        <span>Buka Google Maps</span>
                       </a>
                     </div>
+                  )}
 
-                    {/* Ekstraksi & Verifikasi Koordinat PostGIS */}
-                    <div className="pt-2 border-t border-gray-100 text-xs space-y-1.5">
+                  {/* Input & Verifikasi Koordinat PostGIS */}
+                  <div className="pt-2 border-t border-gray-100 space-y-2">
+                    <div className="flex items-center justify-between">
                       <span className="text-[11px] font-semibold text-gray-700 block">
-                        Ekstraksi & Verifikasi Koordinat (PostGIS Check):
+                        Input & Verifikasi Koordinat Destinasi (PostGIS SRID 4326):
                       </span>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="p-2.5 rounded-lg bg-gray-50 border border-gray-100 font-mono text-xs">
-                          <span className="text-gray-400 text-[10px] block">Latitude</span>
-                          <span className="font-semibold text-gray-800">{editLat.toFixed(6)}</span>
-                        </div>
-                        <div className="p-2.5 rounded-lg bg-gray-50 border border-gray-100 font-mono text-xs">
-                          <span className="text-gray-400 text-[10px] block">Longitude</span>
-                          <span className="font-semibold text-gray-800">{editLng.toFixed(6)}</span>
-                        </div>
-                      </div>
-                      <p className="text-[11px] text-gray-500 italic">
-                        Wilayah Terdeteksi: {inspectingSub.detectedDistrict}
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="p-3.5 rounded-xl border border-gray-100 bg-[#FBFBFE] space-y-2.5">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-gray-500 font-medium">Metode Penentuan:</span>
-                      <span className="font-semibold text-gray-800">
-                        Realtime GPS Coordinate
-                      </span>
+                      <span className="text-[10px] text-gray-400">Dapat diedit manual</span>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
-                      <div className="p-2.5 rounded-lg bg-white border border-gray-200 font-mono text-xs">
-                        <span className="text-gray-400 text-[10px] block">Latitude</span>
-                        <span className="font-semibold text-gray-800">{editLat.toFixed(6)}</span>
+                      <div>
+                        <label className="text-gray-500 text-[10px] font-semibold block mb-1">
+                          Latitude (Lintang)
+                        </label>
+                        <input
+                          type="number"
+                          step="any"
+                          value={Number.isNaN(editLat) ? '' : editLat}
+                          onChange={(e) => setEditLat(parseFloat(e.target.value) || 0)}
+                          className="w-full px-3 py-2 rounded-lg bg-white border border-gray-200 text-xs font-mono font-semibold text-gray-800 focus:outline-hidden focus:border-[#4941EC] focus:ring-1 focus:ring-[#4941EC]"
+                          placeholder="-6.917500"
+                        />
                       </div>
-                      <div className="p-2.5 rounded-lg bg-white border border-gray-200 font-mono text-xs">
-                        <span className="text-gray-400 text-[10px] block">Longitude</span>
-                        <span className="font-semibold text-gray-800">{editLng.toFixed(6)}</span>
+                      <div>
+                        <label className="text-gray-500 text-[10px] font-semibold block mb-1">
+                          Longitude (Bujur)
+                        </label>
+                        <input
+                          type="number"
+                          step="any"
+                          value={Number.isNaN(editLng) ? '' : editLng}
+                          onChange={(e) => setEditLng(parseFloat(e.target.value) || 0)}
+                          className="w-full px-3 py-2 rounded-lg bg-white border border-gray-200 text-xs font-mono font-semibold text-gray-800 focus:outline-hidden focus:border-[#4941EC] focus:ring-1 focus:ring-[#4941EC]"
+                          placeholder="107.619100"
+                        />
                       </div>
                     </div>
-                    <p className="text-[11px] text-gray-500 italic">
-                      Wilayah Terdeteksi: {inspectingSub.detectedDistrict}
+
+                    <p className="text-[11px] text-gray-500 italic flex items-center justify-between">
+                      <span>Wilayah Terdeteksi: <strong className="text-gray-700">{inspectingSub.detectedDistrict}</strong></span>
+                      <span className="text-[10px] text-gray-400">Koordinat akan disimpan saat disetujui</span>
                     </p>
                   </div>
-                )}
+                </div>
               </div>
 
               {/* 3. Preview Peta Verifikasi (PostGIS Layer Check) */}

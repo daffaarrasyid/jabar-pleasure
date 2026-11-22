@@ -3,10 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\Feedback;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
+use Laravel\Sanctum\PersonalAccessToken;
 
 class FeedbackController extends Controller
 {
@@ -15,7 +17,19 @@ class FeedbackController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
-        $userId = auth()->id();
+        $user = $request->user() ?? auth('sanctum')->user();
+        $userId = $user?->id;
+
+        if (!$userId && $request->bearerToken()) {
+            $token = PersonalAccessToken::findToken($request->bearerToken());
+            $userId = $token?->tokenable_id;
+        }
+
+        if (!$userId && $request->filled('email')) {
+            $userByEmail = User::where('email', $request->input('email'))->first();
+            $userId = $userByEmail?->id;
+        }
+
         if (!$userId) {
             return response()->json([
                 'status' => 'error',
@@ -78,7 +92,19 @@ class FeedbackController extends Controller
      */
     public function myFeedbacks(Request $request): JsonResponse
     {
-        $userId = auth()->id();
+        $user = $request->user() ?? auth('sanctum')->user();
+        $userId = $user?->id;
+
+        if (!$userId && $request->bearerToken()) {
+            $token = PersonalAccessToken::findToken($request->bearerToken());
+            $userId = $token?->tokenable_id;
+        }
+
+        if (!$userId && $request->filled('email')) {
+            $userByEmail = User::where('email', $request->input('email'))->first();
+            $userId = $userByEmail?->id;
+        }
+
         if (!$userId) {
             return response()->json([
                 'status' => 'error',

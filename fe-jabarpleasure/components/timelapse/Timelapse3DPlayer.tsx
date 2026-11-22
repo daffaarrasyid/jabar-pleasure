@@ -3,7 +3,22 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import * as turf from '@turf/turf';
+import { lineString, point } from '@turf/helpers';
+import { length } from '@turf/length';
+import { nearestPointOnLine } from '@turf/nearest-point-on-line';
+import { bearing } from '@turf/bearing';
+import { along } from '@turf/along';
+import { lineSliceAlong } from '@turf/line-slice-along';
+
+const turf = {
+  lineString,
+  point,
+  length,
+  nearestPointOnLine,
+  bearing,
+  along,
+  lineSliceAlong,
+};
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft,

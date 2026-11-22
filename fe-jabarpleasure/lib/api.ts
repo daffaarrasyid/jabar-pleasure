@@ -61,8 +61,11 @@ export async function fetchApi<T = any>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<ApiResponse<T>> {
-  const adminToken = getAdminSession()?.token;
-  const token = adminToken || getAuthToken();
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  const isAdminEndpoint = cleanEndpoint.startsWith('/admin');
+  const token = isAdminEndpoint
+    ? (getAdminSession()?.token || getAuthToken())
+    : (getAuthToken() || getAdminSession()?.token);
   const headers = new Headers(options.headers || {});
 
   headers.set('Accept', 'application/json');
@@ -74,7 +77,6 @@ export async function fetchApi<T = any>(
     headers.set('Authorization', `Bearer ${token}`);
   }
 
-  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
   const url = cleanEndpoint.startsWith('/api') ? cleanEndpoint : `/api${cleanEndpoint}`;
 
   const response = await fetch(url, {
@@ -491,7 +493,7 @@ export async function deleteWishlist(
 export interface AppNotification {
   id: number;
   user_id: number;
-  type: 'submission_approved' | 'submission_rejected' | 'new_destination';
+  type: 'submission_approved' | 'submission_rejected' | 'new_destination' | 'feedback_reply';
   title: string;
   message: string;
   data: {
@@ -505,6 +507,10 @@ export interface AppNotification {
     cover_image?: string | null;
     category?: string | null;
     regency?: string | null;
+    feedback_id?: number;
+    subject?: string;
+    admin_reply?: string | null;
+    replied_at?: string | null;
   } | null;
   read_at: string | null;
   created_at: string;
@@ -688,17 +694,29 @@ export async function getAdminSubmissionsPaginated(params: {
 /**
  * Approve submission (Admin action - triggers confirmation & broadcast notifications)
  */
-export async function approveSubmission(id: number | string, adminNote?: string): Promise<any> {
+export async function approveSubmission(
+  id: number | string,
+  optionsOrNote?: string | { adminNote?: string; latitude?: number; longitude?: number }
+): Promise<any> {
+  const payload: Record<string, any> = {};
+  if (typeof optionsOrNote === 'string') {
+    payload.admin_note = optionsOrNote;
+  } else if (optionsOrNote) {
+    if (optionsOrNote.adminNote !== undefined) payload.admin_note = optionsOrNote.adminNote;
+    if (optionsOrNote.latitude !== undefined) payload.latitude = optionsOrNote.latitude;
+    if (optionsOrNote.longitude !== undefined) payload.longitude = optionsOrNote.longitude;
+  }
+
   try {
     const res = await fetchApi(`/admin/submissions/${id}/approve`, {
       method: 'POST',
-      body: JSON.stringify({ admin_note: adminNote }),
+      body: JSON.stringify(payload),
     });
     return res.data;
   } catch {
     const res = await fetchApi(`/admin/submissions-public/${id}/approve`, {
       method: 'POST',
-      body: JSON.stringify({ admin_note: adminNote }),
+      body: JSON.stringify(payload),
     });
     return res.data;
   }
@@ -1180,6 +1198,8 @@ export async function submitUserFeedback(payload: {
   category: 'bug' | 'feature' | 'question' | 'other';
   subject: string;
   message: string;
+  email?: string;
+  name?: string;
   rating?: number;
   attachment?: File;
 }): Promise<any> {
@@ -1188,6 +1208,8 @@ export async function submitUserFeedback(payload: {
     formData.append('category', payload.category);
     formData.append('subject', payload.subject);
     formData.append('message', payload.message);
+    if (payload.email) formData.append('email', payload.email);
+    if (payload.name) formData.append('name', payload.name);
     if (payload.rating) formData.append('rating', String(payload.rating));
     formData.append('attachment', payload.attachment);
 

@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { setAdminSession, setAuthToken } from '@/lib/auth';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle, Clock } from 'lucide-react';
 
 interface AdminLoginFormProps {
   onLoginSuccess?: () => void;
@@ -21,6 +21,15 @@ export default function AdminLoginForm({
   const [password, setPassword] = useState('adminganteng');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [timeoutNotice] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('reason') === 'idle_timeout'
+        ? 'Sesi Administrator telah kedaluwarsa karena tidak ada aktivitas selama 60 menit. Silakan masuk kembali.'
+        : null;
+    }
+    return null;
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -159,6 +168,14 @@ export default function AdminLoginForm({
           <h1 className="text-3xl font-semibold text-gray-900 text-center mb-8">
             Login
           </h1>
+
+          {/* Timeout Notice Banner */}
+          {timeoutNotice && (
+            <div className="w-full mb-4 p-3 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-center gap-2 animate-in fade-in">
+              <Clock className="w-4 h-4 shrink-0 text-amber-600" />
+              <span>{timeoutNotice}</span>
+            </div>
+          )}
 
           {/* Error Banner */}
           {errorMessage && (
